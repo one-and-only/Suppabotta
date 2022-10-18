@@ -1,3 +1,9 @@
+# Useless MacOS File
+**.DS_Store
+
+# Dev SSL Certs
+*.pem
+
 # Logs
 logs
 *.log
