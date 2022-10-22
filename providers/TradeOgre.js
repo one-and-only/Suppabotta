@@ -9,8 +9,6 @@ export default class TradeOgre extends BaseProvider {
 
     async getMarketPrice(referenceCurrency) {
         const marketData = await (await fetch(`${this._apiUrl}/ticker/${referenceCurrency.toUpperCase()}-RTM`)).json();
-        // technically same response as TO gives
-        // should I simplify and return TO response or keep the intent clear?
         if (!marketData.success) return { success: false, error: marketData.error };
 
         return {

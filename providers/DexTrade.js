@@ -53,6 +53,8 @@ export default class QTrade extends BaseProvider {
             this._pendingTrades.push(pendingOrder.data.id);
             return true;
         }
+
+        return false;
     }
 
     async addBuyOrder(amount, price, referenceCurrency) {
@@ -91,10 +93,59 @@ export default class QTrade extends BaseProvider {
     }
 
     async orderStatus(orderId) {
-        throw new Error("This method must be implemented.");
+        const body = JSON.stringify({
+            order_id: orderId,
+            request_id: Date.now()
+        });
+        const order = await fetch(`${this._apiUrl}/private/get-order`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application.json",
+                "login-token": this._apiKey,
+                "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
+            },
+            body: body
+        });
+        if (order.status !== 200) return { sucess: false, error: await order.text() };
+
+        const data = await order.json();
+        return {
+            success: true,
+            type: (data.type === 0) ? "buy" : "sell",
+            market: data.market,
+            price: data.price,
+            quantityLeft: data.volume - data.volume_done
+        };
     }
 
     async getBalance(currency) {
-        throw new Error("This method must be implemented.");
+        currency = currency.toUpperCase();
+
+        const body = JSON.stringify({
+            request_id: Date.now()
+        });
+        const balances = await fetch(`${this._apiUrl}/private/balances`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "login-token": this._apiKey,
+                "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
+            },
+            body: body
+        });
+        if (balances.status === 200) return { success: false, error: await balances.text() };
+
+        const data = await balances.json();
+        if (!data.status) return { success: false, error: data.error };
+
+        const currencyData = balances.filter((balance) => {
+            return balance.iso3 === currency;
+        })[0];
+
+        return {
+            success: true,
+            total: currencyData.balance,
+            available: currencyData.balance_available
+        };
     }
 }
