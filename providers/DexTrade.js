@@ -1,7 +1,7 @@
-import BaseProvider from "./BaseProvider";
+import BaseProvider from "./../providers/BaseProvider.js";
 import fetch from "node-fetch";
 import { createHash } from "crypto";
-import {map as promiseMap} from "bluebird";
+import map from "bluebird";
 
 export default class QTrade extends BaseProvider {
     constructor(apiSecret, apiKey) {
@@ -66,7 +66,7 @@ export default class QTrade extends BaseProvider {
     }
 
     async cancelAllPending() {
-        const didSucceeds = await promiseMap(this._pendingTrades, async (pendingTradeId) => {
+        const didSucceeds = await map(this._pendingTrades, async (pendingTradeId) => {
             const body = JSON.stringify({
                 order_id: pendingTradeId,
                 request_id: Date.now()

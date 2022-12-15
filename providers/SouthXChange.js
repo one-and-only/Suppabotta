@@ -1,7 +1,7 @@
-import BaseProvider from "./BaseProvider";
+import BaseProvider from "./../providers/BaseProvider.js";
 import fetch from "node-fetch";
 import { createHmac } from "crypto";
-import { map as promiseMap } from "bluebird";
+import map from "bluebird";
 
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
@@ -82,7 +82,7 @@ export default class SouthXChange extends BaseProvider {
         // there aren't any pending orders
         if (this._pendingTrades.length < 1) return true;
 
-        const didSucceeds = await promiseMap(this._pendingTrades, async (pendingTradeCode) => {
+        const didSucceeds = await map(this._pendingTrades, async (pendingTradeCode) => {
             console.log(`Cancelling order ${pendingTradeCode}`);
 
             const body = JSON.stringify({

@@ -1,4 +1,4 @@
-import BaseProvider from "./BaseProvider";
+import BaseProvider from "./../providers/BaseProvider.js";
 
 export default class CoinEx extends BaseProvider {
     constructor(apiSecret, apiKey) {

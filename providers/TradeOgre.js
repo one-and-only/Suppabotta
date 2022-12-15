@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
-import BaseProvider from "./BaseProvider";
-import { encode as base64Encode } from "base-64";
+import BaseProvider from "./../providers/BaseProvider.js";
+import encode from "base-64";
 
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey) {
@@ -13,8 +13,8 @@ export default class TradeOgre extends BaseProvider {
 
         return {
             success: true,
-            buy: marketData.ask,
-            sell: marketData.bid,
+            buy: parseFloat(marketData.ask),
+            sell: parseFloat(marketData.bid),
         };
     }
 
@@ -24,7 +24,7 @@ export default class TradeOgre extends BaseProvider {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+                "Authorization": `Basic ${encode(`${this._apiKey}:${this._apiSecret}`)}`
             },
             body: new URLSearchParams({
                 "market": `${referenceCurrency.toUpperCase()}-RTM`,
@@ -57,7 +57,7 @@ export default class TradeOgre extends BaseProvider {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+                "Authorization": `Basic ${encode(`${this._apiKey}:${this._apiSecret}`)}`
             },
             body: new URLSearchParams({
                 "uuid": "all",
@@ -71,7 +71,7 @@ export default class TradeOgre extends BaseProvider {
         const orderStatus = await (await fetch(`${this._apiUrl}/account/order/${orderId}`, {
             method: "GET",
             headers: {
-                "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+                "Authorization": `Basic ${encode(`${this._apiKey}:${this._apiSecret}`)}`
             }
         })).json();
 
@@ -91,7 +91,7 @@ export default class TradeOgre extends BaseProvider {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+                "Authorization": `Basic ${encode(`${this._apiKey}:${this._apiSecret}`)}`
             },
             body: new URLSearchParams({
                 "currency": currency.toUpperCase(),
