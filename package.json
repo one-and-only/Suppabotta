@@ -12,12 +12,18 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@bull-board/express": "^4.9.0",
     "argon2": "^0.29.1",
-    "base-64": "^1.0.0",
+    "basic-auth": "^2.0.1",
     "bluebird": "^3.7.2",
+    "bottleneck": "^2.19.5",
+    "bullmq": "^3.4.1",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "express-basic-auth": "^1.2.1",
     "https": "^1.0.0",
+    "ioredis": "^5.2.4",
+    "js-base64": "^3.7.3",
     "mongodb": "^4.10.0",
     "node-fetch": "^3.2.10",
     "socket.io": "^4.5.2"

@@ -4,7 +4,8 @@ export default class BaseProvider {
     _apiUrl;
     _pendingTrades;
     _tradingPairs;
-    
+    _requestHelper;
+
     constructor(apiSecret, apiKey, apiUrl) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
@@ -17,12 +18,23 @@ export default class BaseProvider {
      * Initialize all of the trading pairs
      * @returns void
      */
-    async all_trading_pairs() {
+    async allTradingPairs() {
         throw new Error("This method must be implemented")
     }
 
-    coin_to_exchange_pair(coin) {
+    /**
+     * Get the exchange-formatted trading pair for a given coin
+     * @param {string} coin coin to get the trading pair for
+     * @returns {string} exchange-formatted trading pair
+     */
+    coinToExchangePair(coin) {
         return this._tradingPairs[coin];
+    }
+
+    exchangePairToCoin(tradingPair) {
+        for (const coin in this._tradingPairs) {
+            if (this._tradingPairs[coin] === tradingPair) return coin;
+        }
     }
 
     /**
