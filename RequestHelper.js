@@ -50,7 +50,7 @@ export default class RequestHelper {
      * @param {any} data Request `body` contents
      * @param {boolean} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
      * @param {object} headers 
-     * @returns {any} Response data
+     * @returns {Promise<Response>} Response data
      */
     async request(url, method, data, is_private, headers={}) {
         let appropriate_fetch;
@@ -74,7 +74,7 @@ export default class RequestHelper {
      * @param {*} data request `body` contents
      * @param {*} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
      * @param {*} headers Request headers
-     * @returns {any} Response data
+     * @returns {Promise<Response>} Response data
      */
     async post(url, data={}, is_private=false, headers={}) {
         return this.request(url, "POST", data, is_private, headers);
@@ -85,7 +85,7 @@ export default class RequestHelper {
      * @param {string} url Complete URL of request
      * @param {*} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
      * @param {*} headers Request headers
-     * @returns {any} Response data
+     * @returns {Promise<Response>} Response data
      */
     async get(url, is_private=false, headers={}) {
         return this.request(url, "GET", {}, is_private, headers);

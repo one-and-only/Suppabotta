@@ -14,6 +14,15 @@ export default class TradeOgre extends BaseProvider {
         });
     }
 
+    async initialize() {
+        await this.allTradingPairs();
+        for (const coin in this._tradingPairs) {
+            const coinBalance = await this.getBalance(coin);
+            this._balances[coin] = { total: coinBalance.total, available: coinBalance.available };
+        }
+        return this;
+    }
+
     async getMarketPrice(referenceCurrency) {
         const marketData = await (await this._requestHelper.get(`${this._apiUrl}/ticker/${referenceCurrency.toUpperCase()}-RTM`)).json();
         // technically same response as TO gives
@@ -28,7 +37,17 @@ export default class TradeOgre extends BaseProvider {
     }
 
     async allTradingPairs() {
+        const markets = await (await this._requestHelper.get(`${this._apiUrl}/markets`)).json();
 
+        for (const marketIdx in markets) {
+            const market = markets[marketIdx];
+            if (!JSON.stringify(market).includes("RTM"))
+                continue;
+
+            for (const pair in market) {
+                this._tradingPairs[pair.split("-")[0]] = pair;
+            }
+        }
     }
 
     // TradeOgre makes buy and sell really intuitive :)

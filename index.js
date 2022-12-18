@@ -57,7 +57,7 @@ const sampleUserData = await mongoClient.db("ArbitrageBot").collection("Users").
     username: "Revvz"
 });
 
-const TradeOgreInstance = new TradeOgre(sampleUserData.apiCreds.tradeogre.secret, sampleUserData.apiCreds.tradeogre.key);
+const TradeOgreInstance = await (new TradeOgre(sampleUserData.apiCreds.tradeogre.secret, sampleUserData.apiCreds.tradeogre.key)).initialize();
 // const SouthXChangeInstance = new SouthXChange(sampleUserData.apiCreds.southx.secret, sampleUserData.apiCreds.southx.key);
 
 const socketServer = httpsServer({
