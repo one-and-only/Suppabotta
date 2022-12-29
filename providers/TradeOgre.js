@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 import BaseProvider from "./../providers/BaseProvider.js";
 import { encode as base64Encode } from "js-base64";
 import RequestHelper from "../requestHelper.js";
