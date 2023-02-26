@@ -1,15 +1,36 @@
 import BaseProvider from "./../providers/BaseProvider.js";
-import fetch from "node-fetch";
 import { createHash } from "crypto";
 import map from "bluebird";
+import RequestHelper from "../requestHelper.js";
 
 export default class QTrade extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.dex-trade.com/v1");
+        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05);
+        this._requestHelper = new RequestHelper({
+            public: {
+                amount: -1,
+                interval: -1
+            }
+        });
+    }
+
+    async initialize() {
+        await this.allTradingPairs();
+        return this;
+    }
+
+    async allTradingPairs() {
+        const symbols = await (await this._requestHelper.get(`${this._apiUrl}/public/symbols`)).json();
+
+        for (const symbolIdx in symbols.data) {
+            const symbol = symbols.data[symbolIdx];
+            if (symbol.base === "RTM")
+                this._tradingPairs[symbol.quote] = symbol.pair;
+        }
     }
 
     async getMarketPrice(referenceCurrency) {
-        const orderBookResponse = await fetch(`${this._apiUrl}/public/book?pair=RTM${referenceCurrency}`);
+        const orderBookResponse = await this._requestHelper.get(`${this._apiUrl}/public/book?pair=RTM${referenceCurrency}`);
 
         if (orderBookResponse.status === 400) return { success: false, error: "Invalid reference currency" }
 
@@ -30,23 +51,24 @@ export default class QTrade extends BaseProvider {
      * @returns {boolean} success or failure
      */
     async submitOrder(amount, price, referenceCurrency, isBuy) {
-        const body = JSON.stringify({
-            pair: `RTM${referenceCurrency}`,
+        const body = {
+            pair: `RTM${referenceCurrency.toUpperCase()}`,
             rate: price,
             request_id: Date.now(),
             type: isBuy ? 0 : 1,
             type_trade: 0,
             volume: amount
-        });
-        const createOrderResponse = await fetch(`${this._apiUrl}/private/create-order`, {
-            method: "POST",
-            headers: {
+        };
+        const createOrderResponse = await this._requestHelper.post(
+            `${this._apiUrl}/private/create-order`,
+            JSON.stringify(body),
+            true,
+            {
                 "Content-Type": "application/json",
                 "login-token": this._apiKey,
-                "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
-            },
-            body: body
-        });
+                "x-auth-sign": createHash("sha256").update(body.pair + body.rate + body.request_id + body.type + body.type_trade + body.volume + this._apiSecret).digest("hex")
+            }
+        );
 
         if (createOrderResponse.status === 200) {
             const pendingOrder = await createOrderResponse.json();
@@ -54,13 +76,14 @@ export default class QTrade extends BaseProvider {
             return true;
         }
 
+        console.log(await createOrderResponse.json())
         return false;
     }
 
     async addBuyOrder(amount, price, referenceCurrency) {
         return this.submitOrder(amount, price, referenceCurrency, true);
     }
-    
+
     async addSellOrder(amount, price, referenceCurrency) {
         return this.submitOrder(amount, price, referenceCurrency, false);
     }
@@ -71,15 +94,16 @@ export default class QTrade extends BaseProvider {
                 order_id: pendingTradeId,
                 request_id: Date.now()
             });
-            const res = await fetch(`${this._apiUrl}/private/delete-order`, {
-                method: "POST",
-                headers: {
+            const res = await this._requestHelper.post(
+                `${this._apiUrl}/private/delete-order`,
+                body,
+                true,
+                {
                     "Content-Type": "application/json",
                     "login-token": this._apiKey,
                     "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
-                },
-                body: body
-            });
+                }
+            );
 
             if (res.status === 200) return { success: true };
             else return { success: false, response: await res.text() }

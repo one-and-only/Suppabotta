@@ -4,10 +4,9 @@ import { } from "dotenv/config";
 import { readFileSync } from "fs";
 import { MongoClient } from "mongodb";
 // import { hash as passwordHash, verify as verifyPassword } from "argon2";
-import basicAuth from "express-basic-auth";
-import auth from "basic-auth";
 import express from "express";
 import { promisify } from "util";
+import Logger from './Logger.js';
 
 const sleep = promisify(setTimeout);
 
@@ -15,10 +14,16 @@ import TradeOgre from "./providers/TradeOgre.js";
 import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
 import DexTrade from "./providers/DexTrade.js";
+import P2BExchange from "./providers/P2B.js";
+// import Graviex from "./providers/Graviex.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
-import { ExpressAdapter, createBullBoard, BullAdapter, BullMQAdapter } from "@bull-board/express";
+import { ExpressAdapter, createBullBoard, BullMQAdapter } from "@bull-board/express";
 import IORedis from 'ioredis';
+
+if (!process.env.LOG_FILE_PATH) {
+    Logger.warning("Global", "startup", "No log file path specified. Logging to file will be disabled for this session.");
+}
 
 global.completedShutdown = false;
 global.wantsShutdown = false;
@@ -45,6 +50,7 @@ const { addQueue, removeQueue, setQueues, replaceQueues } = createBullBoard({
 queueEvents.on('drained', ({ jobId, returnvalue }) => {
     console.log("Queue now empty, assuming shutdown.");
     if (global.wantsShutdown)
+        // TODO put shutdown logic here
         global.completedShutdown = true;
 });
 
@@ -58,7 +64,17 @@ const sampleUserData = await mongoClient.db("ArbitrageBot").collection("Users").
 });
 
 const TradeOgreInstance = await (new TradeOgre(sampleUserData.apiCreds.tradeogre.secret, sampleUserData.apiCreds.tradeogre.key)).initialize();
-// const SouthXChangeInstance = new SouthXChange(sampleUserData.apiCreds.southx.secret, sampleUserData.apiCreds.southx.key);
+Logger.success("TradeOgre", "initialize", "Initialized successfully");
+const SouthXChangeInstance = new SouthXChange(sampleUserData.apiCreds.southx.secret, sampleUserData.apiCreds.southx.key);
+Logger.success("SouthXChange", "initialize", "Initialized successfully");
+const DexTradeInstance = await (new DexTrade(sampleUserData.apiCreds.dextrade.secret, sampleUserData.apiCreds.dextrade.key)).initialize();
+Logger.success("Dex-Trade", "initialize", "Initialized successfully");
+const CoinExInstance = await (new CoinEx(sampleUserData.apiCreds.coinex.secret, sampleUserData.apiCreds.coinex.key)).initialize();
+Logger.success("CoinEx", "initialize", "Initialized successfully");
+// const GraviexInstance = await (new Graviex(sampleUserData.apiCreds.graviex.secret, sampleUserData.apiCreds.graviex.key)).initialize();
+// Logger.success("Graviex", "initialize", "Initialized successfully");
+const P2BInstance = await (new P2BExchange(sampleUserData.apiCreds.p2b.secret, sampleUserData.apiCreds.p2b.key)).initialize();
+Logger.success("P2B", "initialize", "Initialized successfully");
 
 const socketServer = httpsServer({
     key: readFileSync(process.env.SSL_KEY_PATH),
@@ -66,17 +82,8 @@ const socketServer = httpsServer({
 });
 
 const app = express();
-app.use(basicAuth({
-    challenge: true,
-    users: { 'admin': 'admin' }
-}));
 app.use("/queue_info", serverAdapter.getRouter(), (req, res) => {
-    const user = auth(req);
-    if (user.name !== "admin" || user.pass !== "admin") {
-        res.send("Invalid username or password");
-        return;
-    }
-    res.send("Welcome! Currently empty");
+    res.send();
 });
 app.get("/", (req, res) => {
     res.send("Main interface would normally be here.");
@@ -87,7 +94,7 @@ const expressServer = httpsServer({
     cert: readFileSync(process.env.SSL_CERT_PATH),
 }, app);
 expressServer.listen(process.env.EXPRESS_PORT, () => {
-    console.log(`Express server is running on port ${process.env.EXPRESS_PORT}`);
+    Logger.success("Global", "expressInit", `Express server is initialized and running on port ${process.env.EXPRESS_PORT}`);
 });
 
 const socketIoInstance = new socketIoServer(socketServer);

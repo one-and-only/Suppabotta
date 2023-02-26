@@ -3,9 +3,11 @@ import fetch from "node-fetch";
 import { createHmac } from "crypto";
 import map from "bluebird";
 
+// TODO add async initialize
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4");
+        // TODO get the actual withdrawal fee for SouthX
+        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0);
     }
 
     /**
@@ -157,7 +159,6 @@ export default class SouthXChange extends BaseProvider {
         const balances = await balancesResponse.json();
         for (const balance in balances) {
             console.log(balance);
-            // TODO check for capitalization
             if (balance.Currency === currency)
                 return {
                     success: true,

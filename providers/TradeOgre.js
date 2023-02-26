@@ -4,7 +4,7 @@ import RequestHelper from "../requestHelper.js";
 
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://tradeogre.com/api/v1");
+        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01);
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -15,10 +15,6 @@ export default class TradeOgre extends BaseProvider {
 
     async initialize() {
         await this.allTradingPairs();
-        for (const coin in this._tradingPairs) {
-            const coinBalance = await this.getBalance(coin);
-            this._balances[coin] = { total: coinBalance.total, available: coinBalance.available };
-        }
         return this;
     }
 

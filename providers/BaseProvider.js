@@ -6,14 +6,20 @@ export default class BaseProvider {
     _tradingPairs;
     _requestHelper;
     _balances;
+    _makerFeePct;
+    _takerFeePct;
+    _rtmWithdrawalFee;
 
-    constructor(apiSecret, apiKey, apiUrl) {
+    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
         this._pendingTrades = [];
         this._tradingPairs = {};
         this._balances = {};
+        this._makerFeePct = makerFeePct;
+        this._takerFeePct = takerFeePct;
+        this._rtmWithdrawalFee = rtmWithdrawalFee;
     }
 
     /**

@@ -64,6 +64,9 @@ export default class RequestHelper {
         };
 
         if (method === "POST") requestOptions["body"] = data;
+        if (headers["Content-Type"] === "application/json") {
+            requestOptions["body"] = JSON.stringify(requestOptions["body"]);
+        }
 
         return await appropriate_fetch(url, requestOptions);
     }
