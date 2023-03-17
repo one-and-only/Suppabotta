@@ -9,7 +9,7 @@ export default class Graviex extends BaseProvider {
     _urlPathPrefix;
 
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://graviex.net/webapi/v3", 0.2, 0.2, 0.002);
+        super(apiSecret, apiKey, "https://graviex.net/webapi/v3", 0.2, 0.2, 0.002, "Graviex");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -29,10 +29,10 @@ export default class Graviex extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const tickerInfo = await (await this._requestHelper.get(`${this._apiUrl}/tickers/${this.coinToExchangePair(referenceCurrency.toUpperCase())}`)).json();
+        const tickerInfo = await (await this._requestHelper.get(`${this._apiUrl}/tickers/${this.coinToExchangePair(referenceCurrency.toUpperCase()).pair}`)).json();
 
         if (tickerInfo.error) {
-            Logger.error(Logger.error("Graviex", "orderStatus", `${response.error.message} (code ${response.error.code})`));
+            Logger.error("Graviex", "orderStatus", `${response.error.message} (code ${response.error.code})`);
             return {
                 success: false,
                 error: tickerInfo.error.message,
@@ -54,7 +54,7 @@ export default class Graviex extends BaseProvider {
             const market = markets[marketIdx];
             if (!market.id.includes("rtm")) continue;
 
-            this._tradingPairs[market.name.split("/")[1]] = market.id;
+            this._tradingPairs[market.name.split("/")[1]] = { pair: market.id, enabled: true };
         }
     }
 
@@ -75,7 +75,7 @@ export default class Graviex extends BaseProvider {
         let params = this.createDictText({
             access_key: this._apiKey,
             tonce: Date.now(),
-            market: this.coinToExchangePair(referenceCurrency.toUpperCase()),
+            market: this.coinToExchangePair(referenceCurrency.toUpperCase()).pair,
             side: isBuy ? "buy" : "sell",
             volume: amount,
             price: price,

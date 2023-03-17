@@ -1,5 +1,4 @@
-import { appendFileSync } from "fs";
-import { } from "dotenv/config";
+import { writeFileSync } from "fs";
 
 export default class Logger {
     static COLOR_GREEN = 92;
@@ -9,12 +8,12 @@ export default class Logger {
 
     static _logToFile(message) {
         if (process.env.LOG_FILE_PATH) {
-            appendFileSync(process.env.LOG_FILE_PATH, message);
+            writeFileSync(process.env.LOG_FILE_PATH, message + "\n", { flag: 'a' });
         }
     }
 
     static _composeMessage(type, connector, action, message, color) {
-        return `\x1b[${color}m[${type}] ${connector}|${action}: ${message}\x1b[0m`;
+        return `${new Date().toISOString()} \x1b[${color}m[${type}] ${connector}|${action}: ${message}\x1b[0m`;
     }
 
     static _processMessage(message) {

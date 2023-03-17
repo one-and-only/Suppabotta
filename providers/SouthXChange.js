@@ -4,10 +4,11 @@ import { createHmac } from "crypto";
 import map from "bluebird";
 
 // TODO add async initialize
+// TODO migrate to using _requestHelper instead of node-fetch
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
         // TODO get the actual withdrawal fee for SouthX
-        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0);
+        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0, "SouthXChange");
     }
 
     /**

@@ -4,9 +4,11 @@ import { encode as base64Encode } from "js-base64";
 import { createHmac } from "crypto";
 import Logger from "../Logger.js";
 
-export default class P2BExchange extends BaseProvider {
+// TODO order status needs to be finished
+
+export default class P2B extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.p2pb2b.com/api/v2", 0, 0, 500);
+        super(apiSecret, apiKey, "https://api.p2pb2b.com/api/v2", 0, 0, 500, "P2B");
         this._requestHelper = new RequestHelper({
             public: { amount: 10, interval: 1 }
         }, true);
@@ -24,12 +26,13 @@ export default class P2BExchange extends BaseProvider {
             const market = markets.result[marketIdx];
             if (market.stock !== "RTM") continue;
 
-            this._tradingPairs[market.money] = market.name;
+            this._tradingPairs[market.money] = { pair: market.name, enabled: true };
+            this._minTradeVolumes[market.name] = parseFloat(market.limits.min_amount)
         }
     }
 
     async getMarketPrice(referenceCurrency) {
-        const priceData = await (await (this._requestHelper.get(`${this._apiUrl}/public/depth/result?market=${this.coinToExchangePair(referenceCurrency.toUpperCase())}&limit=1`))).json();
+        const priceData = await (await (this._requestHelper.get(`${this._apiUrl}/public/depth/result?market=${this.coinToExchangePair(referenceCurrency.toUpperCase()).pair}&limit=1`))).json();
 
         return {
             success: true,
@@ -37,7 +40,7 @@ export default class P2BExchange extends BaseProvider {
             sellDepth: parseFloat(priceData.result.bids[0][1]),
             buyPrice: parseFloat(priceData.result.asks[0][0]),
             buyDepth: parseFloat(priceData.result.asks[0][1])
-        }
+        };
     }
 
     generateAuthHeaders(body) {
@@ -51,7 +54,7 @@ export default class P2BExchange extends BaseProvider {
     }
 
     async submitOrder(amount, price, referenceCurrency, side) {
-        const market = this.coinToExchangePair(referenceCurrency.toUpperCase());
+        const market = this.coinToExchangePair(referenceCurrency.toUpperCase()).pair;
 
         const body = {
             market: market,

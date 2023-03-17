@@ -4,7 +4,7 @@ import { createHash } from "crypto";
 
 export default class CoinEx extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3);
+        super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3, "CoinEx");
         this._pendingTrades = {};
         this._requestHelper = new RequestHelper({
             public: {
@@ -26,7 +26,7 @@ export default class CoinEx extends BaseProvider {
             if (!market.includes("RTM")) continue;
 
             const referenceCurrency = market.split("RTM")[1];
-            this._tradingPairs[referenceCurrency] = market;
+            this._tradingPairs[referenceCurrency] = { pair: market, enabled: true };
             this._pendingTrades[referenceCurrency] = [];
         }
     }
@@ -99,7 +99,7 @@ export default class CoinEx extends BaseProvider {
             const params = {
                 access_id: this._apiKey,
                 batch_ids: stringified.substring(1, stringified.length - 1),
-                market: this.coinToExchangePair(coin),
+                market: this.coinToExchangePair(coin).pair,
                 tonce: Date.now()
             }
     
@@ -124,7 +124,7 @@ export default class CoinEx extends BaseProvider {
         let market;
         for (const orderMarket in this._pendingTrades) {
             if (!this._pendingTrades[orderMarket].includes(orderId)) continue;
-            market = this.coinToExchangePair(orderMarket);
+            market = this.coinToExchangePair(orderMarket).pair;
         }
         if (!market) return { success: false, error: "Invalid Trade ID" }
         const params = {

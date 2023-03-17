@@ -1,11 +1,10 @@
 import BaseProvider from "./../providers/BaseProvider.js";
 import { createHash } from "crypto";
-import map from "bluebird";
 import RequestHelper from "../requestHelper.js";
 
-export default class QTrade extends BaseProvider {
+export default class DexTrade extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05);
+        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05, "DexTrade");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -24,8 +23,10 @@ export default class QTrade extends BaseProvider {
 
         for (const symbolIdx in symbols.data) {
             const symbol = symbols.data[symbolIdx];
-            if (symbol.base === "RTM")
-                this._tradingPairs[symbol.quote] = symbol.pair;
+            if (symbol.base === "RTM") {
+                this._tradingPairs[symbol.quote] = { pair: symbol.pair, enabled: true };
+                this._minTradeVolumes[symbol.quote] = Number.MIN_VALUE; // TODO find the actual min trade volume (Dex-Trade API doesn't have it)
+            }
         }
     }
 
@@ -54,10 +55,10 @@ export default class QTrade extends BaseProvider {
         const body = {
             pair: `RTM${referenceCurrency.toUpperCase()}`,
             rate: price,
-            request_id: Date.now(),
             type: isBuy ? 0 : 1,
             type_trade: 0,
-            volume: amount
+            volume: amount,
+            request_id: `${Date.now()}`
         };
         const createOrderResponse = await this._requestHelper.post(
             `${this._apiUrl}/private/create-order`,
@@ -66,7 +67,7 @@ export default class QTrade extends BaseProvider {
             {
                 "Content-Type": "application/json",
                 "login-token": this._apiKey,
-                "x-auth-sign": createHash("sha256").update(body.pair + body.rate + body.request_id + body.type + body.type_trade + body.volume + this._apiSecret).digest("hex")
+                "x-auth-sign": createHash("sha256").update(body.pair + body.rate + body.type + body.type_trade + body.volume + body.request_id + this._apiSecret).digest("hex")
             }
         );
 
@@ -75,8 +76,6 @@ export default class QTrade extends BaseProvider {
             this._pendingTrades.push(pendingOrder.data.id);
             return true;
         }
-
-        console.log(await createOrderResponse.json())
         return false;
     }
 
@@ -89,7 +88,7 @@ export default class QTrade extends BaseProvider {
     }
 
     async cancelAllPending() {
-        const didSucceeds = await map(this._pendingTrades, async (pendingTradeId) => {
+        for (const pendingTradeId of this._pendingTrades) {
             const body = JSON.stringify({
                 order_id: pendingTradeId,
                 request_id: Date.now()
@@ -105,13 +104,9 @@ export default class QTrade extends BaseProvider {
                 }
             );
 
-            if (res.status === 200) return { success: true };
-            else return { success: false, response: await res.text() }
-        });
+            if (res.status !== 200) return false;
+        }
         this._pendingTrades = [];
-
-        for (const didSucceed in didSucceeds)
-            if (didSucceed !== true) return false;
 
         return true;
     }
@@ -121,15 +116,16 @@ export default class QTrade extends BaseProvider {
             order_id: orderId,
             request_id: Date.now()
         });
-        const order = await fetch(`${this._apiUrl}/private/get-order`, {
-            method: "POST",
-            headers: {
+        const order = await this._requestHelper.post(
+            `${this._apiUrl}/private/get-order`,
+            body,
+            true,
+            {
                 "Content-Type": "application.json",
                 "login-token": this._apiKey,
                 "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
-            },
-            body: body
-        });
+            }
+        );
         if (order.status !== 200) return { sucess: false, error: await order.text() };
 
         const data = await order.json();
@@ -148,15 +144,16 @@ export default class QTrade extends BaseProvider {
         const body = JSON.stringify({
             request_id: Date.now()
         });
-        const balances = await fetch(`${this._apiUrl}/private/balances`, {
-            method: "POST",
-            headers: {
+        const balances = await this._requestHelper.post(
+            `${this._apiUrl}/private/balances`,
+            body,
+            true,
+            {
                 "Content-Type": "application/json",
                 "login-token": this._apiKey,
                 "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
-            },
-            body: body
-        });
+            }
+        );
         if (balances.status === 200) return { success: false, error: await balances.text() };
 
         const data = await balances.json();

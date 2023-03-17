@@ -9,8 +9,9 @@ export default class BaseProvider {
     _makerFeePct;
     _takerFeePct;
     _rtmWithdrawalFee;
+    _minTradeVolumes; // per trading pair
 
-    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee) {
+    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee, name) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
@@ -20,6 +21,8 @@ export default class BaseProvider {
         this._makerFeePct = makerFeePct;
         this._takerFeePct = takerFeePct;
         this._rtmWithdrawalFee = rtmWithdrawalFee;
+        this._minTradeVolumes = {};
+        this._name = name;
     }
 
     /**
@@ -44,7 +47,7 @@ export default class BaseProvider {
      * @returns {string | undefined} exchange-formatted trading pair
      */
     coinToExchangePair(coin) {
-        return this._tradingPairs[coin.toUpperCase()];
+        return this._tradingPairs[coin.toUpperCase()].pair;
     }
 
     /**
@@ -54,8 +57,12 @@ export default class BaseProvider {
      */
     exchangePairToCoin(tradingPair) {
         for (const coin in this._tradingPairs) {
-            if (this._tradingPairs[coin] === tradingPair) return coin;
+            if (this._tradingPairs[coin].pair === tradingPair.pair) return coin;
         }
+    }
+
+    minOrderSize(coin) {
+        return this._minTradeVolumes[this.coinToExchangePair(coin).pair] ?? 0;
     }
 
     /**
@@ -63,7 +70,7 @@ export default class BaseProvider {
      * Highest you can sell for
      * Lowest you can buy for
      * Prices measured in Sats
-     * @param {number} referenceCurrency crypto which RTM is paired with. Ex: "BTC" (case insensitive)
+     * @param {string} referenceCurrency crypto which RTM is paired with. Ex: "BTC" (case insensitive)
      * @returns {{ success: boolean, sell: number, buy: number} | { success: boolean, error: string }} market price data
      */
     async getMarketPrice(referenceCurrency) {
