@@ -14,7 +14,7 @@ import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
 import DexTrade from "./providers/DexTrade.js";
 import TxBit from "./providers/TxBit.js";
-import Exbitron from "./providers/Exbitron.js";
+// import Exbitron from "./providers/Exbitron.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
 import { ExpressAdapter, createBullBoard, BullMQAdapter } from "@bull-board/express";
@@ -43,7 +43,6 @@ if (!process.env.LOG_FILE_PATH) {
     Logger.warning("Global", "startup", "No log file path specified. Logging to file will be disabled for this session.");
 }
 
-global.completedShutdown = false;
 global.wantsShutdown = false;
 global.doingTickerMaintenance = false;
 
@@ -80,14 +79,6 @@ serverAdapter.setBasePath("/queue_info");
 createBullBoard({
     queues: [new BullMQAdapter(userQueue)],
     serverAdapter: serverAdapter,
-});
-
-// TODO rework shutdown solution
-queueEvents.on('drained', ({ jobId, returnvalue }) => {
-    // console.log("Queue now empty, assuming shutdown.");
-    if (global.wantsShutdown)
-        // TODO do I need shutdown logic here?
-        global.completedShutdown = true;
 });
 
 const mongoClient = new MongoClient(`mongodb://${process.env.MONGODB_USER}:${process.env.MONGODB_PASS}@${process.env.MONGODB_ADDRESS}?authMechanism=DEFAULT`);
@@ -187,14 +178,18 @@ process.on("SIGINT", async () => {
     shutdownTries % 2 === 1 && Logger.info("Global", "forcedShutdown", "Shutting down. CTRL + C one more time to force shutdown!");
     
     global.wantsShutdown = true;
-    console.log("\nExit signal received. Cleaning up...");
+    Logger.info("Global", "shutdown", "Exit signal received. Cleaning up...");
     expressServer.close();
     await mongoClient.close();
-    console.log("Servers are off");
-    console.log("waiting for trading queue to drain...");
-    while (!global.completedShutdown) {
+    Logger.info("Global", "shutdown", "Servers are off");
+    Logger.info("Global", "shutdown", "waiting for trading queue to drain...");
+
+    while ((await userQueue.getJobs("active")).length > 0) {
         await sleep(500);
     }
+
+    Logger.info("Global", "shutdown", "Trading queue drained");
+
     await userWorker.close();
     await queueEvents.close();
     await userQueue.close();
