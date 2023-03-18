@@ -5,7 +5,7 @@ import { MongoClient } from "mongodb";
 import { verify as verifyPassword } from "argon2";
 import express from "express";
 import { promisify } from "util";
-import Logger from './Logger.js';
+import Logger from "./Logger.js";
 
 const sleep = promisify(setTimeout);
 
@@ -14,14 +14,15 @@ import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
 import DexTrade from "./providers/DexTrade.js";
 import TxBit from "./providers/TxBit.js";
+import Exbitron from "./providers/Exbitron.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
 import { ExpressAdapter, createBullBoard, BullMQAdapter } from "@bull-board/express";
-import IORedis from 'ioredis';
+import IORedis from "ioredis";
 
-import TickerMaintenanceStrategy from './strategies/TickerMaintenance.js';
-import ClassicArbitrageStrategy from './strategies/ClassicArbitrage.js';
-import FloatingArbitrageStrategy from './strategies/ClassicArbitrage.js';
+import TickerMaintenanceStrategy from "./strategies/TickerMaintenance.js";
+import ClassicArbitrageStrategy from "./strategies/ClassicArbitrage.js";
+import FloatingArbitrageStrategy from "./strategies/ClassicArbitrage.js";
 
 const strategyMaps = {
     "TickerMaintenance": {

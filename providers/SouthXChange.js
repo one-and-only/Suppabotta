@@ -1,14 +1,19 @@
 import BaseProvider from "./../providers/BaseProvider.js";
-import fetch from "node-fetch";
 import { createHmac } from "crypto";
 import map from "bluebird";
+import RequestHelper from "../requestHelper.js";
 
 // TODO add async initialize
-// TODO migrate to using _requestHelper instead of node-fetch
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
         // TODO get the actual withdrawal fee for SouthX
         super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0, "SouthXChange");
+        this._requestHelper = new RequestHelper({
+            public: {
+                amount: -1,
+                interval: -1
+            }
+        });
     }
 
     /**
@@ -21,7 +26,7 @@ export default class SouthXChange extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const priceData = await (await fetch(`${this._apiUrl}/price/RTM/${referenceCurrency}`)).json();
+        const priceData = await (await this._requestHelper.get(`${this._apiUrl}/price/RTM/${referenceCurrency}`)).json();
         if (priceData === "") return { success: false, error: "Invalid reference currency" };
 
         return {
@@ -50,14 +55,15 @@ export default class SouthXChange extends BaseProvider {
             key: this._apiKey
         });
 
-        const orderResponse = await fetch(`${this._apiUrl}/placeOrder`, {
-            method: "POST",
-            headers: {
+        const orderResponse = await this._requestHelper.post(
+            `${this._apiUrl}/placeOrder`,
+            body,
+            true,
+            {
                 "Content-Type": "application/json",
                 "Hash": this.generateHmac512(body)
-            },
-            body: body
-        });
+            }
+        );
         const status = orderResponse.status;
         const orderId = await orderResponse.text();
 
@@ -91,14 +97,15 @@ export default class SouthXChange extends BaseProvider {
             const body = JSON.stringify({
                 orderCode: pendingTradeCode
             });
-            const cancelOrderResponse = await fetch(`${this._apiUrl}/cancelOrder`, {
-                method: "POST",
-                headers: {
+            const cancelOrderResponse = await this._requestHelper.post(
+                `${this._apiUrl}/cancelOrder`,
+                body,
+                true,
+                {
                     "Content-Type": "application/json",
                     "Hash": this.generateHmac512(body)
-                },
-                body: body
-            });
+                }
+            );
 
             if (cancelOrderResponse.status === 200) return true;
             else {
@@ -115,12 +122,14 @@ export default class SouthXChange extends BaseProvider {
     }
 
     async orderStatus(orderId) {
-        const pendingOrdersResponse = await fetch(`${this._apiUrl}/listOrders`, {
-            method: "POST",
-            headers: {
+        const pendingOrdersResponse = await this._requestHelper.post(
+            `${this._apiUrl}/listOrders`,
+            "",
+            true,
+            {
                 "Hash": this.generateHmac512("")
             }
-        });
+        );
 
         if (pendingOrdersResponse.status !== 200) {
             const text = await pendingOrdersResponse.text();
@@ -144,12 +153,14 @@ export default class SouthXChange extends BaseProvider {
     }
 
     async getBalance(currency) {
-        const balancesResponse = await fetch(`${this._apiUrl}/listBalances`, {
-            method: "POST",
-            headers: {
+        const balancesResponse = await this._requestHelper.post(
+            `${this._apiUrl}/listBalances`,
+            "",
+            true,
+            {
                 "Hash": this.generateHmac512("")
             }
-        });
+        );
 
         if (balancesResponse.status !== 200) {
             const text = await balancesResponse.text();
