@@ -3,7 +3,6 @@ import { createHmac } from "crypto";
 import map from "bluebird";
 import RequestHelper from "../requestHelper.js";
 
-// TODO add async initialize
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
         // TODO get the actual withdrawal fee for SouthX
@@ -14,6 +13,23 @@ export default class SouthXChange extends BaseProvider {
                 interval: -1
             }
         });
+    }
+
+    async initialize() {
+        await this.allTradingPairs();
+        return this;
+    }
+
+    async allTradingPairs() {
+        const markets = await (await this._requestHelper.get(`${this._apiUrl}/markets`)).json();
+
+        for (const market of markets) {
+            if (market[0] !== "RTM") continue;
+
+            const tradingPair = `${market[0]}_${market[1]}`;
+            this._tradingPairs[market[1]] = { pair: tradingPair, enabled: true };
+            this._minTradeVolumes[tradingPair] = Number.MIN_VALUE // TODO find the actual min trade volume
+        }
     }
 
     /**
@@ -134,7 +150,7 @@ export default class SouthXChange extends BaseProvider {
                 return {
                     success: true,
                     type: pendingOrder.Type,
-                    market: pendingOrder.ReferenceCurrency,
+                    market: `${pendingOrder.listingCurrency}_${pendingOrder.ReferenceCurrency}`,
                     price: pendingOrder.LimitPrice,
                     quantityLeft: pendingOrder.Amount
                 };

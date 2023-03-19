@@ -149,8 +149,7 @@ app.post("/startTrading", async (req, res) => {
 
     for (const providerClass of strategyInfo.providers) {
         const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
-        let provider = new providerClass(providerCreds.secret, providerCreds.key);
-        if (typeof provider.initialize === "function") provider = await provider.initialize();
+        let provider = await new providerClass(providerCreds.secret, providerCreds.key).initialize();
         userQueueData[req.query.username].providers.push(provider);
     }
 
