@@ -91,12 +91,11 @@ export default class SouthXChange extends BaseProvider {
         // there aren't any pending orders
         if (this._pendingTrades.length < 1) return true;
 
-        const didSucceeds = await map(this._pendingTrades, async (pendingTradeCode) => {
-            console.log(`Cancelling order ${pendingTradeCode}`);
-
+        for (const pendingTradeCode of this._pendingTrades) {
             const body = JSON.stringify({
                 orderCode: pendingTradeCode
             });
+
             const cancelOrderResponse = await this._requestHelper.post(
                 `${this._apiUrl}/cancelOrder`,
                 body,
@@ -106,18 +105,10 @@ export default class SouthXChange extends BaseProvider {
                     "Hash": this.generateHmac512(body)
                 }
             );
+            if (cancelOrderResponse.status !== 200) return false;
+        }
 
-            if (cancelOrderResponse.status === 200) return true;
-            else {
-                console.log(await cancelOrderResponse.text());
-                return false;
-            }
-        });
         this._pendingTrades = [];
-
-        for (const didSucceed in didSucceeds)
-            if (didSucceed !== true) return false;
-
         return true;
     }
 
@@ -149,7 +140,7 @@ export default class SouthXChange extends BaseProvider {
                 };
         }
 
-        return { success: false, error: "Invalid order ID" };
+        return { success: false, error: "Invalid order ID or order already completed" };
     }
 
     async getBalance(currency) {
