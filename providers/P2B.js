@@ -4,8 +4,6 @@ import { encode as base64Encode } from "js-base64";
 import { createHmac } from "crypto";
 import Logger from "../Logger.js";
 
-// TODO order status needs to be finished
-
 export default class P2B extends BaseProvider {
     constructor(apiSecret, apiKey) {
         super(apiSecret, apiKey, "https://api.p2pb2b.com/api/v2", 0, 0, 500, "P2B");
@@ -130,9 +128,26 @@ export default class P2B extends BaseProvider {
         )).json();
 
         if (!response.success) {
-            Logger.error("P2B", `orderStatys_${orderId}`, response.message);
+            Logger.error("P2B", `orderStatus_${orderId}`, response.message);
             return false;
         }
+
+        for (const order of response.result) {
+            if (order.id !== orderId) continue;
+
+            return {
+                success: true,
+                type: `${order.type}_${order.side}`.toUpperCase(),
+                market: order.market,
+                price: parseFloat(order.price),
+                quantityLeft: parseFloat(order.left)
+            };
+        }
+
+        return {
+            success: false,
+            error: "Order ID invalid or order already fulfilled"
+        };
     }
 
     async getBalance(currency) {
