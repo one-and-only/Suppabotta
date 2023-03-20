@@ -19,15 +19,21 @@ export default class TradeOgre extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/ticker/${referenceCurrency.toUpperCase()}-RTM`)).json();
-        // technically same response as TO gives
-        // should I simplify and return TO response or keep the intent clear?
+        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-RTM`)).json();
+
         if (!marketData.success) return { success: false, error: marketData.error };
 
+        const askKeys = Object.keys(marketData.sell);
+        const ask = { price: parseFloat(askKeys[0]), depth: marketData.sell[askKeys[0]] };
+
+        const bidKeys = Object.keys(marketData.buy);
+        const bid = { price: parseFloat(bidKeys[bidKeys.length - 1]), depth: parseFloat(marketData.buy[bidKeys[bidKeys.length - 1]]) };
         return {
             success: true,
-            buy: parseFloat(marketData.ask),
-            sell: parseFloat(marketData.bid),
+            buyPrice: parseFloat(ask.price),
+            buyDepth: parseFloat(ask.depth),
+            sellPrice: parseFloat(bid.price),
+            sellDepth: parseFloat(bid.depth)
         };
     }
 
@@ -41,6 +47,7 @@ export default class TradeOgre extends BaseProvider {
 
             for (const pair in market) {
                 this._tradingPairs[pair.split("-")[0]] = { pair: pair, enabled: true };
+                this._minTradeVolumes[pair] = Number.MIN_VALUE;
             }
         }
     }

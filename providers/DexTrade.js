@@ -2,6 +2,9 @@ import BaseProvider from "./../providers/BaseProvider.js";
 import { createHash } from "crypto";
 import RequestHelper from "../requestHelper.js";
 
+// TODO fix private requests
+// it can't find required parameter even though it's passed in
+
 export default class DexTrade extends BaseProvider {
     constructor(apiSecret, apiKey) {
         super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05, "DexTrade");
@@ -38,8 +41,10 @@ export default class DexTrade extends BaseProvider {
         const data = (await orderBookResponse.json()).data;
         return {
             success: true,
-            sell: data.buy[0].rate,
-            buy: data.sell[0].rate,
+            sellPrice: data.buy[0].rate,
+            sellDepth: data.buy[0].volume,
+            buyPrice: data.sell[0].rate,
+            buyDepth: data.sell[0].volume
         };
     }
 

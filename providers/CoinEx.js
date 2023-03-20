@@ -20,25 +20,30 @@ export default class CoinEx extends BaseProvider {
     }
 
     async allTradingPairs() {
-        const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/list`)).json();
-        for (const marketIdx in markets.data) {
-            const market = markets.data[marketIdx];
-            if (!market.includes("RTM")) continue;
+        const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/info`)).json();
+        for (const marketKey in markets.data) {
+            if (!marketKey.startsWith("RTM")) continue;
 
-            const referenceCurrency = market.split("RTM")[1];
-            this._tradingPairs[referenceCurrency] = { pair: market, enabled: true };
-            this._pendingTrades[referenceCurrency] = [];
+            const market = markets.data[marketKey];
+            this._tradingPairs[market.pricing_name] = { pair: marketKey, enabled: true };
+            this._pendingTrades[market.pricing_name] = [];
+            this._minTradeVolumes[marketKey] = market.min_amount;
         }
+
+        console.log(this._tradingPairs, this._minTradeVolumes);
     }
 
     async getMarketPrice(referenceCurrency) {
-        const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/ticker?market=RTM${referenceCurrency.toUpperCase()}`)).json();
-        const ticker = marketInfo.data.ticker;
+        const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=RTM${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();
 
+        const ask = marketInfo.data.asks[0];
+        const bid = marketInfo.data.bids[0]
         return {
             success: true,
-            buy: parseFloat(ticker.sell),
-            sell: parseFloat(ticker.buy)
+            buyPrice: parseFloat(ask[0]),
+            buyDepth: parseFloat(ask[1]),
+            sellPrice: parseFloat(bid[0]),
+            sellDepth: parseFloat(bid[1])
         };
     }
 
@@ -99,7 +104,7 @@ export default class CoinEx extends BaseProvider {
             const params = {
                 access_id: this._apiKey,
                 batch_ids: stringified.substring(1, stringified.length - 1),
-                market: this.coinToExchangePair(coin).pair,
+                market: this.coinToExchangePair(coin),
                 tonce: Date.now()
             }
     
@@ -124,7 +129,7 @@ export default class CoinEx extends BaseProvider {
         let market;
         for (const orderMarket in this._pendingTrades) {
             if (!this._pendingTrades[orderMarket].includes(orderId)) continue;
-            market = this.coinToExchangePair(orderMarket).pair;
+            market = this.coinToExchangePair(orderMarket);
         }
         if (!market) return { success: false, error: "Invalid Trade ID" }
         const params = {

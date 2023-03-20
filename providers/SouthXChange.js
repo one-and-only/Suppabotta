@@ -1,7 +1,8 @@
 import BaseProvider from "./../providers/BaseProvider.js";
 import { createHmac } from "crypto";
-import map from "bluebird";
 import RequestHelper from "../requestHelper.js";
+
+// TODO find out why it keeps failing on the ClassicArbitrage balance check
 
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
@@ -42,13 +43,15 @@ export default class SouthXChange extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const priceData = await (await this._requestHelper.get(`${this._apiUrl}/price/RTM/${referenceCurrency}`)).json();
-        if (priceData === "") return { success: false, error: "Invalid reference currency" };
+        const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/book/RTM/${referenceCurrency}`)).json();
+        if (orderBook === "") return { success: false, error: "Invalid reference currency" };
 
         return {
             success: true,
-            sell: priceData.Bid,
-            buy: priceData.Ask,
+            sellPrice: orderBook.BuyOrders[0].Price,
+            sellDepth: orderBook.BuyOrders[0].Amount,
+            buyPrice: orderBook.SellOrders[0].Price,
+            buyDepth: orderBook.SellOrders[0].Amount
         }
     }
 

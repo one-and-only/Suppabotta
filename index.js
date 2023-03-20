@@ -14,7 +14,6 @@ import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
 import DexTrade from "./providers/DexTrade.js";
 import TxBit from "./providers/TxBit.js";
-// import Exbitron from "./providers/Exbitron.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
 import { ExpressAdapter, createBullBoard, BullMQAdapter } from "@bull-board/express";
@@ -183,8 +182,11 @@ process.on("SIGINT", async () => {
     Logger.info("Global", "shutdown", "Servers are off");
     Logger.info("Global", "shutdown", "waiting for trading queue to drain...");
 
-    while ((await userQueue.getJobs("active")).length > 0) {
-        await sleep(500);
+    let numJobsLeft = (await userQueue.getJobs("active")).length;
+    while (numJobsLeft > 0) {
+        Logger.info("Global", "shutdown", `${numJobsLeft} job${numJobsLeft > 1 ? "s" : ""} left to drain.`);
+        await sleep(1000);
+        numJobsLeft = (await userQueue.getJobs("active")).length;
     }
 
     Logger.info("Global", "shutdown", "Trading queue drained");

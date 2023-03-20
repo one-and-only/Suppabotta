@@ -29,21 +29,23 @@ export default class Graviex extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const tickerInfo = await (await this._requestHelper.get(`${this._apiUrl}/tickers/${this.coinToExchangePair(referenceCurrency.toUpperCase()).pair}`)).json();
+        const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/depth?market=${this.coinToExchangePair(referenceCurrency.toUpperCase()).pair}&limit=1`)).json();
 
-        if (tickerInfo.error) {
+        if (orderBook.error) {
             Logger.error("Graviex", "orderStatus", `${response.error.message} (code ${response.error.code})`);
             return {
                 success: false,
-                error: tickerInfo.error.message,
-                errorCode: tickerInfo.error.code
+                error: orderBook.error.message,
+                errorCode: orderBook.error.code
             };
         }
 
         return {
             success: true,
-            buy: parseFloat(tickerInfo.sell),
-            sell: parseFloat(tickerInfo.buy)
+            buyPrice: parseFloat(orderBook.asks[0]),
+            buyDepth: parseFloat(orderBook.asks[1]),
+            sellPrice: parseFloat(orderBook.bids[0]),
+            sellDepth: parseFloat(orderBook.bids[1])
         };
     }
 

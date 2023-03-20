@@ -47,7 +47,7 @@ export default class BaseProvider {
      * @returns {string | undefined} exchange-formatted trading pair
      */
     coinToExchangePair(coin) {
-        return this._tradingPairs[coin.toUpperCase()].pair;
+        return this._tradingPairs[coin.toUpperCase()]?.pair;
     }
 
     /**
@@ -59,10 +59,16 @@ export default class BaseProvider {
         for (const coin in this._tradingPairs) {
             if (this._tradingPairs[coin].pair === tradingPair.pair) return coin;
         }
+        return null;
     }
 
+    /**
+     * 
+     * @param {string} coin reference currency
+     * @returns number minimum trade volume for trading pair
+     */
     minOrderSize(coin) {
-        return this._minTradeVolumes[this.coinToExchangePair(coin).pair] ?? 0;
+        return this._minTradeVolumes[this.coinToExchangePair(coin)];
     }
 
     /**
@@ -71,7 +77,7 @@ export default class BaseProvider {
      * Lowest you can buy for
      * Prices measured in Sats
      * @param {string} referenceCurrency crypto which RTM is paired with. Ex: "BTC" (case insensitive)
-     * @returns {{ success: boolean, sell: number, buy: number} | { success: boolean, error: string }} market price data
+     * @returns {{ success: true, sellPrice: number, sellDepth: number, buyPrice: number, buyDepth: number} | { success: false, error: string }} market price data
      */
     async getMarketPrice(referenceCurrency) {
         throw new Error("This method must be implemented.");
@@ -105,6 +111,15 @@ export default class BaseProvider {
      */
     async cancelAllPending() {
         throw new Error("This method must be implemented.");
+    }
+
+    /**
+     * Check whether there is an RTM trading pair available with the given reference currency
+     * @param {string} referenceCurrency currency RTM is paired with
+     * @returns {boolean} whether it exists or not
+     */
+    referenceCurrencyExists(referenceCurrency) {
+        return referenceCurrency in this._tradingPairs;
     }
 
     /**
