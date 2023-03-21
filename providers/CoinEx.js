@@ -29,8 +29,6 @@ export default class CoinEx extends BaseProvider {
             this._pendingTrades[market.pricing_name] = [];
             this._minTradeVolumes[marketKey] = market.min_amount;
         }
-
-        console.log(this._tradingPairs, this._minTradeVolumes);
     }
 
     async getMarketPrice(referenceCurrency) {

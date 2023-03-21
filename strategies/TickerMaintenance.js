@@ -12,7 +12,6 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
     async start() { }
 
     async tick() {
-        console.log("tick");
         const currentTimestamp = Date.now();
 
         // ticker maintenance every 5 minutes

@@ -47,7 +47,7 @@ export default class BaseProvider {
      * @returns {string | undefined} exchange-formatted trading pair
      */
     coinToExchangePair(coin) {
-        return this._tradingPairs[coin.toUpperCase()]?.pair;
+        return this._tradingPairs[coin.toUpperCase()].pair;
     }
 
     /**
