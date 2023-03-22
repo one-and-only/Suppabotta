@@ -4,7 +4,7 @@ import RequestHelper from "../requestHelper.js";
 
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, "TradeOgre");
+        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, true, "TradeOgre");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -47,9 +47,12 @@ export default class TradeOgre extends BaseProvider {
 
             for (const pair in market) {
                 this._tradingPairs[pair.split("-")[0]] = { pair: pair, enabled: true };
-                this._minTradeVolumes[pair] = Number.MIN_VALUE;
             }
         }
+
+        this._minTradeVolumes[this.coinToExchangePair("BTC")] = 0.00005;
+        this._minTradeVolumes[this.coinToExchangePair("USDT")] = 1;
+        this._minTradeVolumes[this.coinToExchangePair("LTC")] = 0.01;
     }
 
     // TradeOgre makes buy and sell really intuitive :)

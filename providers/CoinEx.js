@@ -4,8 +4,7 @@ import { createHash } from "crypto";
 
 export default class CoinEx extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3, "CoinEx");
-        this._pendingTrades = {};
+        super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3, false, "CoinEx");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: 20,
@@ -26,7 +25,6 @@ export default class CoinEx extends BaseProvider {
 
             const market = markets.data[marketKey];
             this._tradingPairs[market.pricing_name] = { pair: marketKey, enabled: true };
-            this._pendingTrades[market.pricing_name] = [];
             this._minTradeVolumes[marketKey] = market.min_amount;
         }
     }
@@ -59,9 +57,10 @@ export default class CoinEx extends BaseProvider {
     }
 
     async submitOrder(amount, price, referenceCurrency, isBuy) {
+        const market = `RTM${referenceCurrency.toUpperCase()}`;
         const body = {
             access_id: this._apiKey,
-            market: `RTM${referenceCurrency.toUpperCase()}`,
+            market: market,
             type: isBuy ? "buy" : "sell",
             amount: amount,
             price: price,
@@ -80,7 +79,7 @@ export default class CoinEx extends BaseProvider {
 
         if (response.status !== 200 || !responseJson.id) return false;
 
-        this._pendingTrades.push(responseJson.id);
+        this._pendingTrades.push({ market: market, id: responseJson.id });
         return true;
     }
 
@@ -95,19 +94,16 @@ export default class CoinEx extends BaseProvider {
     async cancelAllPending() {
         if (this._pendingTrades.length < 1) return true;
 
-        for (const coin in this._tradingPairs) {
-            if (this._pendingTrades[coin].length < 1) continue;
-
-            const stringified = JSON.stringify(this._pendingTrades[coin])
+        for (const pendingTrade of this._pendingTrades) {
             const params = {
                 access_id: this._apiKey,
-                batch_ids: stringified.substring(1, stringified.length - 1),
-                market: this.coinToExchangePair(coin),
+                id: pendingTrade.id,
+                market: pendingTrade.market,
                 tonce: Date.now()
             }
     
             const response = await this._requestHelper.request(
-                `${this._apiUrl}/order/pending/batch?${this.createDictText(params)}`,
+                `${this._apiUrl}/order/pending?${this.createDictText(params)}`,
                 "DELETE",
                 null,
                 true,
@@ -123,17 +119,11 @@ export default class CoinEx extends BaseProvider {
         return true;
     }
 
-    async orderStatus(orderId) {
-        let market;
-        for (const orderMarket in this._pendingTrades) {
-            if (!this._pendingTrades[orderMarket].includes(orderId)) continue;
-            market = this.coinToExchangePair(orderMarket);
-        }
-        if (!market) return { success: false, error: "Invalid Trade ID" }
+    async orderStatus(order) {
         const params = {
             access_id: this._apiKey,
-            id: orderId,
-            market: market,
+            id: order.id,
+            market: order.market,
             tonce: Date.now()
         };
         const response = await this._requestHelper.get(

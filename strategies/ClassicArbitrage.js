@@ -1,14 +1,27 @@
 import BaseStrategy from "./BaseStrategy.js";
 import Logger from "../Logger.js";
+import BaseProvider from "../providers/BaseProvider.js";
 
 // TODO min amount does not always reference referenceCurrency
 
 export default class ClassicArbitrageStrategy extends BaseStrategy {
     _alreadyProcessed;
+    _priceCache;
+    _balanceCache;
 
     constructor(connectors) {
         super(connectors);
         this._alreadyProcessed = new Set();
+    }
+
+    initializeCaches() {
+        this._priceCache = {};
+        this._balanceCache = {};
+
+        for (const connector of this._connectors) {
+            this._priceCache[connector._name] = {};
+            this._balanceCache[connector._name] = {};
+        }
     }
 
     /**
@@ -29,97 +42,133 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
 
     async start() { }
 
-    async tick() {
-        // we need to wait until the pending trades are complete before executing another one
-        for (const connector of this._connectors) {
-            if (connector._pendingTrades.length > 0) return;
+    /**
+     * Get the market price of a trading pair from cache, adding to the cache if no entry exists
+     * @param {BaseProvider} connector connector you're using to query the price
+     * @param {string} referenceCurrency currency to which RTM is paired
+     */
+    async cachedMarketPrice(connector, referenceCurrency) {
+        if (!this._priceCache[connector._name][referenceCurrency]) {
+            this._priceCache[connector._name][referenceCurrency] = await connector.getMarketPrice(referenceCurrency);
         }
 
-        for (const currentConnector of this._connectors) {
-            for (const currentReferenceCurrency in currentConnector._tradingPairs) {
-                const currentTradingPair = currentConnector.coinToExchangePair(currentReferenceCurrency);
+        return this._priceCache[connector._name][referenceCurrency];
+    }
 
-                const currentMinOrderSize = currentConnector.minOrderSize(currentReferenceCurrency);
-                const currentPriceInfo = await currentConnector.getMarketPrice(currentReferenceCurrency);
+    /**
+     * Get the balance of a currency from cache, adding to the cache if no entry exists
+     * @param {BaseProvider} connector connector you're using to query a currency's balance
+     * @param {string} currency currency you're getting the balance of
+     */
+    async cachedBalance(connector, currency) {
+        if (!this._balanceCache[connector._name]?.[currency]) {
+            this._balanceCache[connector._name][currency] = await connector.getBalance(currency);
+        }
 
-                for (const otherConnector of this._connectors) {
-                    // we don't want to process the current connector
-                    if (otherConnector._name === currentConnector._name) continue;
+        return this._balanceCache[connector._name][currency];
+    }
 
-                    // not all exchanges have the same RTM trading pairs
-                    if (!otherConnector.referenceCurrencyExists(currentReferenceCurrency)) continue;
+    /**
+     * Process a potential arbitrage trade. Executes only if there is enough depth in the exchange and balance in the wallet.
+     * @param {BaseProvider} connector1
+     * @param {BaseProvider} connector2
+     * @param {object} priceInfo1
+     * @param {object} priceInfo2
+     * @param {number} commonMinOrderAmount
+     * @param {string} referenceCurrency
+     */
+    async processSuitablePrices(connector1, connector2, priceInfo1, priceInfo2, commonMinOrderAmount, referenceCurrency) {
+        console.log("Found a suitable ClassicArbitrage trade:");
+        const numRtmBuying = commonMinOrderAmount / priceInfo2.buyPrice;
+        const numRtmSelling = commonMinOrderAmount / priceInfo1.sellPrice;
+        const numRtmProfit = numRtmBuying - numRtmSelling;
+        console.log(`Buying ${numRtmBuying} RTM from ${connector2._name} @ ${priceInfo2.buyPrice} (${referenceCurrency})`);
+        console.log(`Selling ${numRtmSelling} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${numRtmProfit} RTM in profit)`);
 
-                    const otherTradingPair = otherConnector.coinToExchangePair(currentReferenceCurrency);
-                    if (this.comboAlreadyProcessed([currentConnector._name, otherConnector._name], [currentTradingPair, otherTradingPair])) continue;
-                    else this._alreadyProcessed.add({
-                        connectorNames: [currentConnector._name, otherConnector._name],
-                        tradingPairs: [currentTradingPair, otherTradingPair]
-                    });
+        if (
+            priceInfo1.sellDepth < numRtmSelling ||
+            priceInfo2.buyDepth < numRtmBuying
+        ) {
+            Logger.info("ClassicArbitrage", "submitOrder_depthCheck", "Not enough depth to execute trade at min order size");
+            return;
+        }
 
-                    const otherMinOrderSize = otherConnector.minOrderSize(currentReferenceCurrency);
-                    const commonMinOrderAmount = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
+        const referenceBalance = await this.cachedBalance(connector2, referenceCurrency);
+        const rtmBalance = await this.cachedBalance(connector1, "RTM");
 
-                    const otherPriceInfo = await otherConnector.getMarketPrice(currentReferenceCurrency);
+        if (!referenceBalance.success || !rtmBalance.success) {
+            Logger.error("ClassicArbitrage", "submitOrder_balanceCheck", "Failed to get balance");
+            return;
+        }
 
-                    // console.log(currentConnector._name, currentReferenceCurrency, currentPriceInfo.buyPrice, currentPriceInfo.sellPrice);
-                    // console.log(otherConnector._name, currentReferenceCurrency, otherPriceInfo.buyPrice, otherPriceInfo.sellPrice);
+        if (
+            referenceBalance.available < commonMinOrderAmount ||
+            rtmBalance.available < numRtmSelling
+        ) {
+            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", "Not enough balance to execute suitable ClassicArbitrage trade");
+            return;
+        }
 
-                    if ((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) >= 1.015) {
-                        console.log("Found a suitable ClassicArbitrage trade (opt0):");
-                        const numRtmBuying = commonMinOrderAmount / otherPriceInfo.buyPrice;
-                        const numRtmSelling = commonMinOrderAmount / currentPriceInfo.sellPrice;
-                        const numRtmProfit = numRtmBuying - numRtmSelling;
-                        console.log(`Buying ${numRtmBuying} RTM from ${otherConnector._name} @ ${otherPriceInfo.buyPrice} (${currentReferenceCurrency})`);
-                        console.log(`Selling ${numRtmSelling} RTM on ${currentConnector._name} @ ${currentPriceInfo.sellPrice} (${currentReferenceCurrency}; Estimating ${numRtmProfit} RTM in profit)`);
-                        const referenceBalance = await otherConnector.getBalance(currentReferenceCurrency);
-                        const rtmBalance = await currentConnector.getBalance("RTM");
+        await Promise.all([
+            connector2.addBuyOrder(numRtmBuying, priceInfo2.buyPrice, referenceCurrency),
+            connector1.addSellOrder(numRtmSelling, priceInfo1.sellPrice, referenceCurrency)
+        ]);
+        Logger.success("ClassicArbitrage", "submitOrder", "Executed ClassicArbitrade trade!");
+    }
 
-                        if (!referenceBalance.success || !rtmBalance.success) {
-                            Logger.error("Failed to get balance");
-                            return;
+    async tick() {
+        this.initializeCaches();
+
+        // we need to wait until the pending trades are complete before executing another one
+        for (const connector of this._connectors) {
+            if (connector._pendingTrades.length > 0) {
+                for (let i = 0; i < connector._pendingTrades.length; i++) {
+                    const orderId = connector._pendingTrades[i];
+                    // still have some pending trades, so we can't continue this tick
+                    if ((await connector.orderStatus(orderId)).quantityLeft > 0) return;
+
+                    connector._pendingTrades.splice(i, 1); // trade complete
+                }
+            }
+
+            for (const currentConnector of this._connectors) {
+                for (const currentReferenceCurrency in currentConnector._tradingPairs) {
+                    const currentTradingPair = currentConnector.coinToExchangePair(currentReferenceCurrency);
+
+                    let currentMinOrderSize = currentConnector.minOrderSize(currentReferenceCurrency);
+                    const currentPriceInfo = await this.cachedMarketPrice(currentConnector, currentReferenceCurrency);
+
+                    for (const otherConnector of this._connectors) {
+                        // we don't want to process the current connector
+                        if (otherConnector._name === currentConnector._name) continue;
+
+                        // not all exchanges have the same RTM trading pairs
+                        if (!otherConnector.referenceCurrencyExists(currentReferenceCurrency)) continue;
+
+                        const otherTradingPair = otherConnector.coinToExchangePair(currentReferenceCurrency);
+                        if (this.comboAlreadyProcessed([currentConnector._name, otherConnector._name], [currentTradingPair, otherTradingPair])) continue;
+                        else this._alreadyProcessed.add({
+                            connectorNames: [currentConnector._name, otherConnector._name],
+                            tradingPairs: [currentTradingPair, otherTradingPair]
+                        });
+
+                        let otherMinOrderSize = otherConnector.minOrderSize(currentReferenceCurrency);
+
+                        const otherPriceInfo = await this.cachedMarketPrice(otherConnector, currentReferenceCurrency);
+
+                        if ((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) >= 1.015) {
+                            currentMinOrderSize = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize : currentMinOrderSize * currentPriceInfo.sellPrice;
+                            otherMinOrderSize = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize : otherMinOrderSize * otherPriceInfo.buyPrice;
+                            const commonMinOrderAmount = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
+                            await this.processSuitablePrices(currentConnector, otherConnector, currentPriceInfo, otherPriceInfo, commonMinOrderAmount, currentReferenceCurrency);
+                        } else if ((otherPriceInfo.sellPrice / currentPriceInfo.buyPrice) >= 1.015) {
+                            currentMinOrderSize = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize : currentMinOrderSize * currentPriceInfo.buyPrice;
+                            otherMinOrderSize = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize : otherMinOrderSize * otherPriceInfo.sellPrice;
+                            const commonMinOrderAmount = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
+                            await this.processSuitablePrices(otherConnector, currentConnector, otherPriceInfo, currentPriceInfo, commonMinOrderAmount, currentReferenceCurrency);
+                        } else {
+                            console.log("not good enough");
                         }
-
-                        if (
-                            referenceBalance.available < commonMinOrderAmount ||
-                            rtmBalance.available < numRtmSelling
-                        ) {
-                            Logger.warning("Not enough balance to execute suitable ClassicArbitrage trade");
-                            return;
-                        }
-
-                        await Promise.all([
-                            otherConnector.addBuyOrder(numRtmBuying, otherPriceInfo.buyPrice, currentReferenceCurrency),
-                            currentConnector.addSellOrder(numRtmSelling, currentPriceInfo.sellPrice, currentReferenceCurrency)
-                        ]);
-                        Logger.success("Executed ClassicArbitrade trade!");
-                    } else if ((otherPriceInfo.sellPrice / currentPriceInfo.buyPrice) >= 1.015) {
-                        console.log("Found a suitable ClassicArbitrage trade (opt1):");
-                        const numRtmBuying = commonMinOrderAmount / currentPriceInfo.buyPrice;
-                        const numRtmSelling = commonMinOrderAmount / otherPriceInfo.sellPrice;
-                        const numRtmProfit = numRtmBuying - numRtmSelling;
-                        console.log(`Buying ${numRtmBuying} RTM from ${currentConnector._name} @ ${currentPriceInfo.buyPrice} (${currentReferenceCurrency})`);
-                        console.log(`Selling ${numRtmSelling} RTM on ${otherConnector._name} @ ${otherPriceInfo.sellPrice} (${currentReferenceCurrency}; Estimating ${numRtmProfit} RTM in profit)`);
-
-                        const referenceBalance = await currentConnector.getBalance("currentReferenceCurrency");
-                        const rtmBalance = await otherConnector.getBalance("RTM");
-
-                        if (!referenceBalance.success || !rtmBalance.success) {
-                            Logger.error("Failed to get balance");
-                            return;
-                        }
-
-                        if (
-                            referenceBalance.available < commonMinOrderAmount ||
-                            rtmBalance.available < numRtmSelling
-                        ) {
-                            Logger.warning("Not enough balance to execute suitable ClassicArbitrage trade");
-                            return;
-                        }
-
-                        await Promise.all([
-                            currentConnector.addBuyOrder(numRtmBuying, currentPriceInfo.buyPrice, currentReferenceCurrency),
-                            otherConnector.addSellOrder(numRtmSelling, otherPriceInfo.sellPrice, currentReferenceCurrency)
-                        ]);
                     }
                 }
             }
@@ -127,18 +176,9 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
         this._alreadyProcessed.clear();
     }
 
-    /**
-     * 
-     * @param {string} coin 
-     * @param {string} tradingPair 
-     * @param {BaseProvider} connector 
-     * @returns whether the user has enough coins to trade or not
-     */
-    async hasEnoughCoin(coin, tradingPair, connector) {
-
-    }
-
     async shutdown() {
-        // cancel all pending orders
+        for (const connector of this._connectors) {
+            await connector.cancelAllPending();
+        }
     }
 }

@@ -9,7 +9,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "echo Please run Suppabotta using the 'node' command directly."
   },
   "dependencies": {
     "@bull-board/express": "^4.9.0",

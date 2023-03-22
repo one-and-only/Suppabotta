@@ -10,8 +10,9 @@ export default class BaseProvider {
     _takerFeePct;
     _rtmWithdrawalFee;
     _minTradeVolumes; // per trading pair
+    _minTradeVolumeIsReferenceCurrency;
 
-    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee, name) {
+    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee, minTradeVolumeIsReferenceCurrency, name) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
@@ -22,7 +23,12 @@ export default class BaseProvider {
         this._takerFeePct = takerFeePct;
         this._rtmWithdrawalFee = rtmWithdrawalFee;
         this._minTradeVolumes = {};
+        this._minTradeVolumeIsReferenceCurrency = minTradeVolumeIsReferenceCurrency;
         this._name = name;
+    }
+
+    minTradeVolumeIsReferenceCurrency() {
+        return this._minTradeVolumeIsReferenceCurrency;
     }
 
     /**

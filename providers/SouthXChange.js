@@ -2,12 +2,10 @@ import BaseProvider from "./../providers/BaseProvider.js";
 import { createHmac } from "crypto";
 import RequestHelper from "../requestHelper.js";
 
-// TODO find out why it keeps failing on the ClassicArbitrage balance check
-
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
         // TODO get the actual withdrawal fee for SouthX
-        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0, "SouthXChange");
+        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0, true, "SouthXChange");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,

@@ -9,7 +9,7 @@ export default class Graviex extends BaseProvider {
     _urlPathPrefix;
 
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://graviex.net/webapi/v3", 0.2, 0.2, 0.002, "Graviex");
+        super(apiSecret, apiKey, "https://graviex.net/webapi/v3", 0.2, 0.2, 0.002, true, "Graviex");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -57,6 +57,7 @@ export default class Graviex extends BaseProvider {
             if (!market.id.includes("rtm")) continue;
 
             this._tradingPairs[market.name.split("/")[1]] = { pair: market.id, enabled: true };
+            this._minTradeVolumes[market.name] = Number.MIN_VALUE; // TODO get actual min trade volume
         }
     }
 

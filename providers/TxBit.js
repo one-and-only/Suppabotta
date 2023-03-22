@@ -5,7 +5,7 @@ import Logger from "../Logger.js";
 
 export default class TxBit extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.txbit.io/api", 0, 0, 400, "TxBit");
+        super(apiSecret, apiKey, "https://api.txbit.io/api", 0, 0, 400, true, "TxBit");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,

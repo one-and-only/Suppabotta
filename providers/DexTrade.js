@@ -7,7 +7,7 @@ import RequestHelper from "../requestHelper.js";
 
 export default class DexTrade extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05, "DexTrade");
+        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05, true, "DexTrade");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -28,7 +28,7 @@ export default class DexTrade extends BaseProvider {
             const symbol = symbols.data[symbolIdx];
             if (symbol.base === "RTM") {
                 this._tradingPairs[symbol.quote] = { pair: symbol.pair, enabled: true };
-                this._minTradeVolumes[symbol.quote] = Number.MIN_VALUE; // TODO find the actual min trade volume (Dex-Trade API doesn't have it)
+                this._minTradeVolumes[symbol.pair] = Number.MIN_VALUE; // TODO find the actual min trade volume (Dex-Trade API doesn't have it)
             }
         }
     }
@@ -154,7 +154,7 @@ export default class DexTrade extends BaseProvider {
             body,
             true,
             {
-                "Content-Type": "application/json",
+                "content-type": "application/json",
                 "login-token": this._apiKey,
                 "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
             }

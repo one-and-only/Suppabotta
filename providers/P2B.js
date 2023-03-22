@@ -6,7 +6,7 @@ import Logger from "../Logger.js";
 
 export default class P2B extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.p2pb2b.com/api/v2", 0, 0, 500, "P2B");
+        super(apiSecret, apiKey, "https://api.p2pb2b.com/api/v2", 0, 0, 500, true, "P2B");
         this._requestHelper = new RequestHelper({
             public: { amount: 10, interval: 1 }
         }, true);

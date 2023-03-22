@@ -6,7 +6,7 @@ import RequestHelper from "../requestHelper.js";
 // I believe they will make a new API in a few weeks
 export default class Exbitron extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://www.exbitron.com/api/v2/peatio", 0.4, 0.4, 0.01, "Exbitron");
+        super(apiSecret, apiKey, "https://www.exbitron.com/api/v2/peatio", 0.4, 0.4, 0.01, true, "Exbitron");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,

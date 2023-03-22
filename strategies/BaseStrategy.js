@@ -1,4 +1,10 @@
+import BaseProvider from "../providers/BaseProvider.js";
+
 export default class BaseStrategy {
+    /**
+     * 
+     * @param {BaseProvider[]} connectors 
+     */
     constructor(connectors) {
         this._connectors = connectors;
     }

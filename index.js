@@ -54,12 +54,8 @@ const queueEvents = new QueueEvents("userQueue", { connection: redisConnection }
 const userWorker = new Worker("userQueue", async job => {
     const strategyData = userQueueData[job.data.username];
 
-    let strategyClass;
-    if (job.data.strategyArgs)
-        strategyClass = new strategyData.strategyClass(strategyData.providers, ...job.data.strategyArgs);
-    else
-        strategyClass = new strategyData.strategyClass(strategyData.providers);
-    
+    const strategyClass = new strategyData.strategyClass(strategyData.providers);
+
     await strategyClass.start();
     while (true) {
         if (global.wantsShutdown) {
@@ -68,7 +64,7 @@ const userWorker = new Worker("userQueue", async job => {
             break;
         }
         await strategyClass.tick();
-        await sleep(10000); // 10 seconds between ticks
+        await sleep(job.data.strategyArgs?.tickSpeed ?? 10000); // 10 seconds between ticks
     }
 }, { connection: redisConnection });
 
@@ -148,11 +144,11 @@ app.post("/startTrading", async (req, res) => {
 
     for (const providerClass of strategyInfo.providers) {
         const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
-        let provider = await new providerClass(providerCreds.secret, providerCreds.key).initialize();
+        const provider = await new providerClass(providerCreds.secret, providerCreds.key).initialize();
         userQueueData[req.query.username].providers.push(provider);
     }
 
-    await userQueue.add(req.query.username, { username: req.query.username, strategyArgs: req.query.args ?? null });
+    await userQueue.add(req.query.username, { username: req.query.username, strategyArgs: req.query.args ? JSON.parse(req.query.args) : null });
 
     res.json({
         success: true,

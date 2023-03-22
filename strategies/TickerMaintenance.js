@@ -1,6 +1,11 @@
 import BaseStrategy from './BaseStrategy.js';
+import BaseProvider from '../providers/BaseProvider.js';
 
 export default class TickerMaintenanceStrategy extends BaseStrategy {
+    /**
+     * 
+     * @param {BaseProvider[]} connectors 
+     */
     constructor(connectors) {
         super(connectors);
         this._canContinue = true;
