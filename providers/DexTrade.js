@@ -147,7 +147,7 @@ export default class DexTrade extends BaseProvider {
         currency = currency.toUpperCase();
 
         const body = JSON.stringify({
-            request_id: Date.now()
+            request_id: `${Date.now()}`
         });
         const balances = await this._requestHelper.post(
             `${this._apiUrl}/private/balances`,
