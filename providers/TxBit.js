@@ -82,7 +82,7 @@ export default class TxBit extends BaseProvider {
     async orderStatus(orderId) {
         const url = `${this._apiUrl}/account/getorder?uuid=${orderId}&${this.privateQueryParams()}`;
         const orderStatus = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
-        
+
         if (!orderStatus.success) {
             Logger.error(this._name, "orderStatus", `Failed to get the order status for order ID '${orderId}' (${orderStatus.message})`);
             return {
@@ -90,7 +90,7 @@ export default class TxBit extends BaseProvider {
                 error: orderStatus.message
             };
         }
-        
+
         return {
             success: true,
             type: orderStatus.result.Type,
