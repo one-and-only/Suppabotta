@@ -37,7 +37,7 @@ export default class Xeggex extends BaseProvider {
             "Content-Type": "application/json",
             "X-API-KEY": this._apiKey,
             "X-API-NONCE": nonce,
-            "X-API-SIGN": createHmac("sha256").update(this._apiKey+url+body+nonce).digest("hex")
+            "X-API-SIGN": createHmac("sha256", this._apiSecret).update(this._apiKey + url + body + nonce).digest("hex")
         };
     }
 
@@ -66,22 +66,22 @@ export default class Xeggex extends BaseProvider {
             "quantity": `${amount}`,
             "price": `${price}`,
             "strictValidate": false
-          });
+        });
 
-        const response = await (await this._requestHelper.post(
-            url,
-            body,
-            true,
-            this.authHeaders(url, body)
-        )).json();
+        try {
+            const response = await (await this._requestHelper.post(
+                url,
+                body,
+                true,
+                this.authHeaders(url, body)
+            )).text();
 
-        if (response.error) {
-            Logger.error(this._name, `submitOrder_${isBuy ? "buy" : "sell"}`, `Failed to submit order (${response.error.message}; ${response.error.description})`);
+            if (parseFloat(response.remainQuantity) > 0) {
+                this._pendingTrades.push(response.id);
+            }
+        } catch (e) {
+            Logger.error(this._name, `submitOrder_${isBuy ? "buy" : "sell"}`, `Failed to submit order`);
             return;
-        }
-
-        if (parseFloat(response.remainQuantity) > 0) {
-            this._pendingTrades.push(response.id);
         }
     }
 
@@ -145,9 +145,9 @@ export default class Xeggex extends BaseProvider {
             return;
         }
 
-        for (const balance in balances) {
+        for (const balance of balances) {
             if (balance.asset === currency.toUpperCase()) {
-                const available = parseFloat(balance.Available);
+                const available = parseFloat(balance.available);
                 const pending = parseFloat(balance.pending);
                 return {
                     success: true,

@@ -31,6 +31,6 @@ export default class Logger {
     }
 
     static error(connector, action, message) {
-        this._processMessage(this._composeMessage("ERROR", connector, action, message, message, "redBright"));
+        this._processMessage(this._composeMessage("ERROR", connector, action, message, "redBright"));
     }
 }

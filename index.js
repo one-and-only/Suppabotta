@@ -14,6 +14,7 @@ import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
 import DexTrade from "./providers/DexTrade.js";
 import TxBit from "./providers/TxBit.js";
+import Xeggex from "./providers/Xeggex.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
 import { ExpressAdapter, createBullBoard, BullMQAdapter } from "@bull-board/express";
@@ -25,15 +26,15 @@ import FloatingArbitrageStrategy from "./strategies/ClassicArbitrage.js";
 
 const strategyMaps = {
     "TickerMaintenance": {
-        providers: [DexTrade, TxBit],
+        providers: [/*DexTrade,*/ TxBit],
         strategyClass: TickerMaintenanceStrategy
     },
     "ClassicArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, TxBit],
+        providers: [TradeOgre, SouthXChange, CoinEx, /*DexTrade,*/ TxBit, Xeggex],
         strategyClass: ClassicArbitrageStrategy
     },
     "FloatingArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, TxBit],
+        providers: [TradeOgre, SouthXChange, CoinEx, /*DexTrade,*/ TxBit, Xeggex],
         strategyClass: FloatingArbitrageStrategy
     }
 };
