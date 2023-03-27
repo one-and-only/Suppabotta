@@ -2,8 +2,6 @@ import BaseStrategy from "./BaseStrategy.js";
 import Logger from "../Logger.js";
 import BaseProvider from "../providers/BaseProvider.js";
 
-// TODO min amount does not always reference referenceCurrency
-
 export default class ClassicArbitrageStrategy extends BaseStrategy {
     _alreadyProcessed;
     _priceCache;
