@@ -1,6 +1,6 @@
 import BaseProvider from "./../providers/BaseProvider.js";
 import { encode as base64Encode } from "js-base64";
-import RequestHelper from "../requestHelper.js";
+import RequestHelper from "../RequestHelper.js";
 
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey) {

@@ -1,5 +1,5 @@
 import BaseProvider from "../providers/BaseProvider.js";
-import RequestHelper from "../requestHelper.js";
+import RequestHelper from "../RequestHelper.js";
 import { createHmac } from 'crypto';
 import Logger from "../Logger.js";
 

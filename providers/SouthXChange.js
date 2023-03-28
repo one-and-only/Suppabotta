@@ -1,6 +1,6 @@
 import BaseProvider from "./../providers/BaseProvider.js";
 import { createHmac } from "crypto";
-import RequestHelper from "../requestHelper.js";
+import RequestHelper from "../RequestHelper.js";
 
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {

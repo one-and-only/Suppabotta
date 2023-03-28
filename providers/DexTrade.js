@@ -1,6 +1,6 @@
 import BaseProvider from "./../providers/BaseProvider.js";
 import { createHash } from "crypto";
-import RequestHelper from "../requestHelper.js";
+import RequestHelper from "../RequestHelper.js";
 
 // TODO fix private requests
 // it can't find required parameter even though it's passed in

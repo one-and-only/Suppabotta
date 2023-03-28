@@ -1,4 +1,4 @@
-import RequestHelper from "../requestHelper.js";
+import RequestHelper from "../RequestHelper.js";
 import BaseProvider from "./../providers/BaseProvider.js";
 import { createHash } from "crypto";
 
