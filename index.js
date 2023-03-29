@@ -12,7 +12,7 @@ const sleep = promisify(setTimeout);
 import TradeOgre from "./providers/TradeOgre.js";
 import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
-import DexTrade from "./providers/DexTrade.js";
+// import DexTrade from "./providers/DexTrade.js";
 import TxBit from "./providers/TxBit.js";
 import Xeggex from "./providers/Xeggex.js";
 
@@ -43,7 +43,6 @@ if (!process.env.LOG_FILE_PATH) {
     Logger.warning("Global", "startup", "No log file path specified. Logging to file will be disabled for this session.");
 }
 
-global.wantsShutdown = false;
 global.doingTickerMaintenance = false;
 
 const redisConnection = new IORedis(parseInt(process.env.REDIS_PORT), process.env.REDIS_HOST, { maxRetriesPerRequest: null });
@@ -54,18 +53,19 @@ const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
 const userWorker = new Worker("userQueue", async job => {
     const strategyData = userQueueData[job.data.username];
+    const tickSpeed = job.data.strategyArgs?.tickSpeed ?? 10000;
 
     const strategyClass = new strategyData.strategyClass(strategyData.providers);
 
     await strategyClass.start();
     while (true) {
-        if (global.wantsShutdown) {
+        if (userQueueData[job.data.username].wantsShutdown) {
             await strategyClass.shutdown();
             delete userQueueData[job.data.username];
             break;
         }
         await strategyClass.tick();
-        await sleep(job.data.strategyArgs?.tickSpeed ?? 10000); // 10 seconds between ticks
+        await sleep(tickSpeed);
     }
 }, { connection: redisConnection });
 
@@ -140,7 +140,8 @@ app.post("/startTrading", async (req, res) => {
     const strategyInfo = strategyMaps[req.query.strategy];
     userQueueData[req.query.username] = {
         providers: [],
-        strategyClass: strategyInfo.strategyClass
+        strategyClass: strategyInfo.strategyClass,
+        wantsShutdown: false
     };
 
     for (const providerClass of strategyInfo.providers) {
@@ -171,9 +172,13 @@ process.on("SIGINT", async () => {
     shutdownTries++;
     (shutdownTries > 0) && (shutdownTries % 2 === 0) && process.exit(1);
     shutdownTries % 2 === 1 && Logger.info("Global", "forcedShutdown", "Shutting down. CTRL + C one more time to force shutdown!");
-    
-    global.wantsShutdown = true;
+
     Logger.info("Global", "shutdown", "Exit signal received. Cleaning up...");
+
+    for (const username in userQueueData) {
+        userQueueData[username].wantsShutdown = true;
+    }
+
     expressServer.close();
     await mongoClient.close();
     Logger.info("Global", "shutdown", "Servers are off");
