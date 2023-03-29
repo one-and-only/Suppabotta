@@ -22,7 +22,7 @@ import IORedis from "ioredis";
 
 import TickerMaintenanceStrategy from "./strategies/TickerMaintenance.js";
 import ClassicArbitrageStrategy from "./strategies/ClassicArbitrage.js";
-import FloatingArbitrageStrategy from "./strategies/ClassicArbitrage.js";
+import FloatingArbitrageStrategy from "./strategies/FloatingArbitrage.js";
 
 const strategyMaps = {
     "TickerMaintenance": {
@@ -54,17 +54,23 @@ const queueEvents = new QueueEvents("userQueue", { connection: redisConnection }
 const userWorker = new Worker("userQueue", async job => {
     const strategyData = userQueueData[job.data.username];
     const tickSpeed = job.data.strategyArgs?.tickSpeed ?? 10000;
+    let strategyInstance;
+    let importantArgs = job.data.strategyArgs;
+    delete importantArgs.tickSpeed;
+    // console.log(typeof importantArgs, importantArgs);
+    if (Object.keys(importantArgs).length > 0)
+        strategyInstance = new strategyData.strategyClass(strategyData.providers, importantArgs);
+    else
+        strategyInstance = new strategyData.strategyClass(strategyData.providers);
 
-    const strategyClass = new strategyData.strategyClass(strategyData.providers);
-
-    await strategyClass.start();
+    await strategyInstance.start();
     while (true) {
         if (userQueueData[job.data.username].wantsShutdown) {
-            await strategyClass.shutdown();
+            await strategyInstance.shutdown();
             delete userQueueData[job.data.username];
             break;
         }
-        await strategyClass.tick();
+        await strategyInstance.tick();
         await sleep(tickSpeed);
     }
 }, { connection: redisConnection });
