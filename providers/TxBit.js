@@ -77,6 +77,7 @@ export default class TxBit extends BaseProvider {
             await this._requestHelper.get(url, true, { apisign: this.signHeader(url) });
         }
         this._pendingTrades = [];
+        return true;
     }
 
     async orderStatus(orderId) {

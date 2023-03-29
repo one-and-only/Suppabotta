@@ -109,6 +109,7 @@ export default class Xeggex extends BaseProvider {
         }
 
         this._pendingTrades = [];
+        return true;
     }
 
     async orderStatus(orderId) {

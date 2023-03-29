@@ -83,7 +83,7 @@ export default class BaseProvider {
      * Lowest you can buy for
      * Prices measured in Sats
      * @param {string} referenceCurrency crypto which RTM is paired with. Ex: "BTC" (case insensitive)
-     * @returns {{ success: true, sellPrice: number, sellDepth: number, buyPrice: number, buyDepth: number} | { success: false, error: string }} market price data
+     * @returns {Promise<{ success: true, sellPrice: number, sellDepth: number, buyPrice: number, buyDepth: number} | { success: false, error: string }>} market price data
      */
     async getMarketPrice(referenceCurrency) {
         throw new Error("This method must be implemented.");
