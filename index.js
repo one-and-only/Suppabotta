@@ -97,6 +97,49 @@ app.get("/", (req, res) => {
     res.send("Main interface would normally be here.");
 });
 
+app.post("/stopTrading", async (req, res) => {
+    if (!req.query.username || !req.query.password) {
+        res.status(400).json({
+            success: false,
+            error: "Username or password not provided"
+        });
+        return;
+    }
+
+    if (!userQueueData[req.query.username]) {
+        res.status(400).json({
+            success: false,
+            error: "Trading thread does not exist for this user"
+        });
+        return;
+    }
+
+    const userInfo = await mongoClient.db("ArbitrageBot").collection("Users").findOne({
+        username: req.query.username
+    });
+
+    if (!(await verifyPassword(userInfo.password, req.query.password))) {
+        res.status(400).json({
+            success: false,
+            error: "Unauthorized to stop trading (invalid password)"
+        });
+        return;
+    }
+
+    userQueueData[req.query.username].wantsShutdown = true;
+    while (true) {
+        if (!userQueueData[req.query.username])
+            break;
+
+        await sleep(1000);
+    }
+
+    res.json({
+        success: true,
+        message: "Trading thread successfully stopped"
+    });
+});
+
 app.post("/startTrading", async (req, res) => {
     if (!req.query.username || !req.query.password || !req.query.strategy) {
         res.status(400).json({
