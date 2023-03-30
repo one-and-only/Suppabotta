@@ -8,9 +8,7 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
      */
     constructor(connectors) {
         super(connectors);
-        this._canContinue = true;
         this._lastMaintainedTimestamp = 0;
-        this._lastBalanceCheckTimestamp = 0;
         this._buyingReferenceCurrency = false;
     }
 
