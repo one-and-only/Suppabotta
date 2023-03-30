@@ -79,9 +79,8 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
         console.log("Found a suitable ClassicArbitrage trade:");
         const numRtmBuying = commonMinOrderAmount / priceInfo2.buyPrice;
         const numRtmSelling = commonMinOrderAmount / priceInfo1.sellPrice;
-        const numRtmProfit = numRtmBuying - numRtmSelling;
         console.log(`Buying ${numRtmBuying} RTM from ${connector2._name} @ ${priceInfo2.buyPrice} (${referenceCurrency})`);
-        console.log(`Selling ${numRtmSelling} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${numRtmProfit} RTM in profit)`);
+        console.log(`Selling ${numRtmSelling} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${numRtmBuying - numRtmSelling} RTM in profit)`);
 
         if (
             priceInfo1.sellDepth < numRtmSelling ||
