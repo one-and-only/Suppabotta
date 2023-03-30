@@ -87,6 +87,8 @@ const mongoClient = new MongoClient(`mongodb://${process.env.MONGODB_USER}:${pro
 await mongoClient.connect();
 
 const app = express();
+app.disable("x-powered-by");
+
 app.use("/queue_info", serverAdapter.getRouter(), (req, res) => {
     res.send();
 });
