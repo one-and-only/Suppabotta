@@ -1,2 +1,2 @@
 # Suppabotta
-RTM Arbitrage Bot using WSS + REST
+RTM Arbitrage Bot using REST
