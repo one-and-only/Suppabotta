@@ -12,9 +12,7 @@
     "start": "echo Please run Suppabotta using the 'node' command directly."
   },
   "dependencies": {
-    "@bull-board/express": "^4.9.0",
     "argon2": "^0.29.1",
-    "bluebird": "^3.7.2",
     "bottleneck": "^2.19.5",
     "bullmq": "^3.4.1",
     "chalk": "^5.2.0",

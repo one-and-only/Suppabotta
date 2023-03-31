@@ -17,7 +17,6 @@ import TxBit from "./providers/TxBit.js";
 import Xeggex from "./providers/Xeggex.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
-import { ExpressAdapter, createBullBoard, BullMQAdapter } from "@bull-board/express";
 import IORedis from "ioredis";
 
 import TickerMaintenanceStrategy from "./strategies/TickerMaintenance.js";
@@ -75,13 +74,9 @@ const userWorker = new Worker("userQueue", async job => {
     }
 }, { connection: redisConnection });
 
-const serverAdapter = new ExpressAdapter();
-serverAdapter.setBasePath("/queue_info");
-
-createBullBoard({
-    queues: [new BullMQAdapter(userQueue)],
-    serverAdapter: serverAdapter,
-});
+async function numJobsLeft() {
+    return (await userQueue.getJobs("active")).length;
+}
 
 const mongoClient = new MongoClient(`mongodb://${process.env.MONGODB_USER}:${process.env.MONGODB_PASS}@${process.env.MONGODB_ADDRESS}?authMechanism=DEFAULT`);
 await mongoClient.connect();
@@ -89,8 +84,10 @@ await mongoClient.connect();
 const app = express();
 app.disable("x-powered-by");
 
-app.use("/queue_info", serverAdapter.getRouter(), (req, res) => {
-    res.send();
+app.get("/queue_info", async (req, res) => {
+    res.json({
+        numTradingThreads: await numJobsLeft()
+    });
 });
 
 app.get("/", (req, res) => {
@@ -235,11 +232,11 @@ process.on("SIGINT", async () => {
     Logger.info("Global", "shutdown", "Servers are off");
     Logger.info("Global", "shutdown", "waiting for trading queue to drain...");
 
-    let numJobsLeft = (await userQueue.getJobs("active")).length;
-    while (numJobsLeft > 0) {
-        Logger.info("Global", "shutdown", `${numJobsLeft} job${numJobsLeft > 1 ? "s" : ""} left to drain.`);
+    let jobsLeft = await numJobsLeft();
+    while (jobsLeft > 0) {
+        Logger.info("Global", "shutdown", `${jobsLeft} job${jobsLeft > 1 ? "s" : ""} left to drain.`);
         await sleep(1000);
-        numJobsLeft = (await userQueue.getJobs("active")).length;
+        jobsLeft = await numJobsLeft();
     }
 
     Logger.info("Global", "shutdown", "Trading queue drained");
