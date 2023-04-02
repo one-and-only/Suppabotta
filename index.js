@@ -1,8 +1,8 @@
 import { createServer as httpsServer } from "https";
 import { } from "dotenv/config";
-import { readFileSync } from "fs";
+import { readFile, readFileSync } from "fs";
 import { MongoClient } from "mongodb";
-import { verify as verifyPassword } from "argon2";
+import { verify as verifyPassword, hash as hashPassword } from "argon2";
 import express from "express";
 import { promisify } from "util";
 import Logger from "./Logger.js";
@@ -83,6 +83,7 @@ await mongoClient.connect();
 
 const app = express();
 app.disable("x-powered-by");
+app.use(express.json());
 
 app.get("/queue_info", async (req, res) => {
     res.json({
@@ -90,8 +91,71 @@ app.get("/queue_info", async (req, res) => {
     });
 });
 
+app.get("/*.*", (req, res) => {
+    try {
+        res.send(readFileSync(`static${req.path}`).toString());
+    } catch (e) {
+        res.status(404).send("404 Not Found");
+    }
+
+});
+
 app.get("/", (req, res) => {
-    res.send("Main interface would normally be here.");
+    res.send(readFileSync("static/index.html").toString());
+});
+
+app.get("/register", (req, res) => {
+    res.send(readFileSync("static/register.html").toString());
+})
+
+app.post("/register", async (req, res) => {
+    if (!req.body.username || !req.body.password) {
+        res.status(400).json({
+            success: false,
+            error: "Username and/or password not provided"
+        });
+        return;
+    }
+
+    if (!req.body.exchangeCredentials) {
+        res.status(400).json({
+            success: false,
+            error: "Exchange Credentials not provided"
+        });
+        return;
+    } else if (Object.keys(req.body.exchangeCredentials).length < 1) {
+        res.status(400).json({
+            success: false,
+            error: "Too few exchange credentials"
+        });
+        return;
+    }
+
+    if (await mongoClient.db("ArbitrageBot").collection("Users").findOne({ username: req.body.username })) {
+        res.status(400).json({
+            success: false,
+            error: "User already exists"
+        })
+        return;
+    }
+
+    const passwordHash = await hashPassword(req.body.password);
+    if (!(await mongoClient.db("ArbitrageBot").collection("Users").insertOne({
+        username: req.body.username,
+        password: passwordHash,
+        apiCreds: req.body.exchangeCredentials
+    })).acknowledged) {
+        res.status(500).json({
+            success: false,
+            error: "Failed to save user to database"
+        });
+        return;
+    }
+
+    res.json({
+        success: true,
+        message: "Successfully registered"
+    });
 });
 
 app.post("/stopTrading", async (req, res) => {

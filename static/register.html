@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Suppabotta | Register</title>
+    <meta name="description" content="RTM arbitrage trading bot with websocket capabilities">
+    <meta name="viewport" content="width=device-width">
+
+    <style>
+      .inputButton:hover {
+        cursor: pointer;
+      }
+    </style>
+
+    <noscript>
+        <h2>This site requires JavaScript to function!</h2>
+    </noscript>
+
+    <script src="register.js"></script>
+  </head>
+  <body>
+    <form>
+      <p>Username:</p>
+      <input type="text" placeholder="Username" id="usernameInput" />
+      <p>Password:</p>
+      <input type="password" placeholder="Password" id="passwordInput" />
+      <p>Exchange API Credentials:</p>
+      <br />
+      <p style="font-size: large">👇 Type/Enter Carefully!</p>
+      <p>
+        Exchange Name&emsp;&emsp;|&emsp;&emsp;API
+        Key&emsp;&emsp;|&emsp;&emsp;API Secret&emsp;<input
+          type="button"
+          value="+"
+          class="inputButton"
+          onclick="addExchangeSelector()"
+        />
+        <input
+          type="button"
+          value="-"
+          class="inputButton"
+          onclick="deleteExchangeSelector()"
+        />
+      </p>
+      <div id="credentialInputRows">
+        <!-- Generated rows go here -->
+      </div>
+      <br />
+      <input type="button" onclick="register()" value="Register" />
+    </form>
+  </body>
+</html>
