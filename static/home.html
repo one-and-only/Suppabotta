@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Home | Suppabotta</title>
+    <meta name="description" content="Start Automatic Arbitrage Trading">
+    <noscript>
+      <h2>This page requires JavaScript to function!</h2>
+    </noscript>
+
+    <script>
+      window.onload = function () {
+        if (!localStorage.getItem("username")) {
+          window.location.href = "/login.html";
+          return;
+        }
+      };
+    </script>
+    <script src="/home.js"></script>
+    <script src="/html-loader.js"></script>
+  </head>
+  <body>
+    <div w3-include-html="menu.html"></div>
+
+    <script>
+      includeHTML();
+    </script>
+  </body>
+</html>

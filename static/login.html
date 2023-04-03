@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Suppabotta | Login</title>
+        <meta name="description" content="Login to Suppabotta account">
+
+        <noscript>
+            <h2>This site requires JavaScript to function!</h2>
+        </noscript>
+
+        <script src="/html-loader.js"></script>
+        <script>
+            async function login() {
+                const username = document.getElementById("usernameInput").value;
+                const password = document.getElementById("passwordInput").value;
+                if (username === "" || password === "") {
+                    alert("Both username and password are required.");
+                    return;
+                }
+
+                const response = await (await fetch(`/login?username=${username}&password=${password}`)).json();
+                if (!response.result) {
+                    alert("Invalid username or password");
+                    return;
+                }
+
+                localStorage.setItem("username", username);
+                window.location.href = "/home.html";
+            }
+        </script>
+    </head>
+    <body>
+        <div w3-include-html="menu.html"></div>
+
+        <h2>Please Login to Continue</h2>
+        <form>
+            <p>Username:</p>
+            <input type="text" id="usernameInput" placeholder="Username">
+            <p>Password:</p>
+            <input type="password" id="passwordInput" placeholder="Password">
+            <input type="button" onclick="login()" value="Login">
+        </form>
+
+        <script>
+            includeHTML();
+        </script>
+    </body>
+</html>

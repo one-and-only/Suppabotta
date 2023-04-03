@@ -201,31 +201,37 @@ app.post("/stopTrading", async (req, res) => {
     });
 });
 
-app.post("/startTrading", async (req, res) => {
-    if (!req.query.username || !req.query.password || !req.query.strategy) {
-        res.status(400).json({
-            "success": false,
-            "error": "one of username, password, or strategy missing"
-        });
-        return;
-    }
+async function validLogin(query) {
+    if (!query.username || !query.password) return false;
 
     const userInfo = await mongoClient.db("ArbitrageBot").collection("Users").findOne({
-        username: req.query.username
+        username: query.username
     });
 
-    if (!userInfo) {
+    if (!userInfo) return false;
+
+    if (!(await verifyPassword(userInfo.password, query.password))) return false;
+
+    return true;
+}
+
+app.get("/login", async (req, res) => {
+    res.send({ result: await validLogin(req.query) });
+});
+
+app.post("/startTrading", async (req, res) => {
+    if (!(await validLogin(req.query))) {
         res.status(400).json({
-            "success": false,
-            "error": "Invalid username"
+            success: false,
+            error: "Invalid username or password"
         });
         return;
     }
 
-    if (!(await verifyPassword(userInfo.password, req.query.password))) {
+    if (!req.query.strategy) {
         res.status(400).json({
             success: false,
-            error: "Invalid password"
+            error: "Trading strategy missing"
         });
         return;
     }
