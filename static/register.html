@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <title>Suppabotta | Register</title>
-    <meta name="description" content="RTM arbitrage trading bot with websocket capabilities">
+    <meta name="description" content="Create new account">
     <meta name="viewport" content="width=device-width">
 
     <style>
@@ -15,9 +15,12 @@
         <h2>This site requires JavaScript to function!</h2>
     </noscript>
 
-    <script src="register.js"></script>
+    <script src="/register.js"></script>
+    <script src="/html-loader.js"></script>
   </head>
   <body>
+    <div w3-include-html="menu.html"></div>
+
     <form>
       <p>Username:</p>
       <input type="text" placeholder="Username" id="usernameInput" />
@@ -47,5 +50,9 @@
       <br />
       <input type="button" onclick="register()" value="Register" />
     </form>
+
+    <script>
+      includeHTML();
+    </script>
   </body>
 </html>
