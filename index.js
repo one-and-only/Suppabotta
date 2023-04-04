@@ -84,20 +84,12 @@ await mongoClient.connect();
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json());
+app.use(express.static("static"));
 
 app.get("/queue_info", async (req, res) => {
     res.json({
         numTradingThreads: await numJobsLeft()
     });
-});
-
-app.get("/*.*", (req, res) => {
-    try {
-        res.send(readFileSync(`static${req.path}`).toString());
-    } catch (e) {
-        res.status(404).send("404 Not Found");
-    }
-
 });
 
 app.get("/", (req, res) => {
