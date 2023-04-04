@@ -1,2 +1,54 @@
 # Suppabotta
 RTM Arbitrage Bot using WSS + REST
+
+## Installation Instructions
+1. Install [Node.JS](https://nodejs.org/en/download) (tested on Node 16-19; Install latest if possible)
+1. Install [MongoDB](https://www.mongodb.com/try/download/community)
+1. Install [Redis](https://redis.io/docs/getting-started/installation/)
+1. Clone this repository or download as Zip and extract somewhere you'll have access to
+1. Open the directory you just downloaded in a terminal
+1. Install this project's Node.JS dependencies with `npm i`
+1. Create a `.env` file in the same directory using the following template, replacing the default values with ones for you:
+    * Redis connection details and MongoDB port will likely be correct for your setup. Please change them otherwise.
+```ini
+# HTTPS server certificate and private key file path
+SSL_CERT_PATH=cert.pem
+SSL_KEY_PATH=key.pem
+
+# MongoDB connection details
+MONGODB_ADDRESS=localhost:27017
+MONGODB_USER=Suppabotta
+MONGODB_PASS=WeUseRTM
+
+# Redis connection details
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# HTTPS website port
+EXPRESS_PORT=443
+
+# File path where logs are stored
+# comment out if you want logging to file disabled
+# Logging to console will be enabled regardless
+LOG_FILE_PATH=/home/ubuntu/Suppabotta/session.log
+```
+1. Run the bot using `node index.js`
+
+## Adding Users for Trading
+1. Navigate to the web interface using your browser to `https://localhost:EXPRESS_PORT/`
+    * Replace EXPRESS_PORT with the port you chose in the .env file
+1. Click on `Register` in the menus on the top of the page
+1. Fill out the form, adding and removing exchanges you'd like to enable trading with, and submit
+
+## Using the Trading Bot
+1. Navigate to the web interface and click on `Trading Home` in the menus
+1. Fill in the form under the `Start Trading` section
+1. Click `Start Trading`. Applicable messages and status updates will begin to appear in the text block under the `Server Messages` section
+1. To stop trading, click the `Stop Trading` button
+
+## Custom Arguments
+Use these arguments to customize the behavior of the trading algorithm. These arguments are passed in as JSON when [Using the Trading Bot](#using-the-trading-bot).
+### Available Arguments
+* `tickSpeed | int`: time, in milliseconds, between algorithm passes. Default is 10000 (10 seconds). Setting the value too low may cause slowdowns. Setting the value too high forces the updates to happen too infrequently. 10000-15000 is the recommended range.
+* `maxInvPct | float`: Maximum percent of currency balance that is available for use per trade.
+    * NOTE: this argument is only available for `FloatingArbitrage` trading strategy. `ClassicArbitrage` and `TickerMaintenance` always execute at minimum order sizes.
