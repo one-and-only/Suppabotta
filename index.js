@@ -56,7 +56,6 @@ const userWorker = new Worker("userQueue", async job => {
     let strategyInstance;
     let importantArgs = job.data.strategyArgs;
     delete importantArgs.tickSpeed;
-    // console.log(typeof importantArgs, importantArgs);
     if (Object.keys(importantArgs).length > 0)
         strategyInstance = new strategyData.strategyClass(strategyData.providers, importantArgs);
     else
