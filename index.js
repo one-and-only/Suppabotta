@@ -166,11 +166,9 @@ app.post("/stopTrading", async (req, res) => {
         return;
     }
 
-    const userInfo = await mongoClient.db("ArbitrageBot").collection("Users").findOne({
-        username: req.query.username
-    });
+    const userInfo = await validLogin(req.query);
 
-    if (!(await verifyPassword(userInfo.password, req.query.password))) {
+    if (!userInfo) {
         res.status(400).json({
             success: false,
             error: "Unauthorized to stop trading (invalid password)"
@@ -203,15 +201,17 @@ async function validLogin(query) {
 
     if (!(await verifyPassword(userInfo.password, query.password))) return false;
 
-    return true;
+    return userInfo;
 }
 
 app.get("/login", async (req, res) => {
-    res.send({ result: await validLogin(req.query) });
+    res.send({ result: (await validLogin(req.query)) ? true : false });
 });
 
 app.post("/startTrading", async (req, res) => {
-    if (!(await validLogin(req.query))) {
+    const userInfo = await validLogin(req.query);
+
+    if (!userInfo) {
         res.status(400).json({
             success: false,
             error: "Invalid username or password"
