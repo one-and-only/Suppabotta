@@ -7,19 +7,57 @@
       <h2>This page requires JavaScript to function!</h2>
     </noscript>
 
-    <script>
-      window.onload = function () {
-        if (!localStorage.getItem("username")) {
-          window.location.href = "/login.html";
-          return;
-        }
-      };
-    </script>
     <script src="/home.js"></script>
     <script src="/html-loader.js"></script>
+
+    <style>
+        .container {
+            display: grid;
+            grid-template-columns: repeat(2, auto);
+            align-items: baseline;
+        }
+
+        button:hover {
+            cursor: pointer;
+        }
+
+        input[type=button] {
+            cursor: pointer;
+        }
+    </style>
   </head>
   <body>
     <div w3-include-html="menu.html"></div>
+
+    <br>
+    <br>
+    <div>Signed in as: <span id="usernameDisplay"></span>&#32;<button onclick="logout()">Logout</button></div>
+    <br><br>
+    <div class="container">
+        <form>
+            <h3>Start Trading:</h3>
+            <span>Trading Strategy:</span>
+            <select id="strategy">
+                <option value="TickerMaintenance">Ticker Maintenance</option>
+                <option value="ClassicArbitrage">Classic Arbitrage</option>
+                <option value="FloatingArbitrage">Floating Arbitrage</option>
+            </select>
+            <br><br>
+
+            <span>Optional Custom Arguments (JSON; <a href="https://github.com/one-and-only/Suppabotta#custom-arguments">See Guide</a>):</span>
+            <input type="text" id="strategyArgs" placeholder='{"foo": "bar"}'>
+            <br><br>
+            <span>Confirm Password:</span>
+            <input type="password" id="passwordInput" placeholder="Password">
+            <br><br>
+
+            <input type="button" id="tradingButton" onclick="startTrading()" value="Start Trading">
+        </form>
+        <div>
+            <h3>Server Messages:</h3>
+            <textarea readonly rows="5" cols="50"></textarea>
+        </div>
+    </div>
 
     <script>
       includeHTML();
