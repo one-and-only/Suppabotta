@@ -37,7 +37,6 @@ async function startTrading() {
         strategyArgs = null;
     }
 
-    // console.log(`/startTrading?username=${username}&password=${password}&strategy=${strategy}${strategyArgs ? `&args=${strategyArgs}` : ""}`);
     const response = await (await fetch(
         `/startTrading?username=${username}&password=${password}&strategy=${strategy}${strategyArgs ? `&args=${strategyArgs}` : ""}`,
         {
