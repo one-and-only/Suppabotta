@@ -6,8 +6,8 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
      * 
      * @param {BaseProvider[]} connectors 
      */
-    constructor(connectors) {
-        super(connectors);
+    constructor(connectors, args) {
+        super(connectors, args);
         this._lastMaintainedTimestamp = 0;
         this._buyingReferenceCurrency = false;
     }

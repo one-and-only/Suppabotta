@@ -5,8 +5,9 @@ export default class BaseStrategy {
      * 
      * @param {BaseProvider[]} connectors 
      */
-    constructor(connectors) {
+    constructor(connectors, args) {
         this._connectors = connectors;
+        this._socketBroadcaster = args.socketBroadcaster;
     }
 
     async start() {

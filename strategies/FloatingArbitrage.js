@@ -78,12 +78,11 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
      * @param {string} referenceCurrency
      */
     async processSuitablePrices(connector1, connector2, priceInfo1, priceInfo2, commonMinOrderAmount, referenceCurrency) {
-        Logger.info("FloatingArbitrage", "profitCheck", "Found a suitable FloatingArbitrage trade");
 
         const referenceBalance = await this.cachedBalance(connector2, referenceCurrency);
         const rtmBalance = await this.cachedBalance(connector1, "RTM");
         if (!referenceBalance.success || !rtmBalance.success) {
-            Logger.error("FloatingArbitrage", "submitOrder_balanceCheck", "Failed to get balance");
+            Logger.error("FloatingArbitrage", "submitOrder_balanceCheck", "Failed to get balance", this._socketBroadcaster);
             return;
         }
 
@@ -93,25 +92,23 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
         if (
             commonBalance < commonMinOrderAmount
         ) {
-            Logger.warning("FloatingArbitrage", "submitOrder_balanceCheck", "Not enough balance to execute suitable FloatingArbitrage trade, giving up.");
+            Logger.warning("FloatingArbitrage", "submitOrder_balanceCheck", "Not enough balance to execute suitable FloatingArbitrage trade, giving up.", this._socketBroadcaster);
             return;
         }
 
         const rtmAmount = commonBalance / priceInfo2.buyPrice;
-        Logger.info("FloatingArbitrage", "submitOrder_execute", `Buying ${rtmAmount} RTM from ${connector2._name} @ ${priceInfo2.buyPrice} (${referenceCurrency})`);
-        Logger.info("FloatingArbitrage", "submitOrder_execute", `Selling ${rtmAmount} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${(rtmAmount * priceInfo1.sellPrice) - commonBalance} ${referenceCurrency} in profit once fully executed)`);
+        Logger.info("FloatingArbitrage", "submitOrder_execute", `Buying ${rtmAmount} RTM from ${connector2._name} @ ${priceInfo2.buyPrice} (${referenceCurrency})`, this._socketBroadcaster);
+        Logger.info("FloatingArbitrage", "submitOrder_execute", `Selling ${rtmAmount} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${(rtmAmount * priceInfo1.sellPrice) - commonBalance} ${referenceCurrency} in profit once fully executed)`, this._socketBroadcaster);
 
         await Promise.all([
             connector2.addBuyOrder(rtmAmount, priceInfo2.buyPrice, referenceCurrency),
             connector1.addSellOrder(rtmAmount, priceInfo1.sellPrice, referenceCurrency)
         ]);
-        Logger.success("FloatingArbitrage", "submitOrder", "Executed FloatingArbitrage trade!");
+        Logger.success("FloatingArbitrage", "submitOrder", "Executed FloatingArbitrage trade!", this._socketBroadcaster);
     }
 
     async tick() {
         this.initializeCaches();
-
-        console.log("|");
 
         // we need to wait until the pending trades are complete before executing another one
         for (const connector of this._connectors) {
@@ -149,8 +146,6 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
                         let otherMinOrderSize = otherConnector.minOrderSize(currentReferenceCurrency);
 
                         const otherPriceInfo = await this.cachedMarketPrice(otherConnector, currentReferenceCurrency);
-
-                        console.log(`${currentReferenceCurrency} - ${currentConnector._name} ${currentPriceInfo.buyPrice} ${currentPriceInfo.sellPrice} ${otherConnector._name} ${otherPriceInfo.buyPrice} ${otherPriceInfo.sellPrice}`);
 
                         if ((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) >= 1.015) {
                             currentMinOrderSize = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize : currentMinOrderSize * currentPriceInfo.sellPrice;

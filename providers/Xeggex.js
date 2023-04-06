@@ -80,7 +80,7 @@ export default class Xeggex extends BaseProvider {
                 this._pendingTrades.push(response.id);
             }
         } catch (e) {
-            Logger.error(this._name, `submitOrder_${isBuy ? "buy" : "sell"}`, `Failed to submit order`);
+            Logger.error(this._name, `submitOrder_${isBuy ? "buy" : "sell"}`, `Failed to submit order`, this._socketBroadcaster);
             return;
         }
     }
@@ -117,7 +117,7 @@ export default class Xeggex extends BaseProvider {
         const orderStatus = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
 
         if (orderStatus.error) {
-            Logger.error(this._name, "orderStatus", `Failed to get order status (${orderStatus.error.message}; ${orderStatus.error.description})`);
+            Logger.error(this._name, "orderStatus", `Failed to get order status (${orderStatus.error.message}; ${orderStatus.error.description})`, this._socketBroadcaster);
             return;
         }
 
@@ -142,7 +142,7 @@ export default class Xeggex extends BaseProvider {
         const balances = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
 
         if (balances.error) {
-            Logger.error(this._name, "getBalance", `Failed to get balance (${balances.error.message}; ${balances.error.description})`)
+            Logger.error(this._name, "getBalance", `Failed to get balance (${balances.error.message}; ${balances.error.description})`, this._socketBroadcaster)
             return;
         }
 

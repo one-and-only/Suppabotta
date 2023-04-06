@@ -7,8 +7,9 @@
       <h2>This page requires JavaScript to function!</h2>
     </noscript>
 
-    <script src="/home.js"></script>
     <script src="/html-loader.js"></script>
+    <script src="/deps/socket.io.min.js"></script>
+    <script src="/home.js"></script>
 
     <style>
         .container {
@@ -52,10 +53,11 @@
             <br><br>
 
             <input type="button" id="tradingButton" onclick="startTrading()" value="Start Trading">
+            <input type="button" onclick="clearServerMessages()" value="Clear Server Messages">
         </form>
         <div>
             <h3>Server Messages:</h3>
-            <textarea readonly rows="5" cols="50"></textarea>
+            <textarea readonly style="width: 934px; height: 116px;" id="serverMessagesDisplay"></textarea>
         </div>
     </div>
 

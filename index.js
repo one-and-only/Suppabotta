@@ -1,9 +1,10 @@
-import { createServer as httpsServer } from "https";
+import { createServer as createHttpsServer } from "https";
 import { } from "dotenv/config";
-import { readFile, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import { MongoClient } from "mongodb";
 import { verify as verifyPassword, hash as hashPassword } from "argon2";
 import express from "express";
+import * as socketIo from "socket.io";
 import { promisify } from "util";
 import Logger from "./Logger.js";
 
@@ -56,10 +57,7 @@ const userWorker = new Worker("userQueue", async job => {
     let strategyInstance;
     let importantArgs = job.data.strategyArgs;
     delete importantArgs.tickSpeed;
-    if (Object.keys(importantArgs).length > 0)
-        strategyInstance = new strategyData.strategyClass(strategyData.providers, importantArgs);
-    else
-        strategyInstance = new strategyData.strategyClass(strategyData.providers);
+    strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...importantArgs, socketBroadcaster: strategyData.socketBroadcaster });
 
     await strategyInstance.start();
     while (true) {
@@ -87,17 +85,15 @@ app.use(express.static("static"));
 
 app.get("/queue_info", async (req, res) => {
     res.json({
-        numTradingThreads: await numJobsLeft()
+        tradingThreadsCount: await numJobsLeft(),
+        failedCount: await userQueue.getFailedCount(),
+        completedCount: await userQueue.getCompletedCount()
     });
 });
 
 app.get("/", (req, res) => {
     res.send(readFileSync("static/index.html").toString());
 });
-
-app.get("/register", (req, res) => {
-    res.send(readFileSync("static/register.html").toString());
-})
 
 app.post("/register", async (req, res) => {
     if (!req.body.username || !req.body.password) {
@@ -250,6 +246,7 @@ app.post("/startTrading", async (req, res) => {
     userQueueData[req.query.username] = {
         providers: [],
         strategyClass: strategyInfo.strategyClass,
+        socketBroadcaster: io.to(req.query.username),
         wantsShutdown: false
     };
 
@@ -259,7 +256,7 @@ app.post("/startTrading", async (req, res) => {
         userQueueData[req.query.username].providers.push(provider);
     }
 
-    await userQueue.add(req.query.username, { username: req.query.username, strategyArgs: req.query.args ? JSON.parse(req.query.args) : null });
+    await userQueue.add(req.query.username, { username: req.query.username, strategyArgs: req.query.args ? JSON.parse(req.query.args) : {} });
 
     res.json({
         success: true,
@@ -267,10 +264,25 @@ app.post("/startTrading", async (req, res) => {
     });
 });
 
-const expressServer = httpsServer({
+const expressServer = createHttpsServer({
     key: readFileSync(process.env.SSL_KEY_PATH),
     cert: readFileSync(process.env.SSL_CERT_PATH),
-}, app);
+});
+expressServer.on("request", app);
+
+const io = new socketIo.Server(expressServer, {
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 60 * 1000,
+        skipMiddlewares: true,
+    }
+});
+
+io.on("connection", socket => {
+    socket.on("login as", username => {
+        socket.join(username);
+    });
+});
+
 expressServer.listen(process.env.EXPRESS_PORT, () => {
     Logger.success("Global", "expressInit", `Express server is initialized and running on port ${process.env.EXPRESS_PORT}`);
 });

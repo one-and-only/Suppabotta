@@ -7,8 +7,8 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
     _priceCache;
     _balanceCache;
 
-    constructor(connectors) {
-        super(connectors);
+    constructor(connectors, args) {
+        super(connectors, args);
         this._alreadyProcessed = new Set();
     }
 
@@ -76,17 +76,17 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
      * @param {string} referenceCurrency
      */
     async processSuitablePrices(connector1, connector2, priceInfo1, priceInfo2, commonMinOrderAmount, referenceCurrency) {
-        console.log("Found a suitable ClassicArbitrage trade:");
+        // console.log("Found a suitable ClassicArbitrage trade:");
         const numRtmBuying = commonMinOrderAmount / priceInfo2.buyPrice;
         const numRtmSelling = commonMinOrderAmount / priceInfo1.sellPrice;
-        console.log(`Buying ${numRtmBuying} RTM from ${connector2._name} @ ${priceInfo2.buyPrice} (${referenceCurrency})`);
-        console.log(`Selling ${numRtmSelling} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${numRtmBuying - numRtmSelling} RTM in profit)`);
+        // console.log(`Buying ${numRtmBuying} RTM from ${connector2._name} @ ${priceInfo2.buyPrice} (${referenceCurrency})`);
+        // console.log(`Selling ${numRtmSelling} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${numRtmBuying - numRtmSelling} RTM in profit)`);
 
         if (
             priceInfo1.sellDepth < numRtmSelling ||
             priceInfo2.buyDepth < numRtmBuying
         ) {
-            Logger.info("ClassicArbitrage", "submitOrder_depthCheck", "Not enough depth to execute trade at min order size");
+            Logger.info("ClassicArbitrage", "submitOrder_depthCheck", "Not enough depth to execute trade at min order size", this._socketBroadcaster);
             return;
         }
 
@@ -94,7 +94,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
         const rtmBalance = await this.cachedBalance(connector1, "RTM");
 
         if (!referenceBalance.success || !rtmBalance.success) {
-            Logger.error("ClassicArbitrage", "submitOrder_balanceCheck", "Failed to get balance");
+            Logger.error("ClassicArbitrage", "submitOrder_balanceCheck", "Failed to get balance", this._socketBroadcaster);
             return;
         }
 
@@ -102,7 +102,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
             referenceBalance.available < commonMinOrderAmount ||
             rtmBalance.available < numRtmSelling
         ) {
-            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", "Not enough balance to execute suitable ClassicArbitrage trade");
+            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", "Not enough balance to execute suitable ClassicArbitrage trade", this._socketBroadcaster);
             return;
         }
 
@@ -110,7 +110,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
             connector2.addBuyOrder(numRtmBuying, priceInfo2.buyPrice, referenceCurrency),
             connector1.addSellOrder(numRtmSelling, priceInfo1.sellPrice, referenceCurrency)
         ]);
-        Logger.success("ClassicArbitrage", "submitOrder", "Executed ClassicArbitrade trade!");
+        Logger.success("ClassicArbitrage", "submitOrder", "Executed ClassicArbitrade trade!", this._socketBroadcaster);
     }
 
     async tick() {
@@ -163,8 +163,6 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                             otherMinOrderSize = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize : otherMinOrderSize * otherPriceInfo.sellPrice;
                             const commonMinOrderAmount = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
                             await this.processSuitablePrices(otherConnector, currentConnector, otherPriceInfo, currentPriceInfo, commonMinOrderAmount, currentReferenceCurrency);
-                        } else {
-                            console.log("not good enough");
                         }
                     }
                 }

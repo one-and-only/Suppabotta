@@ -56,7 +56,7 @@ export default class TxBit extends BaseProvider {
         const url = `${this._apiUrl}/market/${side}limit?market=${this.coinToExchangePair(referenceCurrency.toUpperCase())}&quantity=${amount}&rate=${price}&${this.privateQueryParams()}`;
         const status = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
         if (!status.success) {
-            Logger.error(this._name, `submitOrder_${side}`, `Failed to submit order (${status.message})`);
+            Logger.error(this._name, `submitOrder_${side}`, `Failed to submit order (${status.message})`, this._socketBroadcaster);
             return false;
         }
         this._pendingTrades.push(status.result.uuid);
@@ -85,7 +85,7 @@ export default class TxBit extends BaseProvider {
         const orderStatus = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
 
         if (!orderStatus.success) {
-            Logger.error(this._name, "orderStatus", `Failed to get the order status for order ID '${orderId}' (${orderStatus.message})`);
+            Logger.error(this._name, "orderStatus", `Failed to get the order status for order ID '${orderId}' (${orderStatus.message})`, this._socketBroadcaster);
             return {
                 success: false,
                 error: orderStatus.message
@@ -106,7 +106,7 @@ export default class TxBit extends BaseProvider {
         const balance = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
 
         if (!balance.success) {
-            Logger.error(this._name, "getBalance", `Failed to get ${currency} balance (${balance.message})`);
+            Logger.error(this._name, "getBalance", `Failed to get ${currency} balance (${balance.message})`, this._socketBroadcaster);
             return {
                 success: false,
                 error: balance.message
