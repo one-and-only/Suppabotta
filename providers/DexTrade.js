@@ -13,7 +13,7 @@ export default class DexTrade extends BaseProvider {
                 amount: -1,
                 interval: -1
             }
-        });
+        }, true);
     }
 
     async initialize() {
