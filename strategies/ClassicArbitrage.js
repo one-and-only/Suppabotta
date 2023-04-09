@@ -76,11 +76,8 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
      * @param {string} referenceCurrency
      */
     async processSuitablePrices(connector1, connector2, priceInfo1, priceInfo2, commonMinOrderAmount, referenceCurrency) {
-        // console.log("Found a suitable ClassicArbitrage trade:");
         const numRtmBuying = commonMinOrderAmount / priceInfo2.buyPrice;
         const numRtmSelling = commonMinOrderAmount / priceInfo1.sellPrice;
-        // console.log(`Buying ${numRtmBuying} RTM from ${connector2._name} @ ${priceInfo2.buyPrice} (${referenceCurrency})`);
-        // console.log(`Selling ${numRtmSelling} RTM on ${connector1._name} @ ${priceInfo1.sellPrice} (${referenceCurrency}; Estimating ${numRtmBuying - numRtmSelling} RTM in profit)`);
 
         if (
             priceInfo1.sellDepth < numRtmSelling ||
@@ -110,7 +107,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
             connector2.addBuyOrder(numRtmBuying, priceInfo2.buyPrice, referenceCurrency),
             connector1.addSellOrder(numRtmSelling, priceInfo1.sellPrice, referenceCurrency)
         ]);
-        Logger.success("ClassicArbitrage", "submitOrder", "Executed ClassicArbitrade trade!", this._socketBroadcaster);
+        Logger.success("ClassicArbitrage", "submitOrder", `Bought ${numRtmBuying} from ${connector2._name}, sold ${numRtmSelling} at ${connector1._name} (${numRtmBuying - numRtmSelling} RTM in profit)`, this._socketBroadcaster);
     }
 
     async tick() {
@@ -152,6 +149,13 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                         let otherMinOrderSize = otherConnector.minOrderSize(currentReferenceCurrency);
 
                         const otherPriceInfo = await this.cachedMarketPrice(otherConnector, currentReferenceCurrency);
+
+                        Logger.info(
+                            "ClassicArbitrage",
+                            "profitCheck",
+                            `Potential Profit: ${(Math.max((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) - 1, (otherPriceInfo.sellPrice / currentPriceInfo.buyPrice) - 1)) * 100}%`,
+                            this._socketBroadcaster
+                        );
 
                         if ((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) >= 1.015) {
                             currentMinOrderSize = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize : currentMinOrderSize * currentPriceInfo.sellPrice;

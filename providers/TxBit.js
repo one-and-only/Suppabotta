@@ -20,28 +20,39 @@ export default class TxBit extends BaseProvider {
     }
 
     async allTradingPairs() {
-        const markets = await (await this._requestHelper.get(`${this._apiUrl}/public/getmarkets`, false)).json();
+        try {
+            const markets = await (await this._requestHelper.get(`${this._apiUrl}/public/getmarkets`, false)).json();
 
-        for (const market of markets.result) {
-            if (market.MarketCurrency !== "RTM") continue;
+            for (const market of markets.result) {
+                if (market.MarketCurrency !== "RTM") continue;
 
-            this._tradingPairs[market.BaseCurrency] = { pair: market.MarketName, enabled: true };
-            this._minTradeVolumes[market.MarketName] = market.MinTradeSize;
+                this._tradingPairs[market.BaseCurrency] = { pair: market.MarketName, enabled: true };
+                this._minTradeVolumes[market.MarketName] = market.MinTradeSize;
+            }
+        } catch (e) {
+            Logger.error(this._name, "initialize_allTradingPairs", `Failed to initialize trading pair data (${JSON.stringify(e)})`);
         }
     }
 
     async getMarketPrice(referenceCurrency) {
-        const orderBookData = await (await this._requestHelper.get(`${this._apiUrl}/public/getorderbook?market=RTM/${referenceCurrency.toUpperCase()}&type=both`, false)).json();
-        const orderBookAsks = orderBookData.result.sell.sort((a, b) => a.Rate - b.Rate);
-        const orderBookBids = orderBookData.result.buy.sort((a, b) => b.Rate - a.Rate);
+        try {
+            const orderBookData = await (await this._requestHelper.get(`${this._apiUrl}/public/getorderbook?market=RTM/${referenceCurrency.toUpperCase()}&type=both`, false)).json();
+            const orderBookAsks = orderBookData.result.sell.sort((a, b) => a.Rate - b.Rate);
+            const orderBookBids = orderBookData.result.buy.sort((a, b) => b.Rate - a.Rate);
 
-        return {
-            success: true,
-            sellPrice: orderBookBids[0].Rate,
-            sellDepth: orderBookBids[0].Quantity,
-            buyPrice: orderBookAsks[0].Rate,
-            buyDepth: orderBookAsks[0].Quantity
-        };
+            return {
+                success: true,
+                sellPrice: orderBookBids[0].Rate,
+                sellDepth: orderBookBids[0].Quantity,
+                buyPrice: orderBookAsks[0].Rate,
+                buyDepth: orderBookAsks[0].Quantity
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: `Failed to get market price (${JSON.stringify(e)})`
+            };
+        }
     }
 
     privateQueryParams() {
@@ -53,14 +64,19 @@ export default class TxBit extends BaseProvider {
     }
 
     async submitOrder(amount, price, referenceCurrency, side) {
-        const url = `${this._apiUrl}/market/${side}limit?market=${this.coinToExchangePair(referenceCurrency.toUpperCase())}&quantity=${amount}&rate=${price}&${this.privateQueryParams()}`;
-        const status = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
-        if (!status.success) {
-            Logger.error(this._name, `submitOrder_${side}`, `Failed to submit order (${status.message})`, this._socketBroadcaster);
+        try {
+            const url = `${this._apiUrl}/market/${side}limit?market=${this.coinToExchangePair(referenceCurrency.toUpperCase())}&quantity=${amount}&rate=${price}&${this.privateQueryParams()}`;
+            const status = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
+            if (!status.success) {
+                Logger.error(this._name, `submitOrder_${side}`, `Failed to submit order (${status.message})`);
+                return false;
+            }
+            this._pendingTrades.push(status.result.uuid);
+            return true;
+        } catch (e) {
+            Logger.error(this._name, `submitOrder_${side}`, `Failed to submit order (${JSON.stringify(e)})`);
             return false;
         }
-        this._pendingTrades.push(status.result.uuid);
-        return true;
     }
 
     async addBuyOrder(amount, price, referenceCurrency) {
@@ -72,12 +88,16 @@ export default class TxBit extends BaseProvider {
     }
 
     async cancelAllPending() {
-        for (const tradeUuid of this._pendingTrades) {
-            const url = `${this._apiUrl}/market/cancel?uuid=${tradeUuid}&${this.privateQueryParams()}`;
-            await this._requestHelper.get(url, true, { apisign: this.signHeader(url) });
+        try {
+            for (const tradeUuid of this._pendingTrades) {
+                const url = `${this._apiUrl}/market/cancel?uuid=${tradeUuid}&${this.privateQueryParams()}`;
+                await this._requestHelper.get(url, true, { apisign: this.signHeader(url) });
+            }
+            this._pendingTrades = [];
+            return true;
+        } catch (e) {
+            Logger.error(this._name, "cancelAllPending", `Failed to cancel all pending orders (${JSON.stringify(e)})`);
         }
-        this._pendingTrades = [];
-        return true;
     }
 
     async orderStatus(orderId) {
@@ -85,7 +105,7 @@ export default class TxBit extends BaseProvider {
         const orderStatus = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
 
         if (!orderStatus.success) {
-            Logger.error(this._name, "orderStatus", `Failed to get the order status for order ID '${orderId}' (${orderStatus.message})`, this._socketBroadcaster);
+            Logger.error(this._name, "orderStatus", `Failed to get the order status for order ID '${orderId}' (${orderStatus.message})`);
             return {
                 success: false,
                 error: orderStatus.message
@@ -106,7 +126,7 @@ export default class TxBit extends BaseProvider {
         const balance = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
 
         if (!balance.success) {
-            Logger.error(this._name, "getBalance", `Failed to get ${currency} balance (${balance.message})`, this._socketBroadcaster);
+            Logger.error(this._name, "getBalance", `Failed to get ${currency} balance (${balance.message})`);
             return {
                 success: false,
                 error: balance.message
