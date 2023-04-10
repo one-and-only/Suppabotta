@@ -69,7 +69,7 @@ const userWorker = new Worker("userQueue", async job => {
         await strategyInstance.tick();
         await sleep(tickSpeed);
     }
-}, { connection: redisConnection });
+}, { connection: redisConnection, concurrency: 9999 });
 
 async function numJobsLeft() {
     return (await userQueue.getJobs("active")).length;
