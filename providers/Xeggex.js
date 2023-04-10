@@ -20,13 +20,17 @@ export default class Xeggex extends BaseProvider {
     }
 
     async allTradingPairs() {
-        const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/getlist`)).json();
+        try {
+            const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/getlist`)).json();
 
-        for (const market of markets) {
-            if (!market.symbol.startsWith("RTM")) continue;
+            for (const market of markets) {
+                if (!market.symbol.startsWith("RTM")) continue;
 
-            this._tradingPairs[market.secondaryAsset.ticker] = { pair: market.symbol, enabled: true };
-            this._minTradeVolumes[market.symbol] = market.minimumQuantity;
+                this._tradingPairs[market.secondaryAsset.ticker] = { pair: market.symbol, enabled: true };
+                this._minTradeVolumes[market.symbol] = market.minimumQuantity;
+            }
+        } catch (e) {
+            Logger.error(this._name, "initialize_allTradingPairs", "Failed to get market info");
         }
     }
 
@@ -42,18 +46,25 @@ export default class Xeggex extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinToExchangePair(referenceCurrency).replace("/", "_")}`)).json();
+        try {
+            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinToExchangePair(referenceCurrency).replace("/", "_")}`)).json();
 
-        const bid = orderBook.bids[0];
-        const ask = orderBook.asks[0];
+            const bid = orderBook.bids[0];
+            const ask = orderBook.asks[0];
 
-        return {
-            success: true,
-            sellPrice: bid.numberprice,
-            sellDepth: parseFloat(bid.quantity),
-            buyPrice: ask.numberprice,
-            buyDepth: parseFloat(ask.quantity)
-        };
+            return {
+                success: true,
+                sellPrice: bid.numberprice,
+                sellDepth: parseFloat(bid.quantity),
+                buyPrice: ask.numberprice,
+                buyDepth: parseFloat(ask.quantity)
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get market price"
+            };
+        }
     }
 
     async submitOrder(amount, price, referenceCurrency, isBuy) {
@@ -79,9 +90,10 @@ export default class Xeggex extends BaseProvider {
             if (parseFloat(response.remainQuantity) > 0) {
                 this._pendingTrades.push(response.id);
             }
+
+            return true;
         } catch (e) {
-            Logger.error(this._name, `submitOrder_${isBuy ? "buy" : "sell"}`, `Failed to submit order`, this._socketBroadcaster);
-            return;
+            return false;
         }
     }
 
@@ -100,12 +112,16 @@ export default class Xeggex extends BaseProvider {
                 id: orderId
             });
 
-            await this._requestHelper.post(
-                url,
-                body,
-                true,
-                this.authHeaders(url, body)
-            );
+            try {
+                await this._requestHelper.post(
+                    url,
+                    body,
+                    true,
+                    this.authHeaders(url, body)
+                );
+            } catch (e) {
+                continue;
+            }
         }
 
         this._pendingTrades = [];
@@ -113,54 +129,72 @@ export default class Xeggex extends BaseProvider {
     }
 
     async orderStatus(orderId) {
-        const url = `${this._apiUrl}/getorder/${orderId}`;
-        const orderStatus = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
+        try {
+            const url = `${this._apiUrl}/getorder/${orderId}`;
+            const orderStatus = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
 
-        if (orderStatus.error) {
-            Logger.error(this._name, "orderStatus", `Failed to get order status (${orderStatus.error.message}; ${orderStatus.error.description})`, this._socketBroadcaster);
-            return;
-        }
+            if (orderStatus.error) {
+                return {
+                    success: false,
+                    error: "Failed to get order status"
+                };
+            }
 
-        if (parseFloat(orderStatus.remainQuantity) === 0) {
+            if (parseFloat(orderStatus.remainQuantity) === 0) {
+                return {
+                    success: false,
+                    error: "Order already fulfilled"
+                };
+            }
+
+            return {
+                success: true,
+                type: `${orderStatus.type.toUpperCase()}_${orderStatus.side.toUpperCase()}`,
+                market: orderStatus.result.Exchange,
+                price: parseFloat(orderStatus.price),
+                quantityLeft: parseFloat(orderStatus.remainQuantity)
+            };
+        } catch (e) {
             return {
                 success: false,
-                error: "Order already fulfilled"
+                error: "Failed to get order status"
             };
         }
-
-        return {
-            success: true,
-            type: `${orderStatus.type.toUpperCase()}_${orderStatus.side.toUpperCase()}`,
-            market: orderStatus.result.Exchange,
-            price: parseFloat(orderStatus.price),
-            quantityLeft: parseFloat(orderStatus.remainQuantity)
-        };
     }
 
     async getBalance(currency) {
-        const url = `${this._apiUrl}/balances`;
-        const balances = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
+        try {
+            const url = `${this._apiUrl}/balances`;
+            const balances = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
 
-        if (balances.error) {
-            Logger.error(this._name, "getBalance", `Failed to get balance (${balances.error.message}; ${balances.error.description})`, this._socketBroadcaster)
-            return;
-        }
-
-        for (const balance of balances) {
-            if (balance.asset === currency.toUpperCase()) {
-                const available = parseFloat(balance.available);
-                const pending = parseFloat(balance.pending);
+            if (balances.error) {
                 return {
-                    success: true,
-                    total: available + pending,
-                    available: available
+                    success: false,
+                    error: "Failed to get balance"
                 };
             }
-        }
 
-        return {
-            success: false,
-            error: "Invalid currency"
-        };
+            for (const balance of balances) {
+                if (balance.asset === currency.toUpperCase()) {
+                    const available = parseFloat(balance.available);
+                    const pending = parseFloat(balance.pending);
+                    return {
+                        success: true,
+                        total: available + pending,
+                        available: available
+                    };
+                }
+            }
+
+            return {
+                success: false,
+                error: "Invalid currency"
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get balance"
+            };
+        }
     }
 }

@@ -19,22 +19,29 @@ export default class TradeOgre extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-RTM`)).json();
+        try {
+            const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-RTM`)).json();
 
-        if (!marketData.success) return { success: false, error: marketData.error };
+            if (!marketData.success) return { success: false, error: marketData.error };
 
-        const askKeys = Object.keys(marketData.sell);
-        const ask = { price: parseFloat(askKeys[0]), depth: marketData.sell[askKeys[0]] };
+            const askKeys = Object.keys(marketData.sell);
+            const ask = { price: parseFloat(askKeys[0]), depth: marketData.sell[askKeys[0]] };
 
-        const bidKeys = Object.keys(marketData.buy);
-        const bid = { price: parseFloat(bidKeys[bidKeys.length - 1]), depth: parseFloat(marketData.buy[bidKeys[bidKeys.length - 1]]) };
-        return {
-            success: true,
-            buyPrice: parseFloat(ask.price),
-            buyDepth: parseFloat(ask.depth),
-            sellPrice: parseFloat(bid.price),
-            sellDepth: parseFloat(bid.depth)
-        };
+            const bidKeys = Object.keys(marketData.buy);
+            const bid = { price: parseFloat(bidKeys[bidKeys.length - 1]), depth: parseFloat(marketData.buy[bidKeys[bidKeys.length - 1]]) };
+            return {
+                success: true,
+                buyPrice: parseFloat(ask.price),
+                buyDepth: parseFloat(ask.depth),
+                sellPrice: parseFloat(bid.price),
+                sellDepth: parseFloat(bid.depth)
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get market price"
+            };
+        }
     }
 
     async allTradingPairs() {
@@ -57,26 +64,30 @@ export default class TradeOgre extends BaseProvider {
 
     // TradeOgre makes buy and sell really intuitive :)
     async submitOrder(amount, price, referenceCurrency, isBuy) {
-        const res = await (await (this._requestHelper.post(
-            `${this._apiUrl}/order/${isBuy ? "buy" : "sell"}`,
-            new URLSearchParams({
-                "market": `${referenceCurrency.toUpperCase()}-RTM`,
-                "quantity": amount.toString(),
-                "price": price.toString()
-            }),
-            true,
-            {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+        try {
+            const res = await (await (this._requestHelper.post(
+                `${this._apiUrl}/order/${isBuy ? "buy" : "sell"}`,
+                new URLSearchParams({
+                    "market": `${referenceCurrency.toUpperCase()}-RTM`,
+                    "quantity": amount.toString(),
+                    "price": price.toString()
+                }),
+                true,
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+                }
+            ))).json();
+
+            if (res?.uuid) {
+                this._pendingOrders.push(res.uuid);
+                return res.success;
             }
-        ))).json();
 
-        if (res?.uuid) {
-            this._pendingOrders.push(res.uuid);
-            return res.success;
+            return false;
+        } catch (e) {
+            return false;
         }
-
-        return false;
     }
 
     async addBuyOrder(amount, price, referenceCurrency) {
@@ -88,9 +99,6 @@ export default class TradeOgre extends BaseProvider {
     }
 
     async cancelAllPending() {
-        // there aren't any pending orders
-        if (this._pendingTrades.length < 1) return true;
-
         for (const pendingTrade in this._pendingTrades) {
             await this._requestHelper.post(
                 `${this._apiUrl}/order/cancel`,
@@ -105,48 +113,62 @@ export default class TradeOgre extends BaseProvider {
             );
         }
 
-        return res.success;
+        return true;
     }
 
     async orderStatus(orderId) {
-        const orderStatus = await (await this._requestHelper.get(
-            `${this._apiUrl}/account/order/${orderId}`,
-            true,
-            {
-                "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
-            }
-        )).json();
+        try {
+            const orderStatus = await (await this._requestHelper.get(
+                `${this._apiUrl}/account/order/${orderId}`,
+                true,
+                {
+                    "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+                }
+            )).json();
 
-        if (!orderStatus?.success) return { success: false, error: orderStatus.error };
+            if (!orderStatus?.success) return { success: false, error: orderStatus.error };
 
-        return {
-            success: true,
-            type: orderStatus.type,
-            market: orderStatus.market,
-            price: orderStatus.price,
-            quantityLeft: orderStatus.quantity - orderStatus.fulfilled
-        };
+            return {
+                success: true,
+                type: orderStatus.type,
+                market: orderStatus.market,
+                price: orderStatus.price,
+                quantityLeft: orderStatus.quantity - orderStatus.fulfilled
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get order status"
+            };
+        }
     }
 
     async getBalance(currency) {
-        const balance = await (await this._requestHelper.post(
-            `${this._apiUrl}/account/balance`,
-            new URLSearchParams({
-                "currency": currency.toUpperCase(),
-            }),
-            true,
-            {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+        try {
+            const balance = await (await this._requestHelper.post(
+                `${this._apiUrl}/account/balance`,
+                new URLSearchParams({
+                    "currency": currency.toUpperCase(),
+                }),
+                true,
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
+                }
+            )).json();
+
+            if (!balance.success) return { success: false, error: balance.error };
+
+            return {
+                success: true,
+                total: parseFloat(balance.balance),
+                available: parseFloat(balance.available)
             }
-        )).json();
-
-        if (!balance.success) return { success: false, error: balance.error };
-
-        return {
-            success: true,
-            total: parseFloat(balance.balance),
-            available: parseFloat(balance.available)
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get balance"
+            };
         }
     }
 }

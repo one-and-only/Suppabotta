@@ -30,17 +30,24 @@ export default class CoinEx extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency) {
-        const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=RTM${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();
+        try {
+            const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=RTM${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();
 
-        const ask = marketInfo.data.asks[0];
-        const bid = marketInfo.data.bids[0]
-        return {
-            success: true,
-            buyPrice: parseFloat(ask[0]),
-            buyDepth: parseFloat(ask[1]),
-            sellPrice: parseFloat(bid[0]),
-            sellDepth: parseFloat(bid[1])
-        };
+            const ask = marketInfo.data.asks[0];
+            const bid = marketInfo.data.bids[0]
+            return {
+                success: true,
+                buyPrice: parseFloat(ask[0]),
+                buyDepth: parseFloat(ask[1]),
+                sellPrice: parseFloat(bid[0]),
+                sellDepth: parseFloat(bid[1])
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get market info"
+            };
+        }
     }
 
     createDictText(params) {
@@ -66,21 +73,26 @@ export default class CoinEx extends BaseProvider {
             price: price,
             tonce: Date.now()
         };
-        const response = await this._requestHelper.post(
-            `${this._apiUrl}/order/limit`,
-            JSON.stringify(body),
-            true,
-            {
-                "Content-Type": "application/json",
-                "Authorization": this.createAuthorization(body)
-            }
-        );
-        const responseJson = await response.json();
 
-        if (response.status !== 200 || !responseJson.id) return false;
+        try {
+            const response = await this._requestHelper.post(
+                `${this._apiUrl}/order/limit`,
+                JSON.stringify(body),
+                true,
+                {
+                    "Content-Type": "application/json",
+                    "Authorization": this.createAuthorization(body)
+                }
+            );
+            const responseJson = await response.json();
 
-        this._pendingTrades.push({ market: market, id: responseJson.id });
-        return true;
+            if (response.status !== 200 || !responseJson.id) return false;
+
+            this._pendingTrades.push({ market: market, id: responseJson.id });
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     async addBuyOrder(amount, price, referenceCurrency) {
@@ -101,19 +113,23 @@ export default class CoinEx extends BaseProvider {
                 market: pendingTrade.market,
                 tonce: Date.now()
             }
-    
-            const response = await this._requestHelper.request(
-                `${this._apiUrl}/order/pending?${this.createDictText(params)}`,
-                "DELETE",
-                null,
-                true,
-                {
-                    "Authorization": this.createAuthorization(params)
-                }
-            );
-    
-            const responseJson = await response.json();
-            if (response.status !== 200 || !responseJson.id) return false;
+
+            try {
+                const response = await this._requestHelper.request(
+                    `${this._apiUrl}/order/pending?${this.createDictText(params)}`,
+                    "DELETE",
+                    null,
+                    true,
+                    {
+                        "Authorization": this.createAuthorization(params)
+                    }
+                );
+
+                const responseJson = await response.json();
+                if (response.status !== 200 || !responseJson.id) return false;
+            } catch (e) {
+                continue;
+            }
         }
 
         return true;
@@ -126,25 +142,33 @@ export default class CoinEx extends BaseProvider {
             market: order.market,
             tonce: Date.now()
         };
-        const response = await this._requestHelper.get(
-            `${this._apiUrl}/order/status?${this.createDictText(params)}`,
-            true,
-            {
-                "Authorization": this.createAuthorization(params)
-            }
-        );
 
-        const orderStatus = (await response.json()).data;
+        try {
+            const response = await this._requestHelper.get(
+                `${this._apiUrl}/order/status?${this.createDictText(params)}`,
+                true,
+                {
+                    "Authorization": this.createAuthorization(params)
+                }
+            );
 
-        if (response.status !== 200) return { success: false }
+            const orderStatus = (await response.json()).data;
 
-        return {
-            success: true,
-            type: orderStatus.type,
-            market: market,
-            price: orderStatus.price,
-            quantityLeft: parseFloat(orderStatus.left)
-        };
+            if (response.status !== 200) return { success: false }
+
+            return {
+                success: true,
+                type: orderStatus.type,
+                market: market,
+                price: orderStatus.price,
+                quantityLeft: parseFloat(orderStatus.left)
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get order status"
+            };
+        }
     }
 
     async getBalance(currency) {
@@ -152,27 +176,35 @@ export default class CoinEx extends BaseProvider {
             access_id: this._apiKey,
             tonce: Date.now()
         };
-        const response = await (await this._requestHelper.get(
-            `${this._apiUrl}/balance/info?${this.createDictText(params)}`,
-            true,
-            {
-                "Authorization": this.createAuthorization(params)
-            }
-        )).json();
 
-        const currencyData = response.data[currency.toUpperCase()];
-        if (!currencyData) {
+        try {
+            const response = await (await this._requestHelper.get(
+                `${this._apiUrl}/balance/info?${this.createDictText(params)}`,
+                true,
+                {
+                    "Authorization": this.createAuthorization(params)
+                }
+            )).json();
+
+            const currencyData = response.data[currency.toUpperCase()];
+            if (!currencyData) {
+                return {
+                    success: true,
+                    total: 0,
+                    available: 0
+                };
+            }
+
             return {
                 success: true,
-                total: 0,
-                available: 0
-            }
-        }
-
-        return {
-            success: true,
-            total: parseFloat(currencyData.available) + parseFloat(currencyData.frozen),
-            available: parseFloat(currencyData.available)
+                total: parseFloat(currencyData.available) + parseFloat(currencyData.frozen),
+                available: parseFloat(currencyData.available)
+            };
+        } catch (e) {
+            return {
+                success: false,
+                error: "Failed to get balance"
+            };
         }
     }
 }

@@ -150,13 +150,6 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
 
                         const otherPriceInfo = await this.cachedMarketPrice(otherConnector, currentReferenceCurrency);
 
-                        Logger.info(
-                            "ClassicArbitrage",
-                            "profitCheck",
-                            `Potential Profit: ${(Math.max((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) - 1, (otherPriceInfo.sellPrice / currentPriceInfo.buyPrice) - 1)) * 100}%`,
-                            this._socketBroadcaster
-                        );
-
                         if ((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) >= 1.015) {
                             currentMinOrderSize = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize : currentMinOrderSize * currentPriceInfo.sellPrice;
                             otherMinOrderSize = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize : otherMinOrderSize * otherPriceInfo.buyPrice;

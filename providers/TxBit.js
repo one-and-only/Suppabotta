@@ -68,13 +68,11 @@ export default class TxBit extends BaseProvider {
             const url = `${this._apiUrl}/market/${side}limit?market=${this.coinToExchangePair(referenceCurrency.toUpperCase())}&quantity=${amount}&rate=${price}&${this.privateQueryParams()}`;
             const status = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
             if (!status.success) {
-                Logger.error(this._name, `submitOrder_${side}`, `Failed to submit order (${status.message})`);
                 return false;
             }
             this._pendingTrades.push(status.result.uuid);
             return true;
         } catch (e) {
-            Logger.error(this._name, `submitOrder_${side}`, `Failed to submit order (${JSON.stringify(e)})`);
             return false;
         }
     }
@@ -96,47 +94,59 @@ export default class TxBit extends BaseProvider {
             this._pendingTrades = [];
             return true;
         } catch (e) {
-            Logger.error(this._name, "cancelAllPending", `Failed to cancel all pending orders (${JSON.stringify(e)})`);
+            return false;
         }
     }
 
     async orderStatus(orderId) {
-        const url = `${this._apiUrl}/account/getorder?uuid=${orderId}&${this.privateQueryParams()}`;
-        const orderStatus = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
+        try {
+            const url = `${this._apiUrl}/account/getorder?uuid=${orderId}&${this.privateQueryParams()}`;
+            const orderStatus = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
 
-        if (!orderStatus.success) {
-            Logger.error(this._name, "orderStatus", `Failed to get the order status for order ID '${orderId}' (${orderStatus.message})`);
+            if (!orderStatus.success) {
+                return {
+                    success: false,
+                    error: orderStatus.message
+                };
+            }
+
+            return {
+                success: true,
+                type: orderStatus.result.Type,
+                market: orderStatus.result.Exchange,
+                price: orderStatus.result.Price,
+                quantityLeft: orderStatus.result.QuantityRemaining
+            };
+        } catch (e) {
             return {
                 success: false,
-                error: orderStatus.message
+                error: "Failed to get order status"
             };
         }
-
-        return {
-            success: true,
-            type: orderStatus.result.Type,
-            market: orderStatus.result.Exchange,
-            price: orderStatus.result.Price,
-            quantityLeft: orderStatus.result.QuantityRemaining
-        };
     }
 
     async getBalance(currency) {
-        const url = `${this._apiUrl}/account/getbalance?currency=${currency.toUpperCase()}&${this.privateQueryParams()}`;
-        const balance = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
+        try {
+            const url = `${this._apiUrl}/account/getbalance?currency=${currency.toUpperCase()}&${this.privateQueryParams()}`;
+            const balance = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
 
-        if (!balance.success) {
-            Logger.error(this._name, "getBalance", `Failed to get ${currency} balance (${balance.message})`);
+            if (!balance.success) {
+                return {
+                    success: false,
+                    error: balance.message
+                };
+            }
+
+            return {
+                success: true,
+                total: balance.result.Balance,
+                available: balance.result.Available
+            };
+        } catch (e) {
             return {
                 success: false,
-                error: balance.message
+                error: "Failed to get balance"
             };
         }
-
-        return {
-            success: true,
-            total: balance.result.Balance,
-            available: balance.result.Available
-        };
     }
 }
