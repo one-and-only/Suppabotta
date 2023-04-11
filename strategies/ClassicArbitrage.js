@@ -38,7 +38,9 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
         return false;
     }
 
-    async start() { }
+    async start() {
+        Logger.info("ClassicArbitrage", "startup", "Trading started!", this._socketBroadcaster);
+    }
 
     /**
      * Get the market price of a trading pair from cache, adding to the cache if no entry exists
@@ -99,7 +101,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
             referenceBalance.available < commonMinOrderAmount ||
             rtmBalance.available < numRtmSelling
         ) {
-            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", "Not enough balance to execute suitable ClassicArbitrage trade", this._socketBroadcaster);
+            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", `Not enough balance to execute suitable ClassicArbitrage trade. ${rtmBalance.available}/${numRtmSelling} RTM and ${referenceBalance.available}/${commonMinOrderAmount} ${referenceCurrency.toUpperCase()} available.`, this._socketBroadcaster);
             return;
         }
 

@@ -40,7 +40,9 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
         return false;
     }
 
-    async start() { }
+    async start() {
+        Logger.info("FloatingArbitrage", "startup", "Trading started!", this._socketBroadcaster);
+    }
 
     /**
      * Get the market price of a trading pair from cache, adding to the cache if no entry exists
