@@ -101,7 +101,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
             referenceBalance.available < commonMinOrderAmount ||
             rtmBalance.available < numRtmSelling
         ) {
-            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", `Not enough balance to execute suitable ClassicArbitrage trade. ${rtmBalance.available}/${numRtmSelling} RTM and ${referenceBalance.available}/${commonMinOrderAmount} ${referenceCurrency.toUpperCase()} available.`, this._socketBroadcaster);
+            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", `Not enough balance to execute suitable ClassicArbitrage trade. ${this.decimalRounding(rtmBalance.available, 2)}/${this.decimalRounding(numRtmSelling, 2)} RTM on ${connector1._name} and ${this.decimalRounding(referenceBalance.available, 2)}/${this.decimalRounding(commonMinOrderAmount, 2)} ${referenceCurrency.toUpperCase()} on ${connector2._name} available.`, this._socketBroadcaster);
             return;
         }
 
