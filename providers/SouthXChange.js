@@ -5,14 +5,36 @@ import Logger from "../Logger.js";
 
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        // TODO get the actual withdrawal fee for SouthX
-        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0, true, "SouthXChange");
+        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0.00001354, true, "SouthXChange");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
                 interval: -1
             }
         }, true);
+    }
+
+    privateBodyParams() {
+        return {
+            key: this._apiKey,
+            nonce: Date.now()
+        };
+    }
+
+    /**
+     * Generate an HMAC-SHA512 hash to be used in private SouthXChange requests
+     * @param {string} data string to hash
+     * @returns {string} hex representation of HMAC-SHA512 hash
+    */
+    generateHmac512(data) {
+        return createHmac("sha512", this._apiSecret).update(data).digest("hex");
+    }
+
+    privateHeaders(body) {
+        return {
+            "Content-Type": "application/json",
+            Hash: this.generateHmac512(JSON.stringify(body))
+        }
     }
 
     async initialize() {
@@ -34,15 +56,6 @@ export default class SouthXChange extends BaseProvider {
         } catch (e) {
             Logger.error(this._name, "initialize_allTradingPairs", "Failed to get market info");
         }
-    }
-
-    /**
-     * Generate an HMAC-SHA512 hash to be used in private SouthXChange requests
-     * @param {string} data string to hash
-     * @returns {string} hex representation of HMAC-SHA512 hash
-     */
-    generateHmac512(data) {
-        return createHmac("sha512", this._apiSecret).update(data).digest("hex");
     }
 
     async getMarketPrice(referenceCurrency) {
@@ -74,25 +87,21 @@ export default class SouthXChange extends BaseProvider {
      * @returns {Promise<boolean>} success or failure
      */
     async submitOrder(amount, price, referenceCurrency, type) {
-        const body = JSON.stringify({
+        const body = {
             listingCurrency: "RTM",
             referenceCurrency: referenceCurrency,
             type: type,
             amount: amount,
             limitPrice: price,
-            nonce: Date.now(),
-            key: this._apiKey
-        });
+            ...this.privateBodyParams()
+        };
 
         try {
             const orderResponse = await this._requestHelper.post(
                 `${this._apiUrl}/placeOrder`,
                 body,
                 true,
-                {
-                    "Content-Type": "application/json",
-                    "Hash": this.generateHmac512(body)
-                }
+                this.privateHeaders(body)
             );
             const status = orderResponse.status;
             const orderId = await orderResponse.text();
@@ -122,19 +131,17 @@ export default class SouthXChange extends BaseProvider {
 
     async cancelAllPending() {
         for (const pendingTradeCode of this._pendingTrades) {
-            const body = JSON.stringify({
-                orderCode: pendingTradeCode
-            });
+            const body = {
+                orderCode: pendingTradeCode,
+                ...this.privateBodyParams()
+            };
 
             try {
                 const cancelOrderResponse = await this._requestHelper.post(
                     `${this._apiUrl}/cancelOrder`,
                     body,
                     true,
-                    {
-                        "Content-Type": "application/json",
-                        "Hash": this.generateHmac512(body)
-                    }
+                    this.privateHeaders(body)
                 );
                 if (cancelOrderResponse.status !== 200) return false;
             } catch (e) {
@@ -148,13 +155,13 @@ export default class SouthXChange extends BaseProvider {
 
     async orderStatus(orderId) {
         try {
+            const body = this.privateBodyParams();
+
             const pendingOrdersResponse = await this._requestHelper.post(
                 `${this._apiUrl}/listOrders`,
-                "",
+                body,
                 true,
-                {
-                    "Hash": this.generateHmac512("")
-                }
+                this.privateHeaders(body)
             );
 
             if (pendingOrdersResponse.status !== 200) {
@@ -186,13 +193,13 @@ export default class SouthXChange extends BaseProvider {
 
     async getBalance(currency) {
         try {
+            const body = this.privateBodyParams();
+
             const balancesResponse = await this._requestHelper.post(
                 `${this._apiUrl}/listBalances`,
-                "",
+                body,
                 true,
-                {
-                    "Hash": this.generateHmac512("")
-                }
+                this.privateHeaders(body)
             );
 
             if (balancesResponse.status !== 200) {
@@ -202,13 +209,12 @@ export default class SouthXChange extends BaseProvider {
             }
 
             const balances = await balancesResponse.json();
-            for (const balance in balances) {
-                console.log(balance);
+            for (const balance of balances) {
                 if (balance.Currency === currency)
                     return {
                         success: true,
-                        total: -1,
-                        available: balance.available
+                        total: balance.Deposited,
+                        available: balance.Available
                     };
             }
         } catch (e) {
