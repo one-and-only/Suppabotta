@@ -18,7 +18,7 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
         const currentTimestamp = Date.now();
 
         // ticker maintenance every 5 minutes
-        if (currentTimestamp - this._lastMaintainedTimestamp > 300000) {
+        if (currentTimestamp - this._lastMaintainedTimestamp > (process.env.TICKER_MAINTENANCE_INTERVAL ? parseInt(process.env.TICKER_MAINTENANCE_INTERVAL) : 300000)) {
             this._lastMaintainedTimestamp = currentTimestamp;
 
             for (const connector of this._connectors) {
@@ -29,8 +29,10 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
                     const settledPrice = this.decimalRounding((market.buy - market.sell) / 2, 11);
 
                     const amountRtm = minTradeVolume / settledPrice;
-                    await connector.addBuyOrder(amountRtm, settledPrice, key);
-                    await connector.addSellOrder(amountRtm, settledPrice, key);
+                    await Promise.all([
+                        connector.addBuyOrder(amountRtm, settledPrice, key),
+                        connector.addSellOrder(amountRtm, settledPrice, key)
+                    ]);
                 }
             }
         }

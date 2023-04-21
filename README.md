@@ -31,6 +31,9 @@ EXPRESS_PORT=443
 # comment out if you want logging to file disabled
 # Logging to console will be enabled regardless
 LOG_FILE_PATH=/home/ubuntu/Suppabotta/session.log
+
+# Milliseconds between ticker maintenance executions (default 300000; 5 minutes)
+TICKER_MAINTENANCE_INTERVAL=300000
 ```
 1. Run the bot using `node index.js`
 
