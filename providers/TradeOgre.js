@@ -4,7 +4,7 @@ import RequestHelper from "../RequestHelper.js";
 
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, true, "TradeOgre");
+        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, true, [0, 1], "-", "TradeOgre");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -18,9 +18,9 @@ export default class TradeOgre extends BaseProvider {
         return this;
     }
 
-    async getMarketPrice(referenceCurrency) {
+    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
-            const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-RTM`)).json();
+            const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-${baseCurrency.toUpperCase()}`)).json();
 
             if (!marketData.success) return { success: false, error: marketData.error };
 

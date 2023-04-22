@@ -5,7 +5,7 @@ import Logger from "../Logger.js";
 
 export default class SouthXChange extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0.00001354, true, "SouthXChange");
+        super(apiSecret, apiKey, "https://www.southxchange.com/api/v4", 0.1, 0.3, 0.00001354, true, [0, 1], "_", "SouthXChange");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -58,9 +58,9 @@ export default class SouthXChange extends BaseProvider {
         }
     }
 
-    async getMarketPrice(referenceCurrency) {
+    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
-            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/book/RTM/${referenceCurrency}`)).json();
+            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/book/${baseCurrency.toUpperCase()}/${referenceCurrency.toUpperCase()}`)).json();
             if (orderBook === "") return { success: false, error: "Invalid reference currency" };
 
             return {

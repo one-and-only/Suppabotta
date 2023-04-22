@@ -5,7 +5,7 @@ import Logger from "../Logger.js";
 
 export default class TxBit extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.txbit.io/api", 0, 0, 400, true, "TxBit");
+        super(apiSecret, apiKey, "https://api.txbit.io/api", 0, 0, 400, true, [0, 1], "/", "TxBit");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -34,9 +34,9 @@ export default class TxBit extends BaseProvider {
         }
     }
 
-    async getMarketPrice(referenceCurrency) {
+    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
-            const orderBookData = await (await this._requestHelper.get(`${this._apiUrl}/public/getorderbook?market=RTM/${referenceCurrency.toUpperCase()}&type=both`, false)).json();
+            const orderBookData = await (await this._requestHelper.get(`${this._apiUrl}/public/getorderbook?market=${baseCurrency.toUpperCase()}/${referenceCurrency.toUpperCase()}&type=both`, false)).json();
             const orderBookAsks = orderBookData.result.sell.sort((a, b) => a.Rate - b.Rate);
             const orderBookBids = orderBookData.result.buy.sort((a, b) => b.Rate - a.Rate);
 

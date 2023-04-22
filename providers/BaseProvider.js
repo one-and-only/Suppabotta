@@ -9,10 +9,14 @@ export default class BaseProvider {
     _makerFeePct;
     _takerFeePct;
     _rtmWithdrawalFee;
-    _minTradeVolumes; // per trading pair
+    _minTradeVolumes;
+    _minTradeVolumeIsReferenceCurrency
     _minTradeVolumeIsReferenceCurrency;
+    _exchangeApiPairCurrencyOrder;
+    _exchangeApiCurrencySeparator;
+    _name;
 
-    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee, minTradeVolumeIsReferenceCurrency, name) {
+    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
@@ -24,6 +28,8 @@ export default class BaseProvider {
         this._rtmWithdrawalFee = rtmWithdrawalFee;
         this._minTradeVolumes = {};
         this._minTradeVolumeIsReferenceCurrency = minTradeVolumeIsReferenceCurrency;
+        this._exchangeApiPairCurrencyOrder = exchangeApiPairCurrencyOrder;
+        this._exchangeApiCurrencySeparator = exchangeApiCurrencySeparator;
         this._name = name;
     }
 
@@ -53,7 +59,16 @@ export default class BaseProvider {
      * @returns {string | undefined} exchange-formatted trading pair
      */
     coinToExchangePair(coin) {
-        return this._tradingPairs[coin.toUpperCase()].pair;
+        return this._tradingPairs[coin.toUpperCase()]?.pair;
+    }
+
+    /**
+     * Format base and reference currency into an exchange API-compatible trading pair
+     * @param {string[]} coins coins to format in the order of [referenceCurrency, baseCurrency]
+     * @returns {string} exchange API-formatted string representing a trading pair
+     */
+    coinsToExchangePair(coins) {
+        return `${coins[this._exchangeApiPairCurrencyOrder[0]].toUpperCase()}${this._exchangeApiCurrencySeparator}${coins[this._exchangeApiPairCurrencyOrder[1]].toUpperCase()}`;
     }
 
     /**
@@ -85,7 +100,7 @@ export default class BaseProvider {
      * @param {string} referenceCurrency crypto which RTM is paired with. Ex: "BTC" (case insensitive)
      * @returns {Promise<{ success: true, sellPrice: number, sellDepth: number, buyPrice: number, buyDepth: number} | { success: false, error: string }>} market price data
      */
-    async getMarketPrice(referenceCurrency) {
+    async getMarketPrice(referenceCurrency, baseCurrency) {
         throw new Error("This method must be implemented.");
     }
 

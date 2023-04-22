@@ -5,7 +5,7 @@ import Logger from "../Logger.js";
 
 export default class Xeggex extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://xeggex.com/api/v2", 0.2, 0.2, 0.62, true, "Xeggex");
+        super(apiSecret, apiKey, "https://xeggex.com/api/v2", 0.2, 0.2, 0.62, true, [0, 1], "_", "Xeggex");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -45,9 +45,9 @@ export default class Xeggex extends BaseProvider {
         };
     }
 
-    async getMarketPrice(referenceCurrency) {
+    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
-            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinToExchangePair(referenceCurrency).replace("/", "_")}`)).json();
+            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();
 
             const bid = orderBook.bids[0];
             const ask = orderBook.asks[0];

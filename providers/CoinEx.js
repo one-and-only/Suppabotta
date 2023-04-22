@@ -4,7 +4,7 @@ import { createHash } from "crypto";
 
 export default class CoinEx extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3, false, "CoinEx");
+        super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3, false, [0, 1], "", "CoinEx");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: 20,
@@ -29,9 +29,9 @@ export default class CoinEx extends BaseProvider {
         }
     }
 
-    async getMarketPrice(referenceCurrency) {
+    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
-            const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=RTM${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();
+            const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();
 
             const ask = marketInfo.data.asks[0];
             const bid = marketInfo.data.bids[0]

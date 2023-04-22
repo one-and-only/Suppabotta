@@ -7,7 +7,7 @@ import RequestHelper from "../RequestHelper.js";
 
 export default class DexTrade extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05, true, "DexTrade");
+        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05, true, [0, 1], "", "DexTrade");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -33,8 +33,8 @@ export default class DexTrade extends BaseProvider {
         }
     }
 
-    async getMarketPrice(referenceCurrency) {
-        const orderBookResponse = await this._requestHelper.get(`${this._apiUrl}/public/book?pair=RTM${referenceCurrency}`);
+    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
+        const orderBookResponse = await this._requestHelper.get(`${this._apiUrl}/public/book?pair=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}`);
 
         if (orderBookResponse.status === 400) return { success: false, error: "Invalid reference currency" }
 
