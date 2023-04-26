@@ -64,7 +64,7 @@ export default class BaseProvider {
 
     /**
      * Format base and reference currency into an exchange API-compatible trading pair
-     * @param {string[]} coins coins to format in the order of [referenceCurrency, baseCurrency]
+     * @param {string[]} coins coins to format in the order of [baseCurrency, referenceCurrency]
      * @returns {string} exchange API-formatted string representing a trading pair
      */
     coinsToExchangePair(coins) {
@@ -111,7 +111,7 @@ export default class BaseProvider {
      * @param {string} referenceCurrency currency buying RTM with
      * @returns {Promise<boolean>} success or failure
      */
-    async addBuyOrder(amount, price, referenceCurrency) {
+    async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
         throw new Error("This method must be implemented.");
     }
 
@@ -122,7 +122,7 @@ export default class BaseProvider {
      * @param {string} referenceCurrency currency buying RTM with
      * @returns {Promise<boolean>} success or failure
      */
-    async addSellOrder(amount, price, referenceCurrency) {
+    async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
         throw new Error("This method must be implemented.");
     }
 

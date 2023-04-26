@@ -63,16 +63,16 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
             this._lastMaintainedTimestamp = currentTimestamp;
 
             for (const connector of this._connectors) {
-                for (const key in connector._tradingPairs) {
-                    const minTradeVolume = connector.minOrderSize(key);
+                for (const referenceCurrency in connector._tradingPairs) {
+                    const minTradeVolume = connector.minOrderSize(referenceCurrency);
 
-                    const market = await connector.getMarketPrice(key);
+                    const market = await connector.getMarketPrice(referenceCurrency);
                     const settledPrice = this.decimalRounding((market.buy - market.sell) / 2, 11);
 
                     const amountRtm = minTradeVolume / settledPrice;
                     await Promise.all([
-                        connector.addBuyOrder(amountRtm, settledPrice, key),
-                        connector.addSellOrder(amountRtm, settledPrice, key)
+                        connector.addBuyOrder(amountRtm, settledPrice, referenceCurrency, "RTM"),
+                        connector.addSellOrder(amountRtm, settledPrice, referenceCurrency, "RTM")
                     ]);
                 }
             }

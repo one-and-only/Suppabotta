@@ -63,13 +63,13 @@ export default class CoinEx extends BaseProvider {
         return createHash("md5").update(this.createDictText(body) + `&secret_key=${this._apiSecret}`).digest("hex").toUpperCase()
     }
 
-    async submitOrder(amount, price, referenceCurrency, isBuy) {
-        const market = `RTM${referenceCurrency.toUpperCase()}`;
+    async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
+        const market = this.coinsToExchangePair([baseCurrency, referenceCurrency]);
         const body = {
             access_id: this._apiKey,
             market: market,
             type: isBuy ? "buy" : "sell",
-            amount: amount,
+            amount: baseAmount,
             price: price,
             tonce: Date.now()
         };
@@ -95,12 +95,12 @@ export default class CoinEx extends BaseProvider {
         }
     }
 
-    async addBuyOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, true);
+    async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, true);
     }
 
-    async addSellOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, false);
+    async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
     async cancelAllPending() {

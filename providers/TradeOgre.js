@@ -4,7 +4,7 @@ import RequestHelper from "../RequestHelper.js";
 
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, true, [0, 1], "-", "TradeOgre");
+        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, true, [1, 0], "-", "TradeOgre");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -63,13 +63,13 @@ export default class TradeOgre extends BaseProvider {
     }
 
     // TradeOgre makes buy and sell really intuitive :)
-    async submitOrder(amount, price, referenceCurrency, isBuy) {
+    async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         try {
             const res = await (await (this._requestHelper.post(
                 `${this._apiUrl}/order/${isBuy ? "buy" : "sell"}`,
                 new URLSearchParams({
-                    "market": `${referenceCurrency.toUpperCase()}-RTM`,
-                    "quantity": amount.toString(),
+                    "market": this.coinsToExchangePair([baseCurrency, referenceCurrency]),
+                    "quantity": baseAmount.toString(),
                     "price": price.toString()
                 }),
                 true,
@@ -90,12 +90,12 @@ export default class TradeOgre extends BaseProvider {
         }
     }
 
-    async addBuyOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, true);
+    async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, true);
     }
 
-    async addSellOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, false);
+    async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
     async cancelAllPending() {

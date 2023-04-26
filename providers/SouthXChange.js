@@ -80,18 +80,18 @@ export default class SouthXChange extends BaseProvider {
 
     /**
      * Submit an order to SouthXChange
-     * @param {number} amount amount of RTM to buy/sell
-     * @param {number} price price per RTM
-     * @param {string} referenceCurrency currency you're pairing RTM with
+     * @param {number} baseAmount amount of base currency to buy/sell
+     * @param {number} price price per baseCurrency
+     * @param {string} referenceCurrency currency you're pairing baseCurrency with
      * @param {string} type type of trade ("buy" or "sell")
      * @returns {Promise<boolean>} success or failure
      */
-    async submitOrder(amount, price, referenceCurrency, type) {
+    async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, type) {
         const body = {
-            listingCurrency: "RTM",
-            referenceCurrency: referenceCurrency,
+            listingCurrency: baseCurrency.toUpperCase(),
+            referenceCurrency: referenceCurrency.toUpperCase(),
             type: type,
-            amount: amount,
+            amount: baseAmount,
             limitPrice: price,
             ...this.privateBodyParams()
         };
@@ -107,7 +107,7 @@ export default class SouthXChange extends BaseProvider {
             const orderId = await orderResponse.text();
 
             if (status === 400) {
-                console.log(orderResponse)
+                Logger.error(this._name, `submitOrder_${type}`, `Failed to submit order (${orderId})`);
                 return false;
             }
             if (status === 200 && orderId.length !== 0) {
@@ -121,12 +121,12 @@ export default class SouthXChange extends BaseProvider {
         }
     }
 
-    async addBuyOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, "buy");
+    async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, "buy");
     }
 
-    async addSellOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, "sell");
+    async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, "sell");
     }
 
     async cancelAllPending() {

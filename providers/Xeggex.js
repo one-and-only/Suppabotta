@@ -67,15 +67,15 @@ export default class Xeggex extends BaseProvider {
         }
     }
 
-    async submitOrder(amount, price, referenceCurrency, isBuy) {
+    async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         const url = `${this._apiUrl}/createorder`;
         const body = JSON.stringify({
             "userProvidedId": randomBytes(16).toString("hex"),
-            "symbol": this.coinToExchangePair(referenceCurrency.toUpperCase()),
+            "symbol": this.coinsToExchangePair([baseCurrency.toUpperCase(), referenceCurrency.toUpperCase()]),
             "side": isBuy ? "buy" : "sell",
             "type": "limit",
-            "quantity": `${amount}`,
-            "price": `${price}`,
+            "quantity": baseAmount.toString(),
+            "price": price.toString(),
             "strictValidate": false
         });
 
@@ -97,12 +97,12 @@ export default class Xeggex extends BaseProvider {
         }
     }
 
-    async addBuyOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, true);
+    async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, true);
     }
 
-    async addSellOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, false);
+    async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
     async cancelAllPending() {

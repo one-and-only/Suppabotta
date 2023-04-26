@@ -56,13 +56,13 @@ export default class DexTrade extends BaseProvider {
      * @param {boolean} isBuy Whether the trade is of type "buy" or not (type "sell")
      * @returns {boolean} success or failure
      */
-    async submitOrder(amount, price, referenceCurrency, isBuy) {
+    async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         const body = {
-            pair: `RTM${referenceCurrency.toUpperCase()}`,
+            pair: this.coinsToExchangePair([baseCurrency, referenceCurrency]),
             rate: price,
             type: isBuy ? 0 : 1,
             type_trade: 0,
-            volume: amount,
+            volume: baseAmount,
             request_id: `${Date.now()}`
         };
         const createOrderResponse = await this._requestHelper.post(
@@ -84,12 +84,12 @@ export default class DexTrade extends BaseProvider {
         return false;
     }
 
-    async addBuyOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, true);
+    async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, true);
     }
 
-    async addSellOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, false);
+    async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
     async cancelAllPending() {

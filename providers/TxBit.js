@@ -63,9 +63,9 @@ export default class TxBit extends BaseProvider {
         return createHmac("sha512", this._apiSecret).update(url).digest("hex").toUpperCase();
     }
 
-    async submitOrder(amount, price, referenceCurrency, side) {
+    async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, side) {
         try {
-            const url = `${this._apiUrl}/market/${side}limit?market=${this.coinToExchangePair(referenceCurrency.toUpperCase())}&quantity=${amount}&rate=${price}&${this.privateQueryParams()}`;
+            const url = `${this._apiUrl}/market/${side}limit?market=${this.coinsToExchangePair([baseCurrency.toUpperCase(), referenceCurrency.toUpperCase()])}&quantity=${baseAmount}&rate=${price}&${this.privateQueryParams()}`;
             const status = await (await this._requestHelper.get(url, true, { apisign: this.signHeader(url) })).json();
             if (!status.success) {
                 return false;
@@ -77,12 +77,12 @@ export default class TxBit extends BaseProvider {
         }
     }
 
-    async addBuyOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, "buy");
+    async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, "buy");
     }
 
-    async addSellOrder(amount, price, referenceCurrency) {
-        return this.submitOrder(amount, price, referenceCurrency, "sell");
+    async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
+        return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, "sell");
     }
 
     async cancelAllPending() {
