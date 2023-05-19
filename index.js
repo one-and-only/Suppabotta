@@ -293,9 +293,7 @@ let shutdownTries = 0;
 process.on("SIGINT", async () => {
     shutdownTries++;
     (shutdownTries > 0) && (shutdownTries % 2 === 0) && process.exit(1);
-    shutdownTries % 2 === 1 && Logger.info("Global", "forcedShutdown", "Shutting down. CTRL + C one more time to force shutdown!");
-
-    Logger.info("Global", "shutdown", "Exit signal received. Cleaning up...");
+    shutdownTries % 2 === 1 && Logger.info("Global", "shutdown", "Exit signal received. Cleaning up... CTRL + C one more time to force shutdown!");
 
     for (const username in userQueueData) {
         userQueueData[username].wantsShutdown = true;
