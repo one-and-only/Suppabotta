@@ -1,4 +1,4 @@
-import BaseProvider from "../providers/BaseProvider.js";
+import BaseProvider from "./BaseProvider.js";
 import RequestHelper from "../RequestHelper.js";
 import { createHmac, randomBytes } from 'crypto';
 import Logger from "../Logger.js";

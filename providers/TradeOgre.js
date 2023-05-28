@@ -1,4 +1,4 @@
-import BaseProvider from "./../providers/BaseProvider.js";
+import BaseProvider from "./BaseProvider.js";
 import { encode as base64Encode } from "js-base64";
 import RequestHelper from "../RequestHelper.js";
 
