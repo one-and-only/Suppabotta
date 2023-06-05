@@ -77,6 +77,7 @@ async function numJobsLeft() {
 
 const mongoClient = new MongoClient(`mongodb://${process.env.MONGODB_USER}:${process.env.MONGODB_PASS}@${process.env.MONGODB_ADDRESS}?authMechanism=DEFAULT`);
 await mongoClient.connect();
+const userCollection = mongoClient.db(process.env.MONGODB_DATABASE).collection("Users");
 
 const app = express();
 app.disable("x-powered-by");
@@ -118,7 +119,7 @@ app.post("/register", async (req, res) => {
         return;
     }
 
-    if (await mongoClient.db("ArbitrageBot").collection("Users").findOne({ username: req.body.username })) {
+    if (await userCollection.findOne({ username: req.body.username })) {
         res.status(400).json({
             success: false,
             error: "User already exists"
@@ -127,7 +128,7 @@ app.post("/register", async (req, res) => {
     }
 
     const passwordHash = await hashPassword(req.body.password);
-    if (!(await mongoClient.db("ArbitrageBot").collection("Users").insertOne({
+    if (!(await userCollection.insertOne({
         username: req.body.username,
         password: passwordHash,
         apiCreds: req.body.exchangeCredentials
@@ -189,7 +190,7 @@ app.post("/stopTrading", async (req, res) => {
 async function validLogin(query) {
     if (!query.username || !query.password) return false;
 
-    const userInfo = await mongoClient.db("ArbitrageBot").collection("Users").findOne({
+    const userInfo = await userCollection.findOne({
         username: query.username
     });
 

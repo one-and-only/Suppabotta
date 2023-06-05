@@ -19,6 +19,7 @@ SSL_KEY_PATH=key.pem
 MONGODB_ADDRESS=localhost:27017
 MONGODB_USER=Suppabotta
 MONGODB_PASS=WeUseRTM
+MONGODB_DATABASE=Suppabotta
 
 # Redis connection details
 REDIS_HOST=localhost
@@ -36,6 +37,11 @@ LOG_FILE_PATH=/home/ubuntu/Suppabotta/session.log
 TICKER_MAINTENANCE_INTERVAL=300000
 ```
 1. Run the bot using `node index.js`
+
+## Want to Use Docker Instead?
+1. Clone this repositpry and open in a terminal
+1. `docker build --pull -t suppabotta:local .`
+1. `docker run -it -v $(pwd):/app suppabotta:local`
 
 ## Adding Users for Trading
 1. Navigate to the web interface using your browser to `https://localhost:EXPRESS_PORT/`
