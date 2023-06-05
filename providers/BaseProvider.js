@@ -10,7 +10,6 @@ export default class BaseProvider {
     _takerFeePct;
     _rtmWithdrawalFee;
     _minTradeVolumes;
-    _minTradeVolumeIsReferenceCurrency
     _minTradeVolumeIsReferenceCurrency;
     _exchangeApiPairCurrencyOrder;
     _exchangeApiCurrencySeparator;
