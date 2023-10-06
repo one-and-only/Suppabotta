@@ -18,6 +18,21 @@ export default class TradeOgre extends BaseProvider {
         return this;
     }
 
+    async getAllMarkets() {
+        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/markets`)).json();
+        const markets = [];
+
+        for (const market of marketData) {
+            const split = Object.keys(market)[0].split("-");
+            markets.push({
+                referenceCurrency: split[1],
+                baseCurrency: split[0]
+            });
+        }
+
+        return markets;
+    }
+
     async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
             const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-${baseCurrency.toUpperCase()}`)).json();

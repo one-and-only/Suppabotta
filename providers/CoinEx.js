@@ -3,6 +3,8 @@ import BaseProvider from "./BaseProvider.js";
 import { createHash } from "crypto";
 
 export default class CoinEx extends BaseProvider {
+    _referenceCurrencies = ["USDT", "USDC", "BTC"];
+
     constructor(apiSecret, apiKey) {
         super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3, false, [0, 1], "", "CoinEx");
         this._requestHelper = new RequestHelper({
@@ -29,7 +31,24 @@ export default class CoinEx extends BaseProvider {
         }
     }
 
-    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
+    async getAllMarkets() {
+        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/market/list`)).json();
+        const parsedMarkets = [];
+
+        for (const market of marketData.data) {
+            for (const referenceCurrency of this._referenceCurrencies) {
+                const split = market.split(referenceCurrency);
+                if (split[0].length < market.length) {
+                    parsedMarkets.push({ referenceCurrency: referenceCurrency, baseCurrency: split[0] });
+                    break;
+                }
+            }
+        }
+
+        return parsedMarkets;
+    }
+
+    async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
             const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();
 

@@ -45,6 +45,20 @@ export default class Xeggex extends BaseProvider {
         };
     }
 
+    async getAllMarkets() {
+        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/markets?type=spot`)).json();
+        const markets = [];
+        
+        for (const market of marketData) {
+            markets.push({
+                referenceCurrency: market.quote,
+                baseCurrency: market.base
+            });
+        }
+
+        return markets;
+    }
+
     async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
             const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();

@@ -58,6 +58,15 @@ export default class SouthXChange extends BaseProvider {
         }
     }
 
+    async getAllMarkets() {
+        return (await (await this._requestHelper.get(`${this._apiUrl}/markets`)).json()).map(x => {
+            return {
+                referenceCurrency: x[1],
+                baseCurrency: x[0]
+            };
+        });
+    }
+
     async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
         try {
             const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/book/${baseCurrency.toUpperCase()}/${referenceCurrency.toUpperCase()}`)).json();

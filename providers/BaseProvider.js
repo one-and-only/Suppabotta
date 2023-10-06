@@ -92,6 +92,14 @@ export default class BaseProvider {
     }
 
     /**
+     * Get all of the markets available for trading on an exchange
+     * @returns {{referenceCurrency: string, baseCurrency: string}[]} markets
+     */
+    async getAllMarkets() {
+        throw new Error("This method must be implemented");
+    }
+
+    /**
      * Get the current market prices
      * Highest you can sell for
      * Lowest you can buy for
