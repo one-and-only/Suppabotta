@@ -51,7 +51,7 @@ export default class SouthXChange extends BaseProvider {
 
                 const tradingPair = `${market[0]}_${market[1]}`;
                 this._tradingPairs[market[1]] = { pair: tradingPair, enabled: true };
-                this._minTradeVolumes[tradingPair] = Number.MIN_VALUE // TODO find the actual min trade volume
+                this._minTradeVolumes[market[1]] = Number.MIN_VALUE // TODO find the actual min trade volume
             }
         } catch (e) {
             Logger.error(this._name, "initialize_allTradingPairs", "Failed to get market info");

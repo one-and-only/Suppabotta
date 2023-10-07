@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import RequestHelper from "../RequestHelper.js";
 
 // TODO fix private requests
+// TODO this entire connector needs to be modernized, not being updated at the moment for the new arbitrage algorithms
 // it can't find required parameter even though it's passed in
 
 export default class DexTrade extends BaseProvider {

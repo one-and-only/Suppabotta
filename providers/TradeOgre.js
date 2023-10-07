@@ -72,9 +72,9 @@ export default class TradeOgre extends BaseProvider {
             }
         }
 
-        this._minTradeVolumes[this.coinToExchangePair("BTC")] = 0.00005;
-        this._minTradeVolumes[this.coinToExchangePair("USDT")] = 1;
-        this._minTradeVolumes[this.coinToExchangePair("LTC")] = 0.01;
+        this._minTradeVolumes["BTC"] = 0.00005;
+        this._minTradeVolumes["USDT"] = 1;
+        this._minTradeVolumes["LTC"] = 0.01;
     }
 
     // TradeOgre makes buy and sell really intuitive :)

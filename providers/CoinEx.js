@@ -27,7 +27,7 @@ export default class CoinEx extends BaseProvider {
 
             const market = markets.data[marketKey];
             this._tradingPairs[market.pricing_name] = { pair: marketKey, enabled: true };
-            this._minTradeVolumes[marketKey] = market.min_amount;
+            this._minTradeVolumes[market.pricing_name] = parseFloat(market.min_amount);
         }
     }
 

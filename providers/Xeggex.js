@@ -27,7 +27,7 @@ export default class Xeggex extends BaseProvider {
                 if (!market.symbol.startsWith("RTM")) continue;
 
                 this._tradingPairs[market.secondaryAsset.ticker] = { pair: market.symbol, enabled: true };
-                this._minTradeVolumes[market.symbol] = market.minimumQuantity;
+                this._minTradeVolumes[market.secondaryAsset.ticker] = market.minimumQuantity;
             }
         } catch (e) {
             Logger.error(this._name, "initialize_allTradingPairs", "Failed to get market info");

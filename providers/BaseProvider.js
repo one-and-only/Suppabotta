@@ -88,7 +88,7 @@ export default class BaseProvider {
      * @returns number minimum trade volume for trading pair
      */
     minOrderSize(coin) {
-        return this._minTradeVolumes[this.coinToExchangePair(coin)];
+        return this._minTradeVolumes[coin.toUpperCase()];
     }
 
     /**
