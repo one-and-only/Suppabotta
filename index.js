@@ -52,11 +52,8 @@ const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
 const userWorker = new Worker("userQueue", async job => {
     const strategyData = userQueueData[job.data.username];
-    const tickSpeed = job.data.strategyArgs?.tickSpeed ?? 10000;
     let strategyInstance;
-    let importantArgs = job.data.strategyArgs;
-    delete importantArgs.tickSpeed;
-    strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...importantArgs, socketBroadcaster: strategyData.socketBroadcaster });
+    strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...(job.data.strategyArgs), socketBroadcaster: strategyData.socketBroadcaster });
 
     await strategyInstance.start();
     while (true) {
@@ -66,7 +63,6 @@ const userWorker = new Worker("userQueue", async job => {
             break;
         }
         await strategyInstance.tick();
-        await sleep(tickSpeed);
     }
 }, { connection: redisConnection, concurrency: 9999 });
 
