@@ -120,7 +120,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
     }
 
     async tick() {
-        for (const currentConnector of this._connectors) {
+        for (const connector of this._connectors) {
             // we need to wait until the pending trades are complete before executing another one
             if (connector._pendingTrades.length > 0) {
                 for (let i = 0; i < connector._pendingTrades.length; i++) {
@@ -131,7 +131,8 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                     connector._pendingTrades.splice(i, 1); // trade complete
                 }
             }
-
+        }
+        for (const currentConnector of this._connectors) {
             const currentRtmPriceInfos = await this.rtmMarketPriceInfoForConnector(currentConnector);
 
             for (const currentRtmPriceInfo of currentRtmPriceInfos) {
