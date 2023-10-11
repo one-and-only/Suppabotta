@@ -58,7 +58,6 @@ TICKER_MAINTENANCE_INTERVAL=300000
 ## Custom Arguments
 Use these arguments to customize the behavior of the trading algorithm. These arguments are passed in as JSON when [Using the Trading Bot](#using-the-trading-bot).
 ### Available Arguments
-* `tickSpeed | int`: ***DEPRECATED!*** *After some experiments, tickSpeed was shown to have no significant slowdown, contrary to personal belief. The default and only value will become -0- in the future*. Time, in milliseconds, between algorithm passes. Default is 10000 (10 seconds). ~~Setting the value too low may cause slowdowns. Setting the value too high forces the updates to happen too infrequently. 10000-15000 is the recommended range.~~
 * `maxInvPct | float`: Maximum percent of currency balance that is available for use per trade.
     * NOTE: this argument is only available for `FloatingArbitrage` trading strategy. `ClassicArbitrage` and `TickerMaintenance` always execute at minimum order sizes.
 * `profitCurrencyPreferences`: Controls whether profits should be stored as net RTM or another reference currency (Ex: USDT). This parameter applies to each exchange individually and all used exchanges must have a value in this object parameter. `true` means store as reference currency, `false` means keep profits as RTM. Example:

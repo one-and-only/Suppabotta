@@ -3,120 +3,125 @@ import Logger from "../Logger.js";
 import BaseProvider from "../providers/BaseProvider.js";
 
 export default class ClassicArbitrageStrategy extends BaseStrategy {
+    _marketCaches;
     _alreadyProcessed;
-    _priceCache;
-    _balanceCache;
+    _profitCurrencyPreferences;
 
+    /**
+     * @param {BaseProvider[]} connectors 
+     * @param {any} args 
+     */
     constructor(connectors, args) {
         super(connectors, args);
-        this._alreadyProcessed = new Set();
-    }
+        this._marketCaches = {};
+        this._alreadyProcessed = [];
+        this._profitCurrencyPreferences = [];
 
-    initializeCaches() {
-        this._priceCache = {};
-        this._balanceCache = {};
-
-        for (const connector of this._connectors) {
-            this._priceCache[connector._name] = {};
-            this._balanceCache[connector._name] = {};
+        if (args.profitCurrencyPreferences) {
+            for (const [connector, choice] of Object.entries(args.profitCurrencyPreferences)) {
+                this._profitCurrencyPreferences[connector] = choice;
+            }
+        } else {
+            for (const connector of this._connectors) {
+                this._profitCurrencyPreferences[connector._name] = true;
+            }
         }
     }
 
     /**
-     * Check whether the connector and exchange pair combo has already been processed
-     * @param {string[]} connectorNames array of connector._name
-     * @param {string[]} tradingPairs array of connector._tradingPairs[...].pair
-     * @returns {boolean} whether the connector and exchange pair combo has already been processed
+     * Query whether profit should be kept as a reference currency for the specified connector
+     * @param {string} connector Connector name to check
+     * @returns {boolean} reference currency profit choice
      */
-    comboAlreadyProcessed(connectorNames, tradingPairs) {
-        for (const el of this._alreadyProcessed) {
-            if (connectorNames.every(x => el.connectorNames.includes(x)) && tradingPairs.every(x => el.tradingPairs.includes(x))) {
-                return true;
-            }
+    keepProfitAsReferenceCurrency(connector) {
+        return this._profitCurrencyPreferences[connector];
+    }
+
+    /**
+     * Checks if the combination of connectors and trading pairs has been processed
+     * Aids in removing redundant price scans
+     * @param {{ connector: string, tradingPair: { referenceCurrency: string, baseCurrency: string } }} connector1AndPair
+     * @param {{ connector: string, tradingPair: { referenceCurrency: string, baseCurrency: string } }} connector2AndPair
+     */
+    comboAlreadyProcessed(connector1AndPair, connector2AndPair) {
+        for (const combo of this._alreadyProcessed) {
+            const match1 = (
+                combo[connector1AndPair.connector] &&
+                combo[connector1AndPair.connector].referenceCurrency === connector1AndPair.tradingPair.referenceCurrency &&
+                combo[connector1AndPair.connector].baseCurrency === connector1AndPair.tradingPair.baseCurrency &&
+                combo[connector2AndPair.connector] &&
+                combo[connector2AndPair.connector].referenceCurrency === connector2AndPair.tradingPair.referenceCurrency &&
+                combo[connector2AndPair.connector].baseCurrency === connector2AndPair.tradingPair.baseCurrency
+            );
+
+            const match2 = (
+                combo[connector2AndPair.connector] &&
+                combo[connector2AndPair.connector].referenceCurrency === connector1AndPair.tradingPair.referenceCurrency &&
+                combo[connector2AndPair.connector].baseCurrency === connector1AndPair.tradingPair.baseCurrency &&
+                combo[connector1AndPair.connector] &&
+                combo[connector1AndPair.connector].referenceCurrency === connector2AndPair.tradingPair.referenceCurrency &&
+                combo[connector1AndPair.connector].baseCurrency === connector2AndPair.tradingPair.baseCurrency
+            );
+
+            if (match1 || match2) return true;
         }
 
         return false;
     }
 
+    /**
+     * Mark a connector and trading pair combination as processed
+     * Identifies redundant processing of trading pairs
+     * @param {BaseProvider[]} connectors
+     * @param {{ referenceCurrency: string, baseCurrency: string }} tradingPair1
+     * @param {{ referenceCurrency: string, baseCurrency: string }} tradingPair2
+     */
+    markAsProcessed(connectors, tradingPair1, tradingPair2) {
+        const combo = {};
+        combo[connectors[0]] = { referenceCurrency: tradingPair1.referenceCurrency, baseCurrency: tradingPair1.baseCurrency };
+        combo[connectors[1]] = { referenceCurrency: tradingPair2.referenceCurrency, baseCurrency: tradingPair2.baseCurrency };
+        this._alreadyProcessed.push(combo);
+    }
+
+    /**
+     * 
+     * @param {BaseProvider} connector Connector used to query price info for RTM markets
+     */
+    async rtmMarketPriceInfoForConnector(connector) {
+        return await Promise.all(await this.connectorMarkets(connector._name).filter(x => x.baseCurrency === "RTM").map(async x => {
+            return {
+                baseCurrency: x.baseCurrency,
+                referenceCurrency: x.referenceCurrency,
+                ...(await connector.getMarketPrice(x.referenceCurrency, x.baseCurrency))
+            };
+        }))
+    }
+
+    connectorMarkets(connectorName) {
+        return this._marketCaches[connectorName];
+    }
+
+    /**
+     * Check the balance of a currency in a specified exchange
+     * @param {BaseProvider} connector Connector for the exchange we're checking the balance of
+     * @param {string} currency Currency to query the balance for
+     */
+    async currencyBalance(connector, currency) {
+        return await connector.getBalance(currency.toUpperCase());
+    }
+
     async start() {
-        Logger.info("ClassicArbitrage", "startup", "Trading started!", this._socketBroadcaster);
-    }
-
-    /**
-     * Get the market price of a trading pair from cache, adding to the cache if no entry exists
-     * @param {BaseProvider} connector connector you're using to query the price
-     * @param {string} referenceCurrency currency to which RTM is paired
-     */
-    async cachedMarketPrice(connector, referenceCurrency) {
-        if (!this._priceCache[connector._name][referenceCurrency]) {
-            this._priceCache[connector._name][referenceCurrency] = await connector.getMarketPrice(referenceCurrency);
+        Logger.info("ClassicArbitrage", "startup", "Caching connector info required for trading...", this._socketBroadcaster);
+        for (const connector of this._connectors) {
+            this._marketCaches[connector._name] = await connector.getAllMarkets();
         }
 
-        return this._priceCache[connector._name][referenceCurrency];
-    }
-
-    /**
-     * Get the balance of a currency from cache, adding to the cache if no entry exists
-     * @param {BaseProvider} connector connector you're using to query a currency's balance
-     * @param {string} currency currency you're getting the balance of
-     */
-    async cachedBalance(connector, currency) {
-        if (!this._balanceCache[connector._name]?.[currency]) {
-            this._balanceCache[connector._name][currency] = await connector.getBalance(currency);
-        }
-
-        return this._balanceCache[connector._name][currency];
-    }
-
-    /**
-     * Process a potential arbitrage trade. Executes only if there is enough depth in the exchange and balance in the wallet.
-     * @param {BaseProvider} connector1
-     * @param {BaseProvider} connector2
-     * @param {object} priceInfo1
-     * @param {object} priceInfo2
-     * @param {number} commonMinOrderAmount
-     * @param {string} referenceCurrency
-     */
-    async processSuitablePrices(connector1, connector2, priceInfo1, priceInfo2, commonMinOrderAmount, referenceCurrency) {
-        const numRtmBuying = commonMinOrderAmount / priceInfo2.buyPrice;
-        const numRtmSelling = commonMinOrderAmount / priceInfo1.sellPrice;
-
-        if (
-            priceInfo1.sellDepth < numRtmSelling ||
-            priceInfo2.buyDepth < numRtmBuying
-        ) {
-            Logger.info("ClassicArbitrage", "submitOrder_depthCheck", "Not enough depth to execute trade at min order size", this._socketBroadcaster);
-            return;
-        }
-
-        const referenceBalance = await this.cachedBalance(connector2, referenceCurrency);
-        const rtmBalance = await this.cachedBalance(connector1, "RTM");
-
-        if (!referenceBalance.success || !rtmBalance.success) {
-            Logger.error("ClassicArbitrage", "submitOrder_balanceCheck", "Failed to get balance", this._socketBroadcaster);
-            return;
-        }
-
-        if (
-            referenceBalance.available < commonMinOrderAmount ||
-            rtmBalance.available < numRtmSelling
-        ) {
-            Logger.warning("ClassicArbitrage", "submitOrder_balanceCheck", `Not enough balance to execute suitable ClassicArbitrage trade. ${this.decimalRounding(rtmBalance.available, 2)}/${this.decimalRounding(numRtmSelling, 2)} RTM on ${connector1._name} and ${this.decimalRounding(referenceBalance.available, 2)}/${this.decimalRounding(commonMinOrderAmount, 2)} ${referenceCurrency.toUpperCase()} on ${connector2._name} available.`, this._socketBroadcaster);
-            return;
-        }
-
-        await Promise.all([
-            connector2.addBuyOrder(numRtmBuying, priceInfo2.buyPrice, referenceCurrency),
-            connector1.addSellOrder(numRtmSelling, priceInfo1.sellPrice, referenceCurrency)
-        ]);
-        Logger.success("ClassicArbitrage", "submitOrder", `Bought ${numRtmBuying} from ${connector2._name}, sold ${numRtmSelling} at ${connector1._name} (${numRtmBuying - numRtmSelling} RTM in profit)`, this._socketBroadcaster);
+        Logger.info("ClassicArbitrage", "startup", "Startup complete and trading started!", this._socketBroadcaster);
     }
 
     async tick() {
-        this.initializeCaches();
-
-        // we need to wait until the pending trades are complete before executing another one
-        for (const connector of this._connectors) {
+        for (const currentConnector of this._connectors) {
+            // we need to wait until the pending trades are complete before executing another one
             if (connector._pendingTrades.length > 0) {
                 for (let i = 0; i < connector._pendingTrades.length; i++) {
                     const orderId = connector._pendingTrades[i];
@@ -127,52 +132,106 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                 }
             }
 
-            for (const currentConnector of this._connectors) {
-                for (const currentReferenceCurrency in currentConnector._tradingPairs) {
-                    const currentTradingPair = currentConnector.coinToExchangePair(currentReferenceCurrency);
+            const currentRtmPriceInfos = await this.rtmMarketPriceInfoForConnector(currentConnector);
 
-                    let currentMinOrderSize = currentConnector.minOrderSize(currentReferenceCurrency);
-                    const currentPriceInfo = await this.cachedMarketPrice(currentConnector, currentReferenceCurrency);
+            for (const currentRtmPriceInfo of currentRtmPriceInfos) {
+                for (const otherConnector of this._connectors) {
+                    if (currentConnector._name === otherConnector._name) continue;
 
-                    for (const otherConnector of this._connectors) {
-                        // we don't want to process the current connector
-                        if (otherConnector._name === currentConnector._name) continue;
+                    const otherRtmPriceInfos = await this.rtmMarketPriceInfoForConnector(otherConnector);
 
-                        // not all exchanges have the same RTM trading pairs
-                        if (!otherConnector.referenceCurrencyExists(currentReferenceCurrency)) continue;
+                    for (const otherRtmPriceInfo of otherRtmPriceInfos) {
+                        if (this.comboAlreadyProcessed({ connector: currentConnector._name, tradingPair: currentRtmPriceInfo }, { connector: otherConnector._name, tradingPair: otherRtmPriceInfo })) continue;
+                        this.markAsProcessed([currentConnector._name, otherConnector._name], currentRtmPriceInfo, otherRtmPriceInfo);
 
-                        const otherTradingPair = otherConnector.coinToExchangePair(currentReferenceCurrency);
-                        if (this.comboAlreadyProcessed([currentConnector._name, otherConnector._name], [currentTradingPair, otherTradingPair])) continue;
-                        else this._alreadyProcessed.add({
-                            connectorNames: [currentConnector._name, otherConnector._name],
-                            tradingPairs: [currentTradingPair, otherTradingPair]
-                        });
+                        if (otherRtmPriceInfo.referenceCurrency === currentRtmPriceInfo.referenceCurrency) {
+                            const currentEffectiveBuyPrice = currentRtmPriceInfo.buyPrice * (1 + currentConnector._takerFeePct / 100); // spending more than the value of the coin with fees
+                            const currentEffectiveSellPrice = currentRtmPriceInfo.sellPrice / (1 + currentConnector._takerFeePct / 100); // getting less money than the value of the coin with fees
+                            const otherEffectiveBuyPrice = otherRtmPriceInfo.buyPrice * (1 + otherConnector._takerFeePct / 100);
+                            const otherEffectiveSellPrice = otherRtmPriceInfo.sellPrice / (1 + otherConnector._takerFeePct / 100);
 
-                        let otherMinOrderSize = otherConnector.minOrderSize(currentReferenceCurrency);
+                            const currentMinOrderSize = currentConnector.minOrderSize(currentRtmPriceInfo.referenceCurrency);
+                            const otherMinOrderSize = otherConnector.minOrderSize(otherRtmPriceInfo.referenceCurrency);
 
-                        const otherPriceInfo = await this.cachedMarketPrice(otherConnector, currentReferenceCurrency);
+                            const currentMinOrderSizeRtm = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentRtmPriceInfo.buyPrice : currentMinOrderSize;
+                            const otherMinOrderSizeRtm = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherRtmPriceInfo.buyPrice : otherMinOrderSize;
 
-                        if ((currentPriceInfo.sellPrice / otherPriceInfo.buyPrice) >= 1.015) {
-                            currentMinOrderSize = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize : currentMinOrderSize * currentPriceInfo.sellPrice;
-                            otherMinOrderSize = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize : otherMinOrderSize * otherPriceInfo.buyPrice;
-                            const commonMinOrderAmount = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
-                            await this.processSuitablePrices(currentConnector, otherConnector, currentPriceInfo, otherPriceInfo, commonMinOrderAmount, currentReferenceCurrency);
-                        } else if ((otherPriceInfo.sellPrice / currentPriceInfo.buyPrice) >= 1.015) {
-                            currentMinOrderSize = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize : currentMinOrderSize * currentPriceInfo.buyPrice;
-                            otherMinOrderSize = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize : otherMinOrderSize * otherPriceInfo.sellPrice;
-                            const commonMinOrderAmount = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
-                            await this.processSuitablePrices(otherConnector, currentConnector, otherPriceInfo, currentPriceInfo, commonMinOrderAmount, currentReferenceCurrency);
+                            const currentMinOrderSizeGreater = currentMinOrderSizeRtm > otherMinOrderSizeRtm;
+                            let effectiveMinOrderSizeRtm = currentMinOrderSizeGreater ? currentMinOrderSizeRtm : otherMinOrderSizeRtm;
+
+                            // TODO: merge the order creation into one function to avoid repetition
+
+                            // NOTE: in the `if` and the `else if` referenceCurrency is always going to be the same on both otherConnector and currentConnector
+                            // NOTE: baseCurrency in the `if` and `else if` is always going to be RTM, as this trading bot is currently only for RTM
+                            if (currentEffectiveBuyPrice < otherEffectiveSellPrice) {
+                                const rtmProfitFactor = otherRtmPriceInfo.sellPrice / currentRtmPriceInfo.buyPrice;
+                                const amountRtmSelling = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSizeRtm : Math.ceil(effectiveMinOrderSizeRtm / rtmProfitFactor); // sometimes we may want to keep the profit as RTM instead of referenceCurrency (Ex: USDT)
+
+                                // if we're keeping profit as RTM on the otherConnector's exchange,
+                                // we need to make sure that the smallest amount of RTM we sell on the other end is greater than its min order size
+                                if (!this.keepProfitAsReferenceCurrency(otherConnector._name) && (otherMinOrderSizeRtm < (effectiveMinOrderSizeRtm / rtmProfitFactor))) {
+                                    effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor); // since we always specify buy/sell amounts as RTM, $ value isn't affected much by rounding
+                                }
+
+                                if ((await this.currencyBalance(currentConnector, currentRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSizeRtm) {
+                                    Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to buy required reference currency");
+                                    return;
+                                }
+
+                                if ((await this.currencyBalance(otherConnector, otherRtmPriceInfo.baseCurrency)) < amountRtmSelling) {
+                                    Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to sell required number of RTM");
+                                    return;
+                                }
+
+                                if (!(await Promise.all([
+                                    currentConnector.addBuyOrder(effectiveMinOrderSizeRtm, currentRtmPriceInfo.buyPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency),
+                                    otherConnector.addSellOrder(amountRtmSelling, otherRtmPriceInfo.sellPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency)
+                                ])).every(a => a)) {
+                                    Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
+                                    return;
+                                }
+
+                                Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
+                            } else if (currentEffectiveSellPrice > otherEffectiveBuyPrice) {
+                                const rtmProfitFactor = currentRtmPriceInfo.sellPrice / otherRtmPriceInfo.buyPrice;
+                                const amountRtmSelling = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSizeRtm : Math.ceil(effectiveMinOrderSizeRtm / rtmProfitFactor);
+
+                                if (!this.keepProfitAsReferenceCurrency(currentConnector._name) && currentMinOrderSizeRtm < (effectiveMinOrderSizeRtm / rtmProfitFactor)) {
+                                    effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor);
+                                }
+
+                                if ((await this.currencyBalance(otherConnector, otherRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSizeRtm) {
+                                    Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to buy required reference currency");
+                                    return;
+                                }
+
+                                if ((await this.currencyBalance(currentConnector, currentRtmPriceInfo.baseCurrency)) < amountRtmSelling) {
+                                    Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to sell required number of RTM");
+                                    return;
+                                }
+
+                                if (!(await Promise.all([
+                                    otherConnector.addBuyOrder(effectiveMinOrderSizeRtm, otherRtmPriceInfo.buyPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency),
+                                    currentConnector.addSellOrder(amountRtmSelling, currentRtmPriceInfo.sellPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency)
+                                ])).every(a => a)) {
+                                    Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
+                                    return;
+                                }
+
+                                Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
+                            }
+                        } else {
+                            // TODO find the shortest path algorithmically
                         }
                     }
                 }
             }
         }
-        this._alreadyProcessed.clear();
+
+        this._alreadyProcessed = [];
     }
 
     async shutdown() {
-        for (const connector of this._connectors) {
-            await connector.cancelAllPending();
-        }
+        Logger.info("ClassicArbitrage", "shutdown", "Trading algorithm stopped", this._socketBroadcaster);
     }
 }

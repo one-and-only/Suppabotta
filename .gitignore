@@ -1,6 +1,9 @@
 # Useless MacOS File
 **.DS_Store
 
+# Useless VSCode Files
+**vscode
+
 # Dev SSL Certs
 *.pem
 
