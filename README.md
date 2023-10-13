@@ -71,3 +71,4 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
         }
     }
     ```
+* `disableCrossCurrency | boolean`: Disable cross-currency trading in all trading strategies (Ex: disable trading between Exchange A RTM-BTC and Exchange B RTM-USDT)

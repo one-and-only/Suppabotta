@@ -93,7 +93,7 @@ export default class BaseProvider {
 
     /**
      * Get all of the markets available for trading on an exchange
-     * @returns {{referenceCurrency: string, baseCurrency: string}[]} markets
+     * @returns {Promise<{referenceCurrency: string, baseCurrency: string}[]>} markets
      */
     async getAllMarkets() {
         throw new Error("This method must be implemented");

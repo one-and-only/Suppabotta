@@ -6,6 +6,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
     _marketCaches;
     _alreadyProcessed;
     _profitCurrencyPreferences;
+    _disableCrossCurrency;
 
     /**
      * @param {BaseProvider[]} connectors 
@@ -16,6 +17,9 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
         this._marketCaches = {};
         this._alreadyProcessed = [];
         this._profitCurrencyPreferences = [];
+        this._disableCrossCurrency = false;
+
+        if (args.disableCrossCurrency) this._disableCrossCurrency = args.disableCrossCurrency;
 
         if (args.profitCurrencyPreferences) {
             for (const [connector, choice] of Object.entries(args.profitCurrencyPreferences)) {
@@ -222,7 +226,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                                 Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
                             }
                         } else {
-                            // TODO find the shortest path algorithmically
+                            if (this._disableCrossCurrency) continue;
                         }
                     }
                 }
