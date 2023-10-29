@@ -3,9 +3,15 @@ import { createHash } from "crypto";
 import RequestHelper from "../RequestHelper.js";
 
 // TODO fix private requests
-// TODO this entire connector needs to be modernized, not being updated at the moment for the new arbitrage algorithms
 // it can't find required parameter even though it's passed in
 
+// TODO this entire connector needs to be modernized, not being updated at the moment for the new arbitrage algorithms
+
+
+//* NOTE about this API:
+// instead of using objects for setting the request's data, we need to use Map
+// because the Dex-Trade API needs to sort parameters alphabetically >:(
+// insertion order must be respected in code to achieve this
 export default class DexTrade extends BaseProvider {
     constructor(apiSecret, apiKey) {
         super(apiSecret, apiKey, "https://api.dex-trade.com/v1", 0, 0, 0.05, true, [0, 1], "", "DexTrade");
@@ -15,6 +21,20 @@ export default class DexTrade extends BaseProvider {
                 interval: -1
             }
         }, true);
+    }
+
+    /**
+     * Generate the necessary authentication headers required when making private requests
+     * @param {Map<string, any>} data 
+     * @returns {{"login-token":string, "X-Auth-Sign":string}}
+     */
+    generatePrivateHeaders(data) {
+        return {
+            "login-token": this._apiKey,
+            "X-Auth-Sign": createHash("sha256").update(
+                Array.from(data.values()).reduce((accumulator, current) => accumulator + current.toString(), "")
+            ).digest("hex")
+        };
     }
 
     async initialize() {
@@ -34,7 +54,7 @@ export default class DexTrade extends BaseProvider {
         }
     }
 
-    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
+    async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         const orderBookResponse = await this._requestHelper.get(`${this._apiUrl}/public/book?pair=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}`);
 
         if (orderBookResponse.status === 400) return { success: false, error: "Invalid reference currency" }
@@ -58,22 +78,24 @@ export default class DexTrade extends BaseProvider {
      * @returns {boolean} success or failure
      */
     async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
-        const body = {
-            pair: this.coinsToExchangePair([baseCurrency, referenceCurrency]),
-            rate: price,
-            type: isBuy ? 0 : 1,
-            type_trade: 0,
-            volume: baseAmount,
-            request_id: `${Date.now()}`
-        };
+        const body = new Map([
+            ["pair", this.coinsToExchangePair([baseCurrency, referenceCurrency])],
+            ["rate", price],
+            ["type", +!isBuy],
+            ["type_trade", 0],
+            ["volume", baseAmount],
+            ["request_id", `${Date.now()}`]
+        ]);
+        const privateHeaders = this.generatePrivateHeaders(body);
+        const bodyString = JSON.stringify(Object.fromEntries(body));
+
         const createOrderResponse = await this._requestHelper.post(
             `${this._apiUrl}/private/create-order`,
-            JSON.stringify(body),
+            bodyString,
             true,
             {
                 "Content-Type": "application/json",
-                "login-token": this._apiKey,
-                "x-auth-sign": createHash("sha256").update(body.pair + body.rate + body.type + body.type_trade + body.volume + body.request_id + this._apiSecret).digest("hex")
+                ...(privateHeaders)
             }
         );
 
@@ -81,7 +103,7 @@ export default class DexTrade extends BaseProvider {
             const pendingOrder = await createOrderResponse.json();
             this._pendingTrades.push(pendingOrder.data.id);
             return true;
-        }
+        } else console.log(await createOrderResponse.text());
         return false;
     }
 
@@ -95,18 +117,17 @@ export default class DexTrade extends BaseProvider {
 
     async cancelAllPending() {
         for (const pendingTradeId of this._pendingTrades) {
-            const body = JSON.stringify({
-                order_id: pendingTradeId,
-                request_id: Date.now()
-            });
+            const body = new Map([
+                ["order_id", pendingTradeId],
+                ["request_id", Date.now()]
+            ]);
             const res = await this._requestHelper.post(
                 `${this._apiUrl}/private/delete-order`,
-                body,
+                JSON.stringify(Object.fromEntries(body)),
                 true,
                 {
                     "Content-Type": "application/json",
-                    "login-token": this._apiKey,
-                    "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
+                    ...(this.generatePrivateHeaders(body))
                 }
             );
 
@@ -118,18 +139,17 @@ export default class DexTrade extends BaseProvider {
     }
 
     async orderStatus(orderId) {
-        const body = JSON.stringify({
-            order_id: orderId,
-            request_id: Date.now()
-        });
+        const body = new Map([
+            ["order_id", orderId],
+            ["request_id", Date.now()]
+        ])
         const order = await this._requestHelper.post(
             `${this._apiUrl}/private/get-order`,
-            body,
+            JSON.stringify(Object.fromEntries(body)),
             true,
             {
                 "Content-Type": "application.json",
-                "login-token": this._apiKey,
-                "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
+                ...(this.generatePrivateHeaders(body))
             }
         );
         if (order.status !== 200) return { sucess: false, error: await order.text() };
@@ -147,25 +167,26 @@ export default class DexTrade extends BaseProvider {
     async getBalance(currency) {
         currency = currency.toUpperCase();
 
-        const body = JSON.stringify({
-            request_id: `${Date.now()}`
-        });
+        const body = new Map([
+            ["request_id", Date.now()]
+        ]);
+
         const balances = await this._requestHelper.post(
             `${this._apiUrl}/private/balances`,
-            body,
+            JSON.stringify(Object.fromEntries(body)),
             true,
             {
                 "content-type": "application/json",
-                "login-token": this._apiKey,
-                "x-auth-sign": createHash("sha256").update(body + this._apiSecret).digest("hex")
+                ...(this.generatePrivateHeaders(body))
             }
         );
+
         if (balances.status === 200) return { success: false, error: await balances.text() };
 
         const data = await balances.json();
         if (!data.status) return { success: false, error: data.error };
 
-        const currencyData = balances.filter((balance) => {
+        const currencyData = data.list.filter((balance) => {
             return balance.iso3 === currency;
         })[0];
 
