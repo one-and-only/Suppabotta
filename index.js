@@ -197,7 +197,7 @@ async function validLogin(query) {
 }
 
 app.get("/login", async (req, res) => {
-    res.send({ result: (await validLogin(req.query)) ? true : false });
+    res.send({ result: await validLogin(req.query) });
 });
 
 app.post("/startTrading", async (req, res) => {
@@ -223,7 +223,7 @@ app.post("/startTrading", async (req, res) => {
         if (global.doingTickerMaintenance) {
             res.status(400).json({
                 success: false,
-                error: "In order to prevent volume pumping, only one TickerMaintenance strategy may run at the same time. Cancel the running TickerMaintenance strategy and try again."
+                error: "In order to prevent volume pumping, only one TickerMaintenance strategy may run at the same time. Stop the running TickerMaintenance strategy and try again."
             });
             return;
         }

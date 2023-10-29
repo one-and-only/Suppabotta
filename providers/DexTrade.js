@@ -5,9 +5,6 @@ import RequestHelper from "../RequestHelper.js";
 // TODO fix private requests
 // it can't find required parameter even though it's passed in
 
-// TODO this entire connector needs to be modernized, not being updated at the moment for the new arbitrage algorithms
-
-
 //* NOTE about this API:
 // instead of using objects for setting the request's data, we need to use Map
 // because the Dex-Trade API needs to sort parameters alphabetically >:(
