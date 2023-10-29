@@ -42,6 +42,17 @@ export default class DexTrade extends BaseProvider {
         return this;
     }
 
+    async getAllMarkets() {
+        const symbols = await (await this._requestHelper.get(`${this._apiUrl}/public/symbols`)).json();
+
+        return symbols.data.map(symbol => {
+            return {
+                referenceCurrency: symbol.quote,
+                baseCurrency: symbol.base
+            };
+        });
+    }
+
     async allTradingPairs() {
         const symbols = await (await this._requestHelper.get(`${this._apiUrl}/public/symbols`)).json();
 
