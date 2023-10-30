@@ -171,6 +171,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
      * @param {string[]} path 
      * @param {boolean} buying 
      * @param {number} minimumRtmAmount Minimum order size, in RTM.
+     * @returns {Promise<{effectiveRtmPrice:number,finalPrice:number,path:{referenceCurrency:string,baseCurrency:string,price:number,depth:number,referenceCurrencyInverted:boolean}[]}>} path and price information
      */
     async effectiveReferencePrice(connector, path, buying, minimumRtmAmount = 0) {
         let effectiveRtmPrice;
@@ -214,10 +215,12 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
         }
 
         const rtmPriceInfoInternal = await connector.getMarketPrice(path[path.length - 1], "RTM");
-        effectiveRtmPrice = effectiveRtmPrice * ((buying ? rtmPriceInfoInternal.buyPrice : rtmPriceInfoInternal.sellPrice) / effectiveRtmPrice) * takerFeeFactor;
+        const marketPrice = (buying ? rtmPriceInfoInternal.buyPrice : rtmPriceInfoInternal.sellPrice);
+        effectiveRtmPrice = effectiveRtmPrice * (marketPrice / effectiveRtmPrice) * takerFeeFactor;
         pathAndPriceInfo.effectiveRtmPrice = effectiveRtmPrice;
+        pathAndPriceInfo.finalPrice = marketPrice;
 
-        pathAndPriceInfo.path[pathAndPriceInfo.length - 1].minimumCoinsRequired = minimumRtmAmount * effectiveRtmPrice;
+        pathAndPriceInfo.path[pathAndPriceInfo.path.length - 1].minimumCoinsRequired = minimumRtmAmount * effectiveRtmPrice;
 
         return pathAndPriceInfo;
     }
@@ -339,13 +342,13 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                             if (this._disableCrossCurrency) continue;
 
                             /**
-                             * Exchange a starting currency into an ending currency, using the provided exchange path information
+                             * Exchange a starting currency into an ending currency, using the provided exchange path information.
+                             * This just gets us the right currency in the exchange we are shuffling around coins and not the full trade process.
+                             * We would still need to buy on one exchange and sell on the other
                              * @param {BaseProvider} pathConnector 
                              * @param {{baseCurrency:string,depth:number,price:number,referenceCurrency:string,referenceCurrencyInverted:boolean,minimumCoinsRequired:number|undefined}[]} pathInfo 
-                             * @param {BaseProvider} otherConnector
-                             * @param {boolean} otherConnectorBuying
                              */
-                            const fulfillCrossCurrencyExchangePath = async (pathConnector, pathInfo, otherConnector, otherConnectorBuying) => {
+                            const fulfillCrossCurrencyExchangePath = async (pathConnector, pathInfo) => {
                                 const takerFeeFactor = 1 + pathConnector._takerFeePct / 100;
 
                                 // we first need to calculate how many coins we need for each step
@@ -358,7 +361,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                                     amountRequired.push(_internalIntermediateMinimum);
                                 }
 
-                                // this is where we go after we have found a valid path (enough depth and balance)
+                                // depth and balance has already been checked before calling this function
                                 for (let i = 0; i < pathInfo.length; i++) {
                                     const { price, referenceCurrencyInverted } = pathInfo[i];
                                     let { referenceCurrency, baseCurrency } = pathInfo[i];
@@ -429,7 +432,9 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                                         }
 
                                         // the original baseCurrency is what we are targetting for a balance check
-                                        if ((await pathConnector.getBalance(referenceCurrencyInverted ? referenceCurrency : baseCurrency)) < minimumCoinsRequired) {
+                                        // because that is the currency we are converting towards the ending currency
+                                        const balance = (await pathConnector.getBalance(referenceCurrencyInverted ? referenceCurrency : baseCurrency));
+                                        if (balance < minimumCoinsRequired) {
                                             Logger.warning("ClassicArbitrage", "multiCurrencyPathBalanceCheck", "Favorable price was found, but the user didn't have enough balance to execute all trades", this._socketBroadcaster);
                                             return false;
                                         }
@@ -438,16 +443,29 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                                     return true;
                                 }
 
-                                if (otherConnectorBuying && effectivePrice > otherConnectorPriceInfo.buyPrice) {
-                                    // fill in with trading steps from `effectivePrice` (derived from `shortestPath`)
-                                    if (!(await tradeConditionsSatisfied(pathConnector, shortestPath))) return;
+                                if (otherConnectorBuying && effectivePrice.effectiveRtmPrice > otherConnectorPriceInfo.buyPrice) {
+                                    if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
 
-                                    await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath, otherConnector, otherConnectorBuying);
-                                } else if (!otherConnectorBuying && effectivePrice < otherConnectorPriceInfo.sellPrice) {
-                                    // fill in with trading steps from `effectivePrice` (derived from `shortestPath`)
-                                    if (!(await tradeConditionsSatisfied(pathConnector, shortestPath))) return;
+                                    await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
 
-                                    await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath, otherConnector, otherConnectorBuying);
+                                    //! re-enable this and the other Promise.all once debugging is done
+                                    // await Promise.all([
+                                    //     await pathConnector.addSellOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                    //     await otherConnector.addBuyOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                    // ]);
+
+                                    Logger.success("ClassicArbitrage", "orderSubmission", "yoooooo! you already know what it is :100: 1", this._socketBroadcaster);
+                                } else if (!otherConnectorBuying && effectivePrice.effectiveRtmPrice < otherConnectorPriceInfo.sellPrice) {
+                                    if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
+
+                                    await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
+
+                                    // await Promise.all([
+                                    //     await pathConnector.addBuyOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                    //     await otherConnector.addSellOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                    // ]);
+
+                                    Logger.success("ClassicArbitrage", "orderSubmission", "yoooooo! you already know what it is :100: 2", this._socketBroadcaster);
                                 }
                             }
 
