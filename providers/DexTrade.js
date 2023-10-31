@@ -95,11 +95,10 @@ export default class DexTrade extends BaseProvider {
             ["request_id", `${Date.now()}`]
         ]);
         const privateHeaders = this.generatePrivateHeaders(body);
-        const bodyString = JSON.stringify(Object.fromEntries(body));
 
         const createOrderResponse = await this._requestHelper.post(
             `${this._apiUrl}/private/create-order`,
-            bodyString,
+            Object.fromEntries(body),
             true,
             {
                 "Content-Type": "application/json",
@@ -112,6 +111,7 @@ export default class DexTrade extends BaseProvider {
             this._pendingTrades.push(pendingOrder.data.id);
             return true;
         } else console.log(await createOrderResponse.text());
+
         return false;
     }
 

@@ -52,21 +52,17 @@ export default class RequestHelper {
      * @param {object} headers 
      * @returns {Promise<Response>} Response data
      */
-    async request(url, method, data, is_private, headers={}) {
-        let appropriate_fetch;
-        if (is_private)
-            appropriate_fetch = this._fetch_private;
-        else appropriate_fetch = this._fetch;
+    async request(url, method, data, is_private, headers = {}) {
+        const appropriate_fetch = is_private ? this._fetch_private : this._fetch;
 
         let requestOptions = {
             method: method,
             headers: headers,
         };
 
-        if (method === "POST") requestOptions["body"] = data;
-        if (headers["Content-Type"] === "application/json") {
-            requestOptions["body"] = JSON.stringify(requestOptions["body"]);
-        }
+        if (method === "POST")
+            if (headers["Content-Type"] === "application/json") requestOptions["body"] = JSON.stringify(data);
+            else requestOptions["body"] = body;
 
         return await appropriate_fetch(url, requestOptions);
     }
