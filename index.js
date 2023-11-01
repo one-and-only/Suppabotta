@@ -13,7 +13,7 @@ const sleep = promisify(setTimeout);
 import TradeOgre from "./providers/TradeOgre.js";
 import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
-// import DexTrade from "./providers/DexTrade.js";
+import DexTrade from "./providers/DexTrade.js";
 import Xeggex from "./providers/Xeggex.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
@@ -29,7 +29,7 @@ const strategyMaps = {
         strategyClass: TickerMaintenanceStrategy
     },
     "ClassicArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, /*DexTrade,*/ Xeggex],
+        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex],
         strategyClass: ClassicArbitrageStrategy
     },
     "FloatingArbitrage": {

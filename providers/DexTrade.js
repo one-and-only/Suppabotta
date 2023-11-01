@@ -2,6 +2,10 @@ import BaseProvider from "./BaseProvider.js";
 import { createHash } from "crypto";
 import RequestHelper from "../RequestHelper.js";
 
+// really small numbers get converted into scientific notation otherwise
+// talked to API support and they said they don't support this notation (i.e. it's bad)
+import BigNumber from "bignumber.js";
+
 // TODO fix private requests
 // it can't find required parameter even though it's passed in
 
@@ -88,11 +92,11 @@ export default class DexTrade extends BaseProvider {
     async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         const body = new Map([
             ["pair", this.coinsToExchangePair([baseCurrency, referenceCurrency])],
-            ["rate", price],
+            ["rate", new BigNumber(price).toString()],
+            ["request_id", `${Date.now()}`],
             ["type", +!isBuy],
             ["type_trade", 0],
-            ["volume", baseAmount],
-            ["request_id", `${Date.now()}`]
+            ["volume", new BigNumber(baseAmount).toString()],
         ]);
         const privateHeaders = this.generatePrivateHeaders(body);
 
@@ -110,7 +114,7 @@ export default class DexTrade extends BaseProvider {
             const pendingOrder = await createOrderResponse.json();
             this._pendingTrades.push(pendingOrder.data.id);
             return true;
-        } else console.log(await createOrderResponse.text());
+        }
 
         return false;
     }
@@ -126,8 +130,8 @@ export default class DexTrade extends BaseProvider {
     async cancelAllPending() {
         for (const pendingTradeId of this._pendingTrades) {
             const body = new Map([
-                ["order_id", pendingTradeId],
-                ["request_id", Date.now()]
+                ["order_id", new BigNumber(pendingTradeId).toString()],
+                ["request_id", `${Date.now()}`]
             ]);
             const res = await this._requestHelper.post(
                 `${this._apiUrl}/private/delete-order`,
@@ -148,8 +152,8 @@ export default class DexTrade extends BaseProvider {
 
     async orderStatus(orderId) {
         const body = new Map([
-            ["order_id", orderId],
-            ["request_id", Date.now()]
+            ["order_id", new BigNumber(orderId).toString()],
+            ["request_id", `${Date.now()}`]
         ])
         const order = await this._requestHelper.post(
             `${this._apiUrl}/private/get-order`,
@@ -176,7 +180,7 @@ export default class DexTrade extends BaseProvider {
         currency = currency.toUpperCase();
 
         const body = new Map([
-            ["request_id", Date.now()]
+            ["request_id", `${Date.now()}`]
         ]);
 
         const balances = await this._requestHelper.post(
@@ -189,7 +193,7 @@ export default class DexTrade extends BaseProvider {
             }
         );
 
-        if (balances.status === 200) return { success: false, error: await balances.text() };
+        if (balances.status !== 200) return { success: false, error: await balances.text() };
 
         const data = await balances.json();
         if (!data.status) return { success: false, error: data.error };

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "argon2": "^0.29.1",
+    "bignumber.js": "^9.1.2",
     "bottleneck": "^2.19.5",
     "bullmq": "^3.4.1",
     "chalk": "^5.2.0",
