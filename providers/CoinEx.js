@@ -96,7 +96,7 @@ export default class CoinEx extends BaseProvider {
         try {
             const response = await this._requestHelper.post(
                 `${this._apiUrl}/order/limit`,
-                JSON.stringify(body),
+                body,
                 true,
                 {
                     "Content-Type": "application/json",

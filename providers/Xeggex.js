@@ -83,7 +83,7 @@ export default class Xeggex extends BaseProvider {
 
     async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         const url = `${this._apiUrl}/createorder`;
-        const body = JSON.stringify({
+        const body = {
             "userProvidedId": randomBytes(16).toString("hex"),
             "symbol": this.coinsToExchangePair([baseCurrency.toUpperCase(), referenceCurrency.toUpperCase()]),
             "side": isBuy ? "buy" : "sell",
@@ -91,7 +91,7 @@ export default class Xeggex extends BaseProvider {
             "quantity": baseAmount.toString(),
             "price": price.toString(),
             "strictValidate": false
-        });
+        };
 
         try {
             const response = await (await this._requestHelper.post(
@@ -122,9 +122,9 @@ export default class Xeggex extends BaseProvider {
     async cancelAllPending() {
         for (const orderId of this._pendingTrades) {
             const url = `${this._apiUrl}/cancelOrder`;
-            const body = JSON.stringify({
+            const body = {
                 id: orderId
-            });
+            };
 
             try {
                 await this._requestHelper.post(

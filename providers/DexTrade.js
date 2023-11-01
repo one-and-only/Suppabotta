@@ -131,7 +131,7 @@ export default class DexTrade extends BaseProvider {
             ]);
             const res = await this._requestHelper.post(
                 `${this._apiUrl}/private/delete-order`,
-                JSON.stringify(Object.fromEntries(body)),
+                Object.fromEntries(body),
                 true,
                 {
                     "Content-Type": "application/json",
@@ -153,7 +153,7 @@ export default class DexTrade extends BaseProvider {
         ])
         const order = await this._requestHelper.post(
             `${this._apiUrl}/private/get-order`,
-            JSON.stringify(Object.fromEntries(body)),
+            Object.fromEntries(body),
             true,
             {
                 "Content-Type": "application.json",
@@ -181,7 +181,7 @@ export default class DexTrade extends BaseProvider {
 
         const balances = await this._requestHelper.post(
             `${this._apiUrl}/private/balances`,
-            JSON.stringify(Object.fromEntries(body)),
+            Object.fromEntries(body),
             true,
             {
                 "content-type": "application/json",
