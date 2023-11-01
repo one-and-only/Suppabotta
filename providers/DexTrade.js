@@ -29,7 +29,7 @@ export default class DexTrade extends BaseProvider {
         return {
             "login-token": this._apiKey,
             "X-Auth-Sign": createHash("sha256").update(
-                Array.from(data.values()).reduce((accumulator, current) => accumulator + current.toString(), "")
+                Array.from(data.values()).reduce((accumulator, current) => accumulator + current.toString(), "") + this._apiSecret
             ).digest("hex")
         };
     }
