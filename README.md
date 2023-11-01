@@ -2,7 +2,7 @@
 RTM Arbitrage Bot using WSS + REST
 
 ## Installation Instructions
-1. Install [Node.JS](https://nodejs.org/en/download) (tested on Node 16-19; Install latest if possible)
+1. Install [Node.JS](https://nodejs.org/en/download) (tested on Node 16-20; Install latest whenever possible)
 1. Install [MongoDB](https://www.mongodb.com/try/download/community)
 1. Install [Redis](https://redis.io/docs/getting-started/installation/)
 1. Clone this repository or download as Zip and extract somewhere you'll have access to
@@ -60,15 +60,13 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
 ### Available Arguments
 * `maxInvPct | float`: Maximum percent of currency balance that is available for use per trade.
     * NOTE: this argument is only available for `FloatingArbitrage` trading strategy. `ClassicArbitrage` and `TickerMaintenance` always execute at minimum order sizes.
-* `profitCurrencyPreferences`: Controls whether profits should be stored as net RTM or another reference currency (Ex: USDT). This parameter applies to each exchange individually and all used exchanges must have a value in this object parameter. `true` means store as reference currency, `false` means keep profits as RTM. Example:
+* `profitCurrencyPreferences | object` (For debug use only): Controls whether profits should be stored as net RTM or another reference currency (Ex: USDT). This parameter applies to each exchange individually and all used exchanges must have a value in this object parameter. `true` means store as reference currency, `false` means keep profits as RTM. Example:
     ```json
-    {
-        "profitCurrencyPreferences": {
-            "TradeOgre": true,
-            "SouthXChange": true,
-            "Xeggex": true,
-            "CoinEx": true
-        }
+    "profitCurrencyPreferences": {
+        "TradeOgre": true,
+        "SouthXChange": true,
+        "Xeggex": true,
+        "CoinEx": true
     }
     ```
 * `disableCrossCurrency | boolean`: Disable cross-currency trading in all trading strategies (Ex: disable trading between Exchange A RTM-BTC and Exchange B RTM-USDT)
