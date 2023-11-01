@@ -6,9 +6,6 @@ import RequestHelper from "../RequestHelper.js";
 // talked to API support and they said they don't support this notation (i.e. it's bad)
 import BigNumber from "bignumber.js";
 
-// TODO fix private requests
-// it can't find required parameter even though it's passed in
-
 //* NOTE about this API:
 // instead of using objects for setting the request's data, we need to use Map
 // because the Dex-Trade API needs to sort parameters alphabetically >:(
@@ -61,7 +58,7 @@ export default class DexTrade extends BaseProvider {
             const symbol = symbols.data[symbolIdx];
             if (symbol.base === "RTM") {
                 this._tradingPairs[symbol.quote] = { pair: symbol.pair, enabled: true };
-                this._minTradeVolumes[symbol.pair] = Number.MIN_VALUE; // TODO find the actual min trade volume (Dex-Trade API doesn't have it)
+                this._minTradeVolumes[symbol.pair] = 28.125; // Dex-Trade Trading UI says 28.125 minimum RTM for all RTM pairs
             }
         }
     }
