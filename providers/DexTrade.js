@@ -185,18 +185,18 @@ export default class DexTrade extends BaseProvider {
             Object.fromEntries(body),
             true,
             {
-                "content-type": "application/json",
+                "Content-Type": "application/json",
                 ...(this.generatePrivateHeaders(body))
             }
         );
 
         if (balances.status !== 200) return { success: false, error: await balances.text() };
 
-        const data = await balances.json();
-        if (!data.status) return { success: false, error: data.error };
+        const balanceData = await balances.json();
+        if (!balanceData.status) return { success: false, error: balanceData.error };
 
-        const currencyData = data.list.filter((balance) => {
-            return balance.iso3 === currency;
+        const currencyData = balanceData.data.list.filter((balance) => {
+            return balance.currency.iso3 === currency;
         })[0];
 
         return {

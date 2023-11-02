@@ -374,9 +374,10 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
                                         // we buy when the currencies are inverted (normally we sell our way to the ending currency)
                                         // we have already inverted referenceCurrency and baseCurrency a few lines ago, so this is fine
                                         //                                                                ∨                ∨
-                                        await pathConnector.addBuyOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
+                                        //! this and the other order will be re-enabled once debugging is over
+                                        // await pathConnector.addBuyOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
                                     } else {
-                                        await pathConnector.addSellOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
+                                        // await pathConnector.addSellOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
                                     }
                                 }
 
@@ -471,7 +472,7 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
 
                             //! turn into Promise.all after done with debugging
                             await processCrossCurrency(currentConnector, currentRtmPriceInfo.referenceCurrency, otherConnector, otherRtmPriceInfo, false);
-                            // await processCrossCurrency(otherConnector, otherRtmPriceInfo.referenceCurrency, currentConnector, currentRtmPriceInfo, true)
+                            await processCrossCurrency(otherConnector, otherRtmPriceInfo.referenceCurrency, currentConnector, currentRtmPriceInfo, true)
                         }
                     }
                 }

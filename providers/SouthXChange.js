@@ -164,6 +164,8 @@ export default class SouthXChange extends BaseProvider {
 
     async orderStatus(orderId) {
         try {
+            const body = this.privateBodyParams();
+
             const pendingOrdersResponse = await this._requestHelper.post(
                 `${this._apiUrl}/listOrders`,
                 this.privateBodyParams(),
@@ -200,6 +202,8 @@ export default class SouthXChange extends BaseProvider {
 
     async getBalance(currency) {
         try {
+            const body = this.privateBodyParams();
+
             const balancesResponse = await this._requestHelper.post(
                 `${this._apiUrl}/listBalances`,
                 this.privateBodyParams(),
