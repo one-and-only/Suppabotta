@@ -175,7 +175,6 @@ export default class SouthXChange extends BaseProvider {
 
             if (pendingOrdersResponse.status !== 200) {
                 const text = await pendingOrdersResponse.text();
-                console.log(text);
                 return { success: false, error: text };
             }
 
@@ -213,7 +212,6 @@ export default class SouthXChange extends BaseProvider {
 
             if (balancesResponse.status !== 200) {
                 const text = await balancesResponse.text();
-                console.log(text);
                 return { success: false, error: text };
             }
 
