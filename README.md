@@ -70,3 +70,16 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
     }
     ```
 * `disableCrossCurrency | boolean`: Disable cross-currency trading in all trading strategies (Ex: disable trading between Exchange A RTM-BTC and Exchange B RTM-USDT)
+* `inventoryDefinition | array`: This object defines the maximum amount of each currency that can be used in use at any one time on FloatingArbitrage trades. Use the currency code to signify each coin. The following is the object format:
+    ```json
+    [
+        "Coinex": {
+            "USDT": 1000,
+            "BTC": 100
+        },
+        "TradeOgre": {
+            "USDT": 500,
+            "BTC": 50
+        }
+    ]
+    ```

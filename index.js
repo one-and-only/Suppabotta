@@ -25,7 +25,7 @@ import FloatingArbitrageStrategy from "./strategies/FloatingArbitrage.js";
 
 const strategyMaps = {
     "TickerMaintenance": {
-        providers: [/*DexTrade,*/],
+        providers: [DexTrade],
         strategyClass: TickerMaintenanceStrategy
     },
     "ClassicArbitrage": {
@@ -33,7 +33,7 @@ const strategyMaps = {
         strategyClass: ClassicArbitrageStrategy
     },
     "FloatingArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, /*DexTrade,*/ Xeggex],
+        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex],
         strategyClass: FloatingArbitrageStrategy
     }
 };
