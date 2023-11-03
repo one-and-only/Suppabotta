@@ -10,6 +10,7 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
     _maxInvPct;
     _inventoryDefinition;
     _unfitToRun;
+    _maxPriceDropPct;
 
     /**
     * Check if this algorithm can run with the condition of the user's exchange accounts
@@ -39,6 +40,9 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
             this._unfitToRun = true;
             return;
         }
+
+        this._maxPriceDropPct = args.maxPriceDropPct ?? 5;
+    }
     }
 
     async start() {

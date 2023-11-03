@@ -58,9 +58,9 @@ TICKER_MAINTENANCE_INTERVAL=300000
 ## Custom Arguments
 Use these arguments to customize the behavior of the trading algorithm. These arguments are passed in as JSON when [Using the Trading Bot](#using-the-trading-bot).
 ### Available Arguments
-* `maxInvPct | float`: Maximum percent of currency balance that is available for use per trade.
-    * NOTE: this argument is only available for `FloatingArbitrage` trading strategy. `ClassicArbitrage` and `TickerMaintenance` always execute at minimum order sizes.
-* `profitCurrencyPreferences | object` (For debug use only): Controls whether profits should be stored as net RTM or another reference currency (Ex: USDT). This parameter applies to each exchange individually and all used exchanges must have a value in this object parameter. `true` means store as reference currency, `false` means keep profits as RTM. Example:
+* `maxInvPct | float`: Maximum percent of currency balance that is available for use per trade. This argument is applicable to FloatingArbitrage.
+    * NOTE: `ClassicArbitrage` and `TickerMaintenance` always execute at minimum order sizes.
+* `profitCurrencyPreferences | object` (For debug use only): Controls whether profits should be stored as net RTM or another reference currency (Ex: USDT). This parameter applies to each exchange individually and all used exchanges must have a value in this object parameter. `true` means store as reference currency, `false` means keep profits as RTM. This argument is applicable to ClassicArbitrage. Example:
     ```json
     "profitCurrencyPreferences": {
         "TradeOgre": true,
@@ -69,10 +69,10 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
         "CoinEx": true
     }
     ```
-* `disableCrossCurrency | boolean`: Disable cross-currency trading in all trading strategies (Ex: disable trading between Exchange A RTM-BTC and Exchange B RTM-USDT)
-* `inventoryDefinition | array`: This object defines the maximum amount of each currency that can be used in use at any one time on FloatingArbitrage trades. Use the currency code to signify each coin. The following is the object format:
+* `disableCrossCurrency | boolean`: Disable cross-currency trading in all trading strategies (Ex: disable trading between Exchange A RTM-BTC and Exchange B RTM-USDT). This argument is applicable to ClassicArbitrage
+* `inventoryDefinition | array`: This object defines the maximum amount of each currency that can be used in use at any one time on FloatingArbitrage trades. This argument must be present for every instance of FloatingArbitrage. Use the currency code to signify each coin. The following is the object format:
     ```json
-    {
+    "inventoryDefinition": {
         "CoinEx": {
             "USDT": 1000,
             "BTC": 100
@@ -83,3 +83,4 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
         }
     }
     ```
+*  `maxPriceDropPct | number`: Maximum price drop percentage that is acceptable when checking for depth and checking for whether a certain amount of coins is coverable on a specified exchange. Default value is `5` (%). This argument is applicable to FloatingArbitrage
