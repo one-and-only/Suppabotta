@@ -48,7 +48,7 @@ export default class Xeggex extends BaseProvider {
     async getAllMarkets() {
         const marketData = await (await this._requestHelper.get(`${this._apiUrl}/markets?type=spot`)).json();
         const markets = [];
-        
+
         for (const market of marketData) {
             markets.push({
                 referenceCurrency: market.quote,
@@ -59,7 +59,33 @@ export default class Xeggex extends BaseProvider {
         return markets;
     }
 
-    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
+    async getOrderBook(baseCurrency, referenceCurrency) {
+        try {
+            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();
+
+            return {
+                bid: orderBook.bids.map(x => {
+                    return {
+                        price: x.numberprice,
+                        amount: parseFloat(x.quantity)
+                    };
+                }),
+                ask: orderBook.asks.map(x => {
+                    return {
+                        price: x.numberprice,
+                        amount: parseFloat(x.quantity)
+                    };
+                })
+            };
+        } catch (e) {
+            return {
+                bid: [],
+                ask: []
+            };
+        }
+    }
+
+    async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
             const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();
 

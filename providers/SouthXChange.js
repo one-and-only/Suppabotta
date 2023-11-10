@@ -67,7 +67,23 @@ export default class SouthXChange extends BaseProvider {
         });
     }
 
-    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
+    async getOrderBook(baseCurrency, referenceCurrency) {
+        try {
+            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/book/${baseCurrency}/${referenceCurrency}`)).json();
+
+            return {
+                bid: orderBook.BuyOrders.map(val => { return { price: val.Price, amount: val.Amount } }),
+                ask: orderBook.SellOrders.map(val => { return { price: val.Price, amount: val.Amount } })
+            }
+        } catch (e) {
+            return {
+                bid: [],
+                ask: []
+            }
+        }
+    }
+
+    async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
             const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/book/${baseCurrency.toUpperCase()}/${referenceCurrency.toUpperCase()}`)).json();
             if (orderBook === "") return { success: false, error: "Invalid reference currency" };

@@ -15,6 +15,19 @@ export default class BaseProvider {
     _exchangeApiCurrencySeparator;
     _name;
 
+    /**
+     * Base class for an exchange provider (Exchange API interface class)
+     * @param {string} apiSecret Private API key
+     * @param {string} apiKey Public API key
+     * @param {string} apiUrl Exchange API base URL
+     * @param {number} makerFeePct Exchange maker fee (%)
+     * @param {number} takerFeePct Exchange taker fee (%)
+     * @param {number} rtmWithdrawalFee Exchange withdrawal fee for RTM
+     * @param {boolean} minTradeVolumeIsReferenceCurrency Whether the minimum trade volume is measured in `baseCurrency` or `referenceCurrency`
+     * @param {[number, number]} exchangeApiPairCurrencyOrder This array controls whether the referenceCurrency or baseCurrency is inserted first when formatting coins into an exchange trading pair
+     * @param {string} exchangeApiCurrencySeparator Separator between the referenceCurrency and baseCurrency in the exchange API
+     * @param {string} name Name/unique identifier of the exchange provider
+     */
     constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
@@ -96,6 +109,16 @@ export default class BaseProvider {
      * @returns {Promise<{referenceCurrency: string, baseCurrency: string}[]>} markets
      */
     async getAllMarkets() {
+        throw new Error("This method must be implemented");
+    }
+
+    /**
+     * Get the full order book for a specified trading pair (`baseCurrency` and `referenceCurrency`)
+     * @param {string} baseCurrency
+     * @param {string} referenceCurrency
+     * @returns {Promise<{bid: {price: number, amount: number}[], ask: {price: number, amount: number}[]}>}
+     */
+    async getOrderBook(baseCurrency, referenceCurrency) {
         throw new Error("This method must be implemented");
     }
 

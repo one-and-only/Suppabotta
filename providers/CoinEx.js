@@ -48,6 +48,21 @@ export default class CoinEx extends BaseProvider {
         return parsedMarkets;
     }
 
+    async getOrderBook(baseCurrency, referenceCurrency) {
+        try {
+            const depthInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=50&merge=0`)).json();
+            return {
+                bid: depthInfo.data.bids.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } }),
+                ask: depthInfo.data.asks.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } })
+            };
+        } catch (e) {
+            return {
+                bid: [],
+                ask: []
+            };
+        }
+    }
+
     async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
             const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();

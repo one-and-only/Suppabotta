@@ -51,6 +51,22 @@ export default class DexTrade extends BaseProvider {
         });
     }
 
+    async getOrderBook(baseCurrency, referenceCurrency) {
+        try {
+            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/public/book?pair=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}`)).json();
+
+            return {
+                bid: orderBook.data.buy.map(val => { return { price: val.rate, amount: val.volume } }),
+                ask: orderBook.data.sell.map(val => { return { price: val.rate, amount: val.volume } })
+            };
+        } catch (e) {
+            return {
+                bid: [],
+                ask: []
+            };
+        }
+    }
+
     async allTradingPairs() {
         const symbols = await (await this._requestHelper.get(`${this._apiUrl}/public/symbols`)).json();
 
