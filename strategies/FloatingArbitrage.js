@@ -2,8 +2,9 @@ import BaseStrategy from "./BaseStrategy.js";
 import Logger from "../Logger.js";
 import { promisify } from 'node:util';
 import Bluebird from "bluebird";
-const { map: promiseMap } = Bluebird;
+import BaseProvider from "../providers/BaseProvider.js";
 
+const { map: promiseMap } = Bluebird;
 const sleep = promisify(setTimeout);
 
 export default class FloatingArbitrageStrategy extends BaseStrategy {
@@ -17,7 +18,7 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
     */
     async fitToRun() {
         // gather and check the balances of the user against the defined inventory
-        // simulatenously calculates whether the algorithm is fit to run
+        // simulatenously calculates whether the algorithm is fit to run based on those balances
         Logger.info("FloatingArbitrage", "fitToRun", "Verifying existence of defined inventory", this._socketBroadcaster);
 
         this._unfitToRun = !((await promiseMap(this._connectors, async connector => {
@@ -42,6 +43,32 @@ export default class FloatingArbitrageStrategy extends BaseStrategy {
         }
 
         this._maxPriceDropPct = args.maxPriceDropPct ?? 5;
+    }
+
+    /**
+     * Calculate the amount of coins that shifts the price by `this._maxPriceDropPct` % if all trades were to be executed
+     * @param {BaseProvider} connector Connector for the exchange we're gathering depth from
+     * @param {{ baseCurrency: string, referenceCurrency: string }} tradingPair Trading pair for which we're gathering depth for
+     * @param {"bid" | "ask"} side Whether the depth is going to be calculated for the bid or ask side of the order books
+     * @returns {Promise<number>} amount of coins that can be covered
+     */
+    async calculateDepth(connector, tradingPair, side) {
+        const orderBook = await connector.getOrderBook(tradingPair.baseCurrency, tradingPair.referenceCurrency);
+        
+        const currentSideMarketPrice = orderBook[side][0].price;
+        let amount = 0;
+
+        for (const bookEntry of orderBook[side]) {
+            if (
+                ((bookEntry.price / currentSideMarketPrice) < (1 - this._maxPriceDropPct/100) && side === "bid") ||
+                ((bookEntry.price / currentSideMarketPrice) > (1 + this._maxPriceDropPct/100) && side === "ask")
+            ) return amount;
+
+            amount += bookEntry.amount;
+        }
+
+        // fall-through in case the exchange is so illiquid or this._maxPriceDropPct is so unrealistic that we can trade out the entire order book side
+        return amount;
     }
     }
 
