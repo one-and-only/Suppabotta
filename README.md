@@ -84,3 +84,4 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
     }
     ```
 *  `maxPriceDropPct | number`: Maximum price drop percentage that is acceptable when checking for depth and checking for whether a certain amount of coins is coverable on a specified exchange. Default value is `5` (%). This argument is applicable to FloatingArbitrage
+* `baseCurrency | string`: The base currency that algorithmic trades are going to be occuring for. For example, in the RTM/USDT trading pair, RTM would be the base currency. Only one base currency can be used at any one time per trading algorithm run. Note that you can run multiple algorithm configurations at the same time, 1 in each browser tab.
