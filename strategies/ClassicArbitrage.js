@@ -1,11 +1,9 @@
-import BaseStrategy from "./BaseStrategy.js";
 import Logger from "../Logger.js";
 import BaseProvider from "../providers/BaseProvider.js";
+import BaseArbitrage from "./BaseArbitrage.js";
 
-export default class ClassicArbitrageStrategy extends BaseStrategy {
-    _marketCaches;
+export default class ClassicArbitrageStrategy extends BaseArbitrage {
     _alreadyProcessed;
-    _profitCurrencyPreferences;
     _disableCrossCurrency;
 
     /**
@@ -14,31 +12,10 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
      */
     constructor(connectors, args) {
         super(connectors, args);
-        this._marketCaches = {};
         this._alreadyProcessed = [];
-        this._profitCurrencyPreferences = [];
         this._disableCrossCurrency = false;
 
         if (args.disableCrossCurrency) this._disableCrossCurrency = args.disableCrossCurrency;
-
-        if (args.profitCurrencyPreferences) {
-            for (const [connector, choice] of Object.entries(args.profitCurrencyPreferences)) {
-                this._profitCurrencyPreferences[connector] = choice;
-            }
-        } else {
-            for (const connector of this._connectors) {
-                this._profitCurrencyPreferences[connector._name] = true;
-            }
-        }
-    }
-
-    /**
-     * Query whether profit should be kept as a reference currency for the specified connector
-     * @param {string} connector Connector name to check
-     * @returns {boolean} reference currency profit choice
-     */
-    keepProfitAsReferenceCurrency(connector) {
-        return this._profitCurrencyPreferences[connector];
     }
 
     /**
@@ -87,155 +64,14 @@ export default class ClassicArbitrageStrategy extends BaseStrategy {
         this._alreadyProcessed.push(combo);
     }
 
-    /**
-     * 
-     * @param {BaseProvider} connector Connector used to query price info for RTM markets
-     */
-    async rtmMarketPriceInfoForConnector(connector) {
-        return await Promise.all(await this.connectorMarkets(connector._name).filter(x => x.baseCurrency === "RTM").map(async x => {
-            return {
-                baseCurrency: x.baseCurrency,
-                referenceCurrency: x.referenceCurrency,
-                ...(await connector.getMarketPrice(x.referenceCurrency, x.baseCurrency))
-            };
-        }))
-    }
-
-    connectorMarkets(connectorName) {
-        return this._marketCaches[connectorName];
-    }
-
-    /**
-     * Check the balance of a currency in a specified exchange
-     * @param {BaseProvider} connector Connector for the exchange we're checking the balance of
-     * @param {string} currency Currency to query the balance for
-     */
-    async currencyBalance(connector, currency) {
-        return await connector.getBalance(currency.toUpperCase());
-    }
-
-    /**
-     * Find the shortest path from startingCurrency to endingCurrency
-     * Algorithm partially from: https://chat.openai.com/share/f05d1e48-8140-4a35-a0da-bde79b5a5e0b
-     * Tweaked to support this particular trading algorithm
-     * @param {BaseProvider} connector Exchange for which we're finding the shortest path of
-     * @param {string} startingCurrency Currency converting from
-     * @param {string} endingCurrency Currency converting to
-     */
-    shortestCrossCurrencyPath(connector, startingCurrency, endingCurrency) {
-        const tradingPairs = this.connectorMarkets(connector._name);
-
-        // Create a graph representation of the trading pairs
-        const graph = {};
-        for (const pair of tradingPairs) {
-            if (!graph[pair.referenceCurrency]) {
-                graph[pair.referenceCurrency] = [];
-            }
-            graph[pair.referenceCurrency].push(pair.baseCurrency);
-
-            if (!graph[pair.baseCurrency]) {
-                graph[pair.baseCurrency] = [];
-            }
-            graph[pair.baseCurrency].push(pair.referenceCurrency);
-        }
-
-        // Initialize BFS queue
-        const queue = [{ currency: startingCurrency, path: [startingCurrency] }];
-        const visited = new Set();
-
-        while (queue.length > 0) {
-            const { currency, path } = queue.shift();
-            visited.add(currency);
-
-            // Check if we've reached the end currency
-            if (currency === endingCurrency) {
-                return path;
-            }
-
-            // Explore adjacent currencies
-            for (const neighbor of graph[currency] || []) {
-                if (!visited.has(neighbor)) {
-                    const newPath = [...path, neighbor];
-                    queue.push({ currency: neighbor, path: newPath });
-                }
-            }
-        }
-
-        // If there's no path between start and end currency, return null
-        return null;
-    }
-
-    /**
-     * Get effective price for one RTM in each cross-currency direction for use in determining if profitable trades exist
-     * @param {BaseProvider} connector 
-     * @param {string[]} path 
-     * @param {boolean} buying 
-     * @param {number} minimumRtmAmount Minimum order size, in RTM.
-     * @returns {Promise<{effectiveRtmPrice:number,finalPrice:number,path:{referenceCurrency:string,baseCurrency:string,price:number,depth:number,referenceCurrencyInverted:boolean}[]}>} path and price information
-     */
-    async effectiveReferencePrice(connector, path, buying, minimumRtmAmount = 0) {
-        let effectiveRtmPrice;
-        const pathAndPriceInfo = { path: [] };
-        const takerFeeFactor = 1 + connector._takerFeePct / 100;
-
-        for (let i = 0; i < path.length - 1; i++) {
-            const nextTargetCurrency = path[i + 1];
-            const currentTargetCurrency = path[i];
-
-            // the path graph shows both sides are valid pairs
-            // Ex: RTM-BTC and BTC-RTM are both valid pairs when representing pairs IRL, but only one is valid from the exchange's POV
-            let referenceCurrencyInverted = false;
-
-            let priceInfoInternal = await connector.getMarketPrice(nextTargetCurrency, currentTargetCurrency);
-            if (!priceInfoInternal.success) {
-                referenceCurrencyInverted = true;
-                priceInfoInternal = await connector.getMarketPrice(currentTargetCurrency, nextTargetCurrency);
-                if (!priceInfoInternal) {
-                    Logger.warning("ClassicArbitrage", "multiCurrencyPriceScan", `Failed to get price info for ${currentTargetCurrency}-${nextTargetCurrency}`, this._socketBroadcaster);
-                    return;
-                }
-            }
-
-            const correctPrice = referenceCurrencyInverted ? priceInfoInternal.buyPrice : priceInfoInternal.sellPrice;
-            // first ever loop run, so we're just initializing to the sell price of the currency we own
-            if (!effectiveRtmPrice) {
-                effectiveRtmPrice = correctPrice;
-            }
-            else {
-                effectiveRtmPrice = effectiveRtmPrice * (correctPrice / effectiveRtmPrice) * takerFeeFactor;
-            }
-
-            pathAndPriceInfo.path.push({
-                referenceCurrency: nextTargetCurrency,
-                baseCurrency: currentTargetCurrency,
-                price: correctPrice,
-                depth: priceInfoInternal.sellDepth,
-                referenceCurrencyInverted: referenceCurrencyInverted,
-            });
-        }
-
-        const rtmPriceInfoInternal = await connector.getMarketPrice(path[path.length - 1], "RTM");
-        const marketPrice = (buying ? rtmPriceInfoInternal.buyPrice : rtmPriceInfoInternal.sellPrice);
-        effectiveRtmPrice = effectiveRtmPrice * (marketPrice / effectiveRtmPrice) * takerFeeFactor;
-        pathAndPriceInfo.effectiveRtmPrice = effectiveRtmPrice;
-        pathAndPriceInfo.finalPrice = marketPrice;
-
-        pathAndPriceInfo.path[pathAndPriceInfo.path.length - 1].minimumCoinsRequired = minimumRtmAmount * effectiveRtmPrice;
-
-        return pathAndPriceInfo;
-    }
-
     async start() {
         Logger.info("ClassicArbitrage", "startup", "Caching connector info required for trading...", this._socketBroadcaster);
-        for (const connector of this._connectors) {
-            this._marketCaches[connector._name] = await connector.getAllMarkets();
-        }
-
+        await this.populateMarketCaches();
         Logger.info("ClassicArbitrage", "startup", "Startup complete and trading started!", this._socketBroadcaster);
     }
 
     async tick() {
-        //! re-enable soon
+        //? might not be needed
         // for (const connector of this._connectors) {
         //     // we need to wait until the pending trades are complete before executing another one
         //     if (connector._pendingTrades.length > 0) {

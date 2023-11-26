@@ -184,7 +184,7 @@ export default class BaseProvider {
     /**
      * Check the balance of a currency on your account
      * @param {string} currency currency for which to check the balance (case insensitive)
-     * @returns {Promise<{ success: boolean, total: number, available: number } | { success: boolean, error: string }>} balance info for that currency
+     * @returns {Promise<{ success: true, total: number, available: number } | { success: false, error: string }>} balance info for that currency
      */
     async getBalance(currency) {
         throw new Error("This method must be implemented.");
