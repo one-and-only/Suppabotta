@@ -5,6 +5,7 @@ import Logger from '../Logger.js';
 export default class TickerMaintenanceStrategy extends BaseStrategy {
     _lastMaintainedTimestamp;
     _lastBalanceCheckTimestamp;
+    _baseCurrency;
 
     /**
      * 
@@ -12,20 +13,26 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
      */
     constructor(connectors, args) {
         super(connectors, args);
+
+        if (!args.baseCurrency) {
+            Logger.error("TickerMaintenance", "startup", "baseCurrency is not defined. Please add it as an algorithm parameter", this._socketBroadcaster);
+        }
+
         this._lastMaintainedTimestamp = 0;
         this._lastBalanceCheckTimestamp = 0;
         this._buyingReferenceCurrency = false;
+        this._baseCurrency = args.baseCurrency;
     }
 
     async balanceCheck() {
         this._lastBalanceCheckTimestamp = Date.now();
         for (const connector of this._connectors) {
-            const rtmBalance = await connector.getBalance("RTM");
+            const baseCurrencyBalance = await connector.getBalance(this._baseCurrency);
 
             for (const tradingPairIdx in connector._tradingPairs) {
                 const referenceCurrency = connector.exchangePairToCoin(connector._tradingPairs[tradingPairIdx]);
 
-                if (!rtmBalance.success) {
+                if (!baseCurrencyBalance.success) {
                     connector._tradingPairs[referenceCurrency].enabled = false;
                     continue;
                 }
@@ -35,7 +42,7 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
                 const minOrderSize = connector.minOrderSize(referenceCurrency);
                 const commonMinOrderAmount = connector.minTradeVolumeIsReferenceCurrency() ? minOrderSize : minOrderSize * priceInfo.buyPrice;
 
-                if (referenceBalance.available < commonMinOrderAmount || (rtmBalance.available * priceInfo.sellPrice) < commonMinOrderAmount) {
+                if (referenceBalance.available < commonMinOrderAmount || (baseCurrencyBalance.available * priceInfo.sellPrice) < commonMinOrderAmount) {
                     Logger.warning("TickerMaintenance", `balanceCheck_${connector._name}`, `Not enough balance on ${connector._name} RTM/${referenceCurrency}`, this._socketBroadcaster);
                     connector._tradingPairs[referenceCurrency].enabled = false;
                     continue;
@@ -71,8 +78,8 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
 
                     const amountRtm = minTradeVolume / settledPrice;
                     await Promise.all([
-                        connector.addBuyOrder(amountRtm, settledPrice, referenceCurrency, "RTM"),
-                        connector.addSellOrder(amountRtm, settledPrice, referenceCurrency, "RTM")
+                        connector.addBuyOrder(amountRtm, settledPrice, referenceCurrency, this._baseCurrency),
+                        connector.addSellOrder(amountRtm, settledPrice, referenceCurrency, this._baseCurrency)
                     ]);
                 }
             }
