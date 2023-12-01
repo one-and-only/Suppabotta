@@ -75,25 +75,29 @@ export default class BaseArbitrage extends BaseStrategy {
      * @param {BaseProvider} connector Connector for the exchange we're gathering depth from
      * @param {{ baseCurrency: string, referenceCurrency: string }} tradingPair Trading pair for which we're gathering depth for
      * @param {"bid" | "ask"} side Whether the depth is going to be calculated for the bid or ask side of the order books
-     * @returns {Promise<number>} amount of coins that can be covered
+     * @param {{bid: {price: number, amount: number}[], ask: {price: number, amount: number}[]}} orderBook order book to use for calculations instead of using the exchange connector's function
+     * @returns {Promise<{amount: amount, relevantBookEntries: {price: number, amount: number}[]}>} amount of coins that can be covered
      */
-    async calculateDepth(connector, tradingPair, side) {
-        const orderBook = await connector.getOrderBook(tradingPair.baseCurrency, tradingPair.referenceCurrency);
+    async calculateDepth(connector, tradingPair, side, orderBook = null) {
+        if (!orderBook)
+            orderBook = await connector.getOrderBook(tradingPair.baseCurrency, tradingPair.referenceCurrency);
 
         const currentSideMarketPrice = orderBook[side][0].price;
+        const relevantBookEntries = [];
         let amount = 0;
 
         for (const bookEntry of orderBook[side]) {
             if (
                 ((bookEntry.price / currentSideMarketPrice) < (1 - this._maxPriceDropPct / 100) && side === "bid") ||
                 ((bookEntry.price / currentSideMarketPrice) > (1 + this._maxPriceDropPct / 100) && side === "ask")
-            ) return amount;
+            ) return { amount: amount, relevantBookEntries: relevantBookEntries };
 
             amount += bookEntry.amount;
+            relevantBookEntries.push(bookEntry);
         }
 
         // fall-through in case the exchange is so illiquid or this._maxPriceDropPct is so unrealistic that we can trade out the entire order book side
-        return amount;
+        return { amount: amount, relevantBookEntries: relevantBookEntries };
     }
 
     /**
