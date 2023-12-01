@@ -85,13 +85,13 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         //     }
         // }
         for (const currentConnector of this._connectors) {
-            const currentRtmPriceInfos = await this.rtmMarketPriceInfoForConnector(currentConnector);
+            const currentRtmPriceInfos = await this.baseCurrencyMarketPriceInfoForConnector(currentConnector);
 
             for (const currentRtmPriceInfo of currentRtmPriceInfos) {
                 for (const otherConnector of this._connectors) {
                     if (currentConnector._name === otherConnector._name) continue;
 
-                    const otherRtmPriceInfos = await this.rtmMarketPriceInfoForConnector(otherConnector);
+                    const otherRtmPriceInfos = await this.baseCurrencyMarketPriceInfoForConnector(otherConnector);
 
                     for (const otherRtmPriceInfo of otherRtmPriceInfos) {
                         if (this.comboAlreadyProcessed({ connector: currentConnector._name, tradingPair: currentRtmPriceInfo }, { connector: otherConnector._name, tradingPair: otherRtmPriceInfo })) continue;
