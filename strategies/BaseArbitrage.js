@@ -5,6 +5,7 @@ export default class BaseArbitrage extends BaseStrategy {
     _baseCurrency;
     _profitCurrencyPreferences;
     _marketCaches;
+    _paperTradingEnabled;
 
     constructor(connectors, args) {
         super(connectors, args);
@@ -22,6 +23,8 @@ export default class BaseArbitrage extends BaseStrategy {
                 this._profitCurrencyPreferences[connector._name] = true;
             }
         }
+
+        this._paperTradingEnabled = args.enablePaperTrade ?? false;
     }
 
     /**
