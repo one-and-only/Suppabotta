@@ -76,10 +76,10 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
                     const market = await connector.getMarketPrice(referenceCurrency);
                     const settledPrice = this.decimalRounding((market.buy - market.sell) / 2, 11);
 
-                    const amountRtm = minTradeVolume / settledPrice;
+                    const baseCurrencyAmount = minTradeVolume / settledPrice;
                     await Promise.all([
-                        connector.addBuyOrder(amountRtm, settledPrice, referenceCurrency, this._baseCurrency),
-                        connector.addSellOrder(amountRtm, settledPrice, referenceCurrency, this._baseCurrency)
+                        connector.addBuyOrder(baseCurrencyAmount, settledPrice, referenceCurrency, this._baseCurrency),
+                        connector.addSellOrder(baseCurrencyAmount, settledPrice, referenceCurrency, this._baseCurrency)
                     ]);
                 }
             }
