@@ -232,20 +232,18 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             const badDepthExchangeMarketSide = goodDepthExchangeMarketSide === "bid" ? "ask" : "bid";
             
             const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0].price + polarEntry.badExchangePairInfo.sellDepthEntries[0].price) / 2;
-        }
-        return;
-
-        // check if user deposited more funds to make defined inventory tradeable
-        if (this._unfitToRun) {
-            Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", this._socketBroadcaster);
-            await sleep(10000);
-            await this.fitToRun();
-            return;
-        }
+        //! enable this once testing is done
+        // // check if user deposited more funds to make defined inventory tradeable
+        // if (this._unfitToRun) {
+        //     Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", this._socketBroadcaster);
+        //     await sleep(10000);
+        //     await this.fitToRun();
+        //     return;
+        // }
     }
 
     async shutdown() {
-        //! enable this once algorithm is done
+        //! enable this once testing is done
         // Logger.info("FloatingArbitrage", "shutdown", "Cancelling all pending orders...", this._socketBroadcaster);
         // const statuses = await promiseMap(this._connectors, async connector => {
         //     const res = await connector.cancelAllPending();
@@ -254,7 +252,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         //     return true;
         // });
         // Logger.info("FloatingArbitrage", "shutdown", `Failed to cancel pending orders in: ${statuses.every(x => x === true) ? "None (nothing left to do)" : statuses.map(x => x === true ? "" : x).join(", ")}`, this._socketBroadcaster);
-        // Logger.info("FloatingArbitrage", "shutdown", "If any connectors failed to cancel pending orders, please go into your account and cancel the applicable orders manually.", this._socketBroadcaster);
+        // Logger.info("FloatingArbitrage", "shutdown", "If any connectors failed to cancel pending orders, please go into your exchange's account and cancel the applicable orders manually.", this._socketBroadcaster);
         // Logger.success("FloatingArbitrage", "shutdown", "Algorithm shutdown complete and algorithm stopped", this._socketBroadcaster);
     }
 }

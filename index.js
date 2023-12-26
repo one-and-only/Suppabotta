@@ -15,6 +15,7 @@ import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
 import DexTrade from "./providers/DexTrade.js";
 import Xeggex from "./providers/Xeggex.js";
+import NonKYC from "./providers/NonKYC.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
 import IORedis from "ioredis";
@@ -29,11 +30,11 @@ const strategyMaps = {
         strategyClass: TickerMaintenanceStrategy
     },
     "ClassicArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex],
+        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex, NonKYC],
         strategyClass: ClassicArbitrageStrategy
     },
     "FloatingArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex],
+        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex, NonKYC],
         strategyClass: FloatingArbitrageStrategy
     }
 };
