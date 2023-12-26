@@ -35,9 +35,6 @@ LOG_FILE_PATH=/home/ubuntu/Suppabotta/session.log
 
 # Milliseconds between ticker maintenance executions (default 300000; 5 minutes)
 TICKER_MAINTENANCE_INTERVAL=300000
-
-# Number of coins that is used for each balance check in paper trading mode
-PAPER_TRADE_MODE_REFERENCE_BALANCE=10000000
 ```
 1. Run the bot using `node index.js`
 
