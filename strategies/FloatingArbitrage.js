@@ -12,10 +12,13 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     _unfitToRun;
     _maxPriceDropPct;
     _currencyUsed;
+    _numCurveOrders;
 
     constructor(connectors, args) {
         super(connectors, args);
-        if (!args.baseCurrency || !args.baseCurrency || !args.maxInvPct || !args.inventoryDefinition) {
+        this._unfitToRun = false;
+
+        if (!args.baseCurrency || !args.baseCurrency || !args.maxInvPct || !args.inventoryDefinition || !args.numCurveOrders) {
             args.baseCurrency = "RTM";
             Logger.error("FloatingArbitrage", "startup", "One or more required arguments not provided", this._socketBroadcaster);
             this._unfitToRun = true;
@@ -24,6 +27,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
         this._maxInvPct = args.maxInvPct;
         this._inventoryDefinition = args.inventoryDefinition;
+        this._numCurveOrders = args.numCurveOrders;
 
         this._currencyUsed = {};
         for (const connector of Object.keys(args.inventoryDefinition)) {
