@@ -2,6 +2,7 @@ import Logger from "../Logger.js";
 import { promisify } from 'node:util';
 import Bluebird from "bluebird";
 import BaseArbitrage from "./BaseArbitrage.js";
+import BaseProvider from "../providers/BaseProvider.js";
 
 const { map: promiseMap } = Bluebird;
 const sleep = promisify(setTimeout);
@@ -100,6 +101,9 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
      * @property {number} price price of the coins at a depth level
      */
     /**
+     * @typedef {DepthEntry} Order
+     */
+    /**
      * @typedef {Object} TradingPairInfo
      * @property {number} buyDepth amount of coins that can be bought without shifting the price by this._maxPriceDropPct
      * @property {number} sellDepth amount of coins that can be sold without shifting the price by this._maxPriceDropPct
@@ -177,11 +181,10 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     if (currentMarketInfo.connector._name === otherMarketInfo.connector._name) continue;
 
                     for (const otherPair of otherMarketInfo.tradingPairs) {
-                        let correctSide = "bid";
-                        if (comboAlreadyProcessed({ connector: currentMarketInfo.connector, tradingPair: currentPair }, { connector: otherMarketInfo.connector, tradingPair: otherPair })) correctSide = "ask";
+                        let currentCorrectDepthKey = "buyDepth";
+                        if (comboAlreadyProcessed({ connector: currentMarketInfo.connector, tradingPair: currentPair }, { connector: otherMarketInfo.connector, tradingPair: otherPair })) currentCorrectDepthKey = "sellDepth";
 
-                        const currentCorrectDepthKey = correctSide === "bid" ? "buyDepth" : "sellDepth";
-                        const otherCorrectDepthKey = correctSide === "bid" ? "sellDepth" : "buyDepth";
+                        const otherCorrectDepthKey = currentCorrectDepthKey === "buyDepth" ? "sellDepth" : "buyDepth";
 
                         const executePolarityScan = () => {
                             polarExchangesAlreadyProcessed.push([{ connector: currentMarketInfo.connector, tradingPair: currentPair }, { connector: otherMarketInfo.connector, tradingPair: otherPair }]);
@@ -209,7 +212,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                             executePolarityScan();
                         } else {
                             // this is where we'll need to check for conversion rates to see if it's viable
-                            // then run executeFloatingArbitrage()
+                            // then run executePolarityScan()
                         }
                     }
                 }
@@ -220,30 +223,149 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     }
 
     async start() {
+        if (this._unfitToRun) return;
+
         Logger.info("FloatingArbitrage", "startup", "Caching info required for trading...", this._socketBroadcaster);
         await this.populateMarketCaches();
         Logger.success("FloatingArbitrage", "startup", "Startup complete and trading algorithm started!", this._socketBroadcaster);
-        //! re-enable soon
-        // await this.fitToRun();
+
+        if (!this._paperTradingEnabled) await this.fitToRun();
+        else this._unfitToRun = false;
+    }
+
+    /**
+     * execute multiple orders on the same market concurrency
+     * @param {Order[]} orders orders to be executed on a specific trading pair
+     * @param {BaseProvider} connector connector to be used for order execution
+     * @param {string} referenceCurrency reference currency for trading pair
+     * @param {string} baseCurrency base currency for trading pair
+     * @param {boolean} isBuy whether the provided orders are buy orders
+     * @returns {Promise<boolean>} whether order execution succeeded or not
+     */
+    async executeOrders(orders, connector, referenceCurrency, baseCurrency, isBuy) {
+        return (await promiseMap(
+            orders,
+            async order => {
+                if (isBuy) return await connector.addBuyOrder(order.amount, order.price, referenceCurrency, baseCurrency)
+                else return await connector.addSellOrder(order.amount, order.price, referenceCurrency, baseCurrency)
+            }
+        )).every(x => x);
     }
 
     async tick() {
+        // check if user deposited more funds to make defined inventory tradeable
+        if (this._unfitToRun) {
+            Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", this._socketBroadcaster);
+            await sleep(10000);
+            await this.fitToRun();
+            return;
+        }
+
         const polarExchangeEntries = await this.getPolarExchanges();
 
         for (const polarPair of Object.keys(polarExchangeEntries)) {
             const polarEntry = polarExchangeEntries[polarPair];
-            const goodDepthExchangeMarketSide = polarEntry.goodExchangeSide === "buyPrice" ? "bid" : "ask";
-            const badDepthExchangeMarketSide = goodDepthExchangeMarketSide === "bid" ? "ask" : "bid";
-            
+            // const goodDepthExchangeMarketSide = polarEntry.goodExchangeSide === "buyPrice" ? "bid" : "ask";
+            // const badDepthExchangeMarketSide = polarEntry.badExchangeSide === "buyPrice" ? "bid" : "ask";
+            const goodExchangeApplicableOrderBookEntries = polarEntry.goodExchangePairInfo.buyDepthEntries
+
             const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0].price + polarEntry.badExchangePairInfo.sellDepthEntries[0].price) / 2;
-        //! enable this once testing is done
-        // // check if user deposited more funds to make defined inventory tradeable
-        // if (this._unfitToRun) {
-        //     Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", this._socketBroadcaster);
-        //     await sleep(10000);
-        //     await this.fitToRun();
-        //     return;
-        // }
+
+            const inventoryForTrading = this._inventoryDefinition[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] * (this._maxInvPct / 100);
+            let inventoryUsed = 0;
+            const priceIncrementFactor = (badDepthExchangeAveragePrice - goodExchangeApplicableOrderBookEntries[0].price) / this._numCurveOrders;
+
+            if (priceIncrementFactor <= 0) {
+                console.log("unfavorable pricing conditions");
+                return;
+            }
+
+            const paperTradingMetadata = {};
+
+            // curve orders generation
+
+            let currentPrice = goodExchangeApplicableOrderBookEntries[0].price + priceIncrementFactor;
+            let supplyBought = 0;
+            let supplyUsed = 0;
+
+            /**
+             * @type Order[]
+             */
+            const inventoryGatheringOrders = [];
+
+            /**
+             * @type Order[]
+             */
+            const curveEntryOrders = [];
+
+            let buyupLoopCounter = 0;
+
+            // generate orders to buy the required supply for the curve orders
+            while (inventoryUsed < inventoryForTrading) {
+                if (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price >= badDepthExchangeAveragePrice) break;
+
+                const availableInventory = inventoryForTrading - inventoryUsed;
+                const coinAmount = (availableInventory < goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount) ? availableInventory : goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount;
+
+                inventoryGatheringOrders.push({
+                    amount: coinAmount,
+                    price: goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price
+                });
+
+                inventoryUsed += coinAmount * goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price;
+                supplyBought += coinAmount;
+                buyupLoopCounter++;
+            }
+
+            // TODO update the inventory used class member after buying up inventory
+
+            if (this._paperTradingEnabled) {
+                paperTradingMetadata.buyupOrders = inventoryGatheringOrders;
+            } else {
+                if (!(await this.executeOrders(inventoryGatheringOrders, polarEntry.goodDepthExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, true))) {
+                    Logger.error("FloatingArbitrage", "acquireSupply", "One or more buyup orders failed to execute on the exchange", this._socketBroadcaster);
+                }
+            }
+
+            // used in this curve generation as: k=1 => numTotalTrades ∑ (nk + 5)
+            // n = 103.08222136064(numTotalTrades)^(-1.7539080874066)
+            // My work: https://www.desmos.com/calculator/aoxguwdwrl
+            function getSupplyPctForTrade(tradeNum, numTotalTrades) {
+                return tradeNum * 103.08222136064 * Math.pow(numTotalTrades, -1.7539080874066) + 5
+            }
+
+            // generate orders that fit the curve
+            for (let i = 0; i < this._numCurveOrders; i++) {
+                const supplyPctFactorForTrade = getSupplyPctForTrade(i, this._numCurveOrders) / 100;
+                const supplyCoinAmount = supplyPctFactorForTrade * supplyBought;
+                const supplyAvailable = supplyBought - supplyUsed;
+                let coinAmount;
+
+                if (supplyAvailable <= 0) break;
+
+                if (this._numCurveOrders - i === 1) coinAmount = supplyAvailable
+                else if (supplyAvailable < supplyCoinAmount) coinAmount = supplyAvailable;
+                else coinAmount = supplyCoinAmount;
+
+                curveEntryOrders.push({
+                    price: currentPrice,
+                    amount: coinAmount
+                });
+
+                supplyUsed += coinAmount
+
+                currentPrice += priceIncrementFactor;
+            }
+
+            if (this._paperTradingEnabled) {
+                paperTradingMetadata.curveOrders = curveEntryOrders;
+                await this._paperTradingMongoCollection.insertOne(paperTradingMetadata);
+            } else {
+                if (!(await this.executeOrders(curveEntryOrders, polarEntry.badDepthExchange, polarEntry.badExchangePairInfo.referenceCurrency, polarEntry.badExchangePairInfo.baseCurrency, false))) {
+                    Logger.error("FloatingArbitrage", "acquireSupply", "One or more buyup orders failed to execute on the exchange", this._socketBroadcaster);
+                }
+            }
+        }
     }
 
     async shutdown() {
