@@ -35,6 +35,10 @@ LOG_FILE_PATH=/home/ubuntu/Suppabotta/session.log
 
 # Milliseconds between ticker maintenance executions (default 300000; 5 minutes)
 TICKER_MAINTENANCE_INTERVAL=300000
+
+# Database that stores paper trading order info
+# Useful for market/profitability analysis from paper trading mode
+PAPER_TRADING_MONGO_DATABASE=PaperTradingHistory
 ```
 1. Run the bot using `node index.js`
 

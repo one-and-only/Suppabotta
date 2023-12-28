@@ -47,13 +47,18 @@ global.doingTickerMaintenance = false;
 
 const redisConnection = new IORedis(parseInt(process.env.REDIS_PORT), process.env.REDIS_HOST, { maxRetriesPerRequest: null });
 
+const mongoClient = new MongoClient(`mongodb://${process.env.MONGODB_USER}:${process.env.MONGODB_PASS}@${process.env.MONGODB_ADDRESS}?authMechanism=DEFAULT`);
+await mongoClient.connect();
+const mongoDb = mongoClient.db(process.env.MONGODB_DATABASE);
+const userCollection = mongoDb.collection("Users");
+
 const userQueueData = {};
 
 const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
 const userWorker = new Worker("userQueue", async job => {
     const strategyData = userQueueData[job.data.username];
-    const strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...(job.data.strategyArgs), socketBroadcaster: strategyData.socketBroadcaster });
+    const strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...(job.data.strategyArgs), socketBroadcaster: strategyData.socketBroadcaster }, mongoDb.collection(process.env.PAPER_TRADING_MONGO_DATABASE));
 
     await strategyInstance.start();
     while (true) {
@@ -69,10 +74,6 @@ const userWorker = new Worker("userQueue", async job => {
 async function numJobsLeft() {
     return (await userQueue.getJobs("active")).length;
 }
-
-const mongoClient = new MongoClient(`mongodb://${process.env.MONGODB_USER}:${process.env.MONGODB_PASS}@${process.env.MONGODB_ADDRESS}?authMechanism=DEFAULT`);
-await mongoClient.connect();
-const userCollection = mongoClient.db(process.env.MONGODB_DATABASE).collection("Users");
 
 const app = express();
 app.disable("x-powered-by");
