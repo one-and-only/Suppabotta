@@ -271,7 +271,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
             const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0].price + polarEntry.badExchangePairInfo.sellDepthEntries[0].price) / 2;
 
-            const inventoryForTrading = this._inventoryDefinition[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] * (this._maxInvPct / 100);
+            const inventoryForTrading = (this._inventoryDefinition[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] - this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency]) * (this._maxInvPct / 100);
             let inventoryUsed = 0;
             const priceIncrementFactor = (badDepthExchangeAveragePrice - goodExchangeApplicableOrderBookEntries[0].price) / this._numCurveOrders;
 
@@ -317,7 +317,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 buyupLoopCounter++;
             }
 
-            // TODO update the inventory used class member after buying up inventory
+            this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] += inventoryUsed
 
             if (this._paperTradingEnabled) {
                 paperTradingMetadata.buyupOrders = inventoryGatheringOrders;
