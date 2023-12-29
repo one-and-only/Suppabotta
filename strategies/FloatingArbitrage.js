@@ -302,6 +302,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
             // generate orders to buy the required supply for the curve orders
             while (inventoryUsed < inventoryForTrading) {
+                if (buyupLoopCounter >= goodExchangeApplicableOrderBookEntries.length) break;
                 if (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price >= badDepthExchangeAveragePrice) break;
 
                 const availableInventory = inventoryForTrading - inventoryUsed;
