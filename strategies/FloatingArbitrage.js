@@ -280,7 +280,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 return;
             }
 
-            const paperTradingMetadata = {};
+            const paperTradeOrdersInfo = {};
 
             // curve orders generation
 
@@ -321,7 +321,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] += inventoryUsed
 
             if (this._paperTradingEnabled) {
-                paperTradingMetadata.buyupOrders = inventoryGatheringOrders;
+                paperTradeOrdersInfo.buyupOrders = inventoryGatheringOrders;
             } else {
                 if (!(await this.executeOrders(inventoryGatheringOrders, polarEntry.goodDepthExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, true))) {
                     Logger.error("FloatingArbitrage", "acquireSupply", "One or more buyup orders failed to execute on the exchange", this._socketBroadcaster);
@@ -359,14 +359,17 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             }
 
             if (this._paperTradingEnabled) {
-                paperTradingMetadata.curveOrders = curveEntryOrders;
-                paperTradingMetadata.badDepthExchange = polarEntry.badDepthExchange._name;
-                paperTradingMetadata.goodDepthExchange = polarEntry.goodDepthExchange._name;
-                const res = await this._paperTradingMongoCollection.insertOne({
-                    tradeInfo: JSON.stringify(paperTradingMetadata),
+                paperTradeOrdersInfo.curveOrders = curveEntryOrders;
+                await this._paperTradingMongoCollection.insertOne({
+                    tradeInfo: paperTradeOrdersInfo,
+                    trade_metadata: {
+                        badDepthExchange: polarEntry.badDepthExchange._name,
+                        goodDepthExchange: polarEntry.goodDepthExchange._name,
+                        goodDepthExchangeTradingPair: { referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency },
+                        badDepthExchangeTradingPair: { referenceCurrency: polarEntry.badExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.badExchangePairInfo.baseCurrency }
+                    },
                     mongo_timestamp: new Date()
                 });
-                console.log(JSON.stringify(res));
             } else {
                 if (!(await this.executeOrders(curveEntryOrders, polarEntry.badDepthExchange, polarEntry.badExchangePairInfo.referenceCurrency, polarEntry.badExchangePairInfo.baseCurrency, false))) {
                     Logger.error("FloatingArbitrage", "acquireSupply", "One or more buyup orders failed to execute on the exchange", this._socketBroadcaster);
