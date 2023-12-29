@@ -7,8 +7,8 @@ export default class BaseArbitrage extends BaseStrategy {
     _marketCaches;
     _paperTradingEnabled;
 
-    constructor(connectors, args) {
-        super(connectors, args);
+    constructor(connectors, args, paperTradingMongoCollection) {
+        super(connectors, args, paperTradingMongoCollection);
 
         this._baseCurrency = args.baseCurrency.toUpperCase();
         this._profitCurrencyPreferences = [];

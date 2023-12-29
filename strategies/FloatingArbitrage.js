@@ -15,8 +15,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     _currencyUsed;
     _numCurveOrders;
 
-    constructor(connectors, args) {
-        super(connectors, args);
+    constructor(connectors, args, paperTradingMongoCollection) {
+        super(connectors, args, paperTradingMongoCollection);
         this._unfitToRun = false;
 
         if (!args.baseCurrency || !args.baseCurrency || !args.maxInvPct || !args.inventoryDefinition || !args.numCurveOrders) {
@@ -360,7 +360,13 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
             if (this._paperTradingEnabled) {
                 paperTradingMetadata.curveOrders = curveEntryOrders;
-                await this._paperTradingMongoCollection.insertOne(paperTradingMetadata);
+                paperTradingMetadata.badDepthExchange = polarEntry.badDepthExchange._name;
+                paperTradingMetadata.goodDepthExchange = polarEntry.goodDepthExchange._name;
+                const res = await this._paperTradingMongoCollection.insertOne({
+                    tradeInfo: JSON.stringify(paperTradingMetadata),
+                    mongo_timestamp: new Date()
+                });
+                console.log(JSON.stringify(res));
             } else {
                 if (!(await this.executeOrders(curveEntryOrders, polarEntry.badDepthExchange, polarEntry.badExchangePairInfo.referenceCurrency, polarEntry.badExchangePairInfo.baseCurrency, false))) {
                     Logger.error("FloatingArbitrage", "acquireSupply", "One or more buyup orders failed to execute on the exchange", this._socketBroadcaster);
