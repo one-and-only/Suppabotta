@@ -363,6 +363,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 await this._paperTradingMongoCollection.insertOne({
                     tradeInfo: paperTradeOrdersInfo,
                     trade_metadata: {
+                        strategy: "FloatingArbitrage",
                         badDepthExchange: polarEntry.badDepthExchange._name,
                         goodDepthExchange: polarEntry.goodDepthExchange._name,
                         goodDepthExchangeTradingPair: { referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency },

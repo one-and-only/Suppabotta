@@ -71,6 +71,11 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async tick() {
+        const paperTradeDetails = {
+            currencyConversionPriceTransitions: {},
+            arbitrageTrades: {},
+        };
+
         for (const currentConnector of this._connectors) {
             const currentRtmPriceInfos = await this.baseCurrencyMarketPriceInfoForConnector(currentConnector);
 
@@ -190,21 +195,20 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     let { referenceCurrency, baseCurrency } = pathInfo[i];
                                     const endingCurrency = referenceCurrency;
 
+                                    // we buy when the currencies are inverted (normally we sell our way to the ending currency)
                                     if (referenceCurrencyInverted) {
                                         referenceCurrency = baseCurrency;
                                         baseCurrency = endingCurrency;
 
-                                        // we buy when the currencies are inverted (normally we sell our way to the ending currency)
                                         // we have already inverted referenceCurrency and baseCurrency a few lines ago, so this is fine
-                                        //                                                                ∨                ∨
-                                        //! this and the other order will be re-enabled once debugging is over
-                                        // await pathConnector.addBuyOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
+                                        //                                                                                                ∨                ∨
+                                        if (!this._paperTradingEnabled) await pathConnector.addBuyOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
                                     } else {
-                                        // await pathConnector.addSellOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
+                                        if (!this._paperTradingEnabled) await pathConnector.addSellOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
                                     }
                                 }
 
-                                Logger.success("ClassicArbitrage", "submitOrders", "Orders submitted successfully!", this._socketBroadcaster);
+                                Logger.success("ClassicArbitrage", "currencyConversion", "Finish converting currency", this._socketBroadcaster);
                             }
 
                             /**
@@ -221,6 +225,10 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 if (!shortestPath) return;
 
                                 const effectivePrice = await this.effectiveReferencePrice(otherConnector, shortestPath, !otherConnectorBuying);
+                                paperTradeDetails.currencyConversionPriceTransitions = {
+                                    path: effectivePrice.path,
+                                    exchange: pathConnector._name
+                                };
 
                                 /**
                                  * Ensure that the user has enough balance and the exchange has enough depth for each trading step
@@ -257,7 +265,10 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                                         // the original baseCurrency is what we are targetting for a balance check
                                         // because that is the currency we are converting towards the ending currency
-                                        const balance = (await pathConnector.getBalance(referenceCurrencyInverted ? referenceCurrency : baseCurrency));
+                                        let balance;
+                                        if (this._paperTradingEnabled) balance = parseInt(process.env.PAPER_TRADE_MODE_REFERENCE_BALANCE)
+                                        else balance = (await pathConnector.getBalance(referenceCurrencyInverted ? referenceCurrency : baseCurrency));
+
                                         if (balance < minimumCoinsRequired) {
                                             Logger.warning("ClassicArbitrage", "multiCurrencyPathBalanceCheck", "Favorable price was found, but the user didn't have enough balance to execute all trades", this._socketBroadcaster);
                                             return false;
@@ -272,11 +283,39 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                                     await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
 
-                                    //! re-enable this and the other Promise.all once debugging is done
-                                    // await Promise.all([
-                                    //     await pathConnector.addSellOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                    //     await otherConnector.addBuyOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
-                                    // ]);
+                                    if (this._paperTradingEnabled) {
+                                        paperTradeDetails.arbitrageTrades = [
+                                            {
+                                                exchange: pathConnector._name,
+                                                price: effectivePrice.finalPrice,
+                                                amount: minimumCoinsRequired,
+                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
+                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
+                                                isBuy: false
+                                            },
+                                            {
+                                                exchange: otherConnector._name,
+                                                price: 0.000, //? why is it 0? idk what I did here
+                                                amount: minimumCoinsRequired,
+                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
+                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
+                                                isBuy: true
+                                            }
+                                        ]
+
+                                        this._paperTradingMongoCollection.insertOne({
+                                            mongo_timestamp: new Date(),
+                                            trade_metadata: {
+                                                strategy: "ClassicArbitrage"
+                                            },
+                                            tradeInfo: paperTradeDetails
+                                        });
+                                    } else {
+                                        await Promise.all([
+                                            await pathConnector.addSellOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                            await otherConnector.addBuyOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                        ]);
+                                    }
 
                                     Logger.success("ClassicArbitrage", "orderSubmission", "yoooooo! you already know what it is :100: 1", this._socketBroadcaster);
                                 } else if (!otherConnectorBuying && effectivePrice.effectiveRtmPrice < otherConnectorPriceInfo.sellPrice) {
@@ -284,10 +323,39 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                                     await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
 
-                                    // await Promise.all([
-                                    //     await pathConnector.addBuyOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                    //     await otherConnector.addSellOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
-                                    // ]);
+                                    if (this._paperTradingEnabled) {
+                                        paperTradeDetails.arbitrageTrades = [
+                                            {
+                                                exchange: pathConnector._name,
+                                                price: effectivePrice.finalPrice,
+                                                amount: minimumCoinsRequired,
+                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
+                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
+                                                isBuy: true
+                                            },
+                                            {
+                                                exchange: otherConnector._name,
+                                                price: 0.000, //? why is it 0? idk what I did here
+                                                amount: minimumCoinsRequired,
+                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
+                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
+                                                isBuy: false
+                                            }
+                                        ]
+
+                                        this._paperTradingMongoCollection.insertOne({
+                                            mongo_timestamp: new Date(),
+                                            trade_metadata: {
+                                                strategy: "ClassicArbitrage"
+                                            },
+                                            tradeInfo: paperTradeDetails
+                                        });
+                                    } else {
+                                        await Promise.all([
+                                            await pathConnector.addBuyOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                            await otherConnector.addSellOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                        ]);
+                                    }
 
                                     Logger.success("ClassicArbitrage", "orderSubmission", "yoooooo! you already know what it is :100: 2", this._socketBroadcaster);
                                 }

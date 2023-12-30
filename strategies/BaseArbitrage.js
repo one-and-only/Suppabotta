@@ -175,7 +175,7 @@ export default class BaseArbitrage extends BaseStrategy {
      * @param {string[]} path 
      * @param {boolean} buying 
      * @param {number} minimumRtmAmount Minimum order size, in RTM.
-     * @returns {Promise<{effectiveRtmPrice:number,finalPrice:number,path:{referenceCurrency:string,baseCurrency:string,price:number,depth:number,referenceCurrencyInverted:boolean}[]}>} path and price information
+     * @returns {Promise<{effectiveRtmPrice:number,finalPrice:number,path:{baseCurrency:string,depth:number,price:number,referenceCurrency:string,referenceCurrencyInverted:boolean,minimumCoinsRequired:number|undefined}[]}>} path and price information
      */
     async effectiveReferencePrice(connector, path, buying, minimumRtmAmount = 0) {
         let effectiveRtmPrice;
