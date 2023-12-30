@@ -71,19 +71,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async tick() {
-        //? might not be needed
-        // for (const connector of this._connectors) {
-        //     // we need to wait until the pending trades are complete before executing another one
-        //     if (connector._pendingTrades.length > 0) {
-        //         for (let i = 0; i < connector._pendingTrades.length; i++) {
-        //             const orderId = connector._pendingTrades[i];
-        //             // still have some pending trades, so we can't continue this tick
-        //             if ((await connector.orderStatus(orderId)).quantityLeft > 0) return;
-
-        //             connector._pendingTrades.splice(i, 1); // trade complete
-        //         }
-        //     }
-        // }
         for (const currentConnector of this._connectors) {
             const currentRtmPriceInfos = await this.baseCurrencyMarketPriceInfoForConnector(currentConnector);
 
