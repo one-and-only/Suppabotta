@@ -122,7 +122,7 @@ export default class CoinEx extends BaseProvider {
 
             if (response.status !== 200 || !responseJson.id) return false;
 
-            this._pendingTrades.push({ market: market, id: responseJson.id });
+            this._pendingTrades.push({ id: responseJson.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
             return true;
         } catch (e) {
             return false;
@@ -167,6 +167,10 @@ export default class CoinEx extends BaseProvider {
         }
 
         return true;
+    }
+
+    getPendingOrders() {
+        return this._pendingTrades;
     }
 
     async orderStatus(order) {

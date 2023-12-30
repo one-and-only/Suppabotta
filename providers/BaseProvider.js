@@ -164,6 +164,14 @@ export default class BaseProvider {
     }
 
     /**
+     * Get all pending orders on the connector's exchange
+     * @returns {Promise<{amount:number,price:number,referenceCurrency:string,baseCurrency:string,isBuy:boolean}[]>}
+     */
+    getPendingOrders() {
+        throw new Error("This method must be implemented.")
+    }
+
+    /**
      * Check whether there is an RTM trading pair available with the given reference currency
      * @param {string} referenceCurrency currency RTM is paired with
      * @returns {boolean} whether it exists or not

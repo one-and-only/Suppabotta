@@ -136,7 +136,7 @@ export default class SouthXChange extends BaseProvider {
                 return false;
             }
             if (status === 200 && orderId.length !== 0) {
-                this._pendingTrades.push(orderId)
+                this._pendingTrades.push({ id: orderId, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
                 return true;
             }
 
@@ -176,6 +176,10 @@ export default class SouthXChange extends BaseProvider {
 
         this._pendingTrades = [];
         return true;
+    }
+
+    getPendingOrders() {
+        return this._pendingTrades;
     }
 
     async orderStatus(orderId) {

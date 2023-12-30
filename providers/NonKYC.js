@@ -128,7 +128,7 @@ export default class NonKYC extends BaseProvider {
             )).text();
 
             if (parseFloat(response.remainQuantity) > 0) {
-                this._pendingTrades.push(response.id);
+                this._pendingTrades.push({ id: response.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
             }
 
             return true;
@@ -166,6 +166,10 @@ export default class NonKYC extends BaseProvider {
 
         this._pendingTrades = [];
         return true;
+    }
+
+    getPendingOrders() {
+        return this._pendingTrades;
     }
 
     async orderStatus(orderId) {
