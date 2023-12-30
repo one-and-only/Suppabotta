@@ -168,7 +168,11 @@ export default class BaseProvider {
      * @returns {Promise<{amount:number,price:number,referenceCurrency:string,baseCurrency:string,isBuy:boolean}[]>}
      */
     getPendingOrders() {
-        throw new Error("This method must be implemented.")
+        throw new Error("This method must be implemented.");
+    }
+
+    async prunePendingOrders() {
+        throw new Error("This method must be implemented.");
     }
 
     /**

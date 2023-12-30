@@ -2,6 +2,9 @@ import BaseProvider from "./BaseProvider.js";
 import { createHash } from "crypto";
 import RequestHelper from "../RequestHelper.js";
 
+import Bluebird from "bluebird";
+const { map: promiseMap } = Bluebird;
+
 // really small numbers get converted into scientific notation otherwise
 // talked to API support and they said they don't support this notation (i.e. it's bad)
 import BigNumber from "bignumber.js";
@@ -165,6 +168,18 @@ export default class DexTrade extends BaseProvider {
 
     getPendingOrders() {
         return this._pendingTrades;
+    }
+
+    async prunePendingOrders() {
+        this._pendingTrades = (await promiseMap(
+            this._pendingTrades,
+            async order => {
+                const orderStatus = await this.orderStatus(order.id);
+                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
+
+                return "";
+            }
+        )).filter(x => x !== "");
     }
 
     async orderStatus(orderId) {

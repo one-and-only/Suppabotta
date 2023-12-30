@@ -2,6 +2,9 @@ import BaseProvider from "./BaseProvider.js";
 import { encode as base64Encode } from "js-base64";
 import RequestHelper from "../RequestHelper.js";
 
+import Bluebird from "bluebird";
+const { map: promiseMap } = Bluebird;
+
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey) {
         super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, true, [1, 0], "-", "TradeOgre");
@@ -149,6 +152,18 @@ export default class TradeOgre extends BaseProvider {
 
     getPendingOrders() {
         return this._pendingTrades;
+    }
+
+    async prunePendingOrders() {
+        this._pendingTrades = (await promiseMap(
+            this._pendingTrades,
+            async order => {
+                const orderStatus = await this.orderStatus(order.id);
+                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
+
+                return "";
+            }
+        )).filter(x => x !== "");
     }
 
     async orderStatus(orderId) {

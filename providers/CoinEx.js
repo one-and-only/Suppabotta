@@ -2,6 +2,9 @@ import RequestHelper from "../RequestHelper.js";
 import BaseProvider from "./BaseProvider.js";
 import { createHash } from "crypto";
 
+import Bluebird from "bluebird";
+const { map: promiseMap } = Bluebird;
+
 export default class CoinEx extends BaseProvider {
     _referenceCurrencies = ["USDT", "USDC", "BTC"];
 
@@ -171,6 +174,18 @@ export default class CoinEx extends BaseProvider {
 
     getPendingOrders() {
         return this._pendingTrades;
+    }
+
+    async prunePendingOrders() {
+        this._pendingTrades = (await promiseMap(
+            this._pendingTrades,
+            async order => {
+                const orderStatus = await this.orderStatus({ id: order.id, market: this.coinsToExchangePair([order.baseCurrency, order.referenceCurrency]) });
+                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
+
+                return "";
+            }
+        )).filter(x => x !== "");
     }
 
     async orderStatus(order) {

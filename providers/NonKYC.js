@@ -3,6 +3,9 @@ import RequestHelper from "../RequestHelper.js";
 import { createHmac, randomBytes } from 'crypto';
 import Logger from "../Logger.js";
 
+import Bluebird from "bluebird";
+const { map: promiseMap } = Bluebird;
+
 export default class NonKYC extends BaseProvider {
     constructor(apiSecret, apiKey) {
         super(apiSecret, apiKey, "https://nonkyc.io/api/v2", 0.2, 0.2, 0.62, true, [0, 1], "_", "NonKYC");
@@ -170,6 +173,18 @@ export default class NonKYC extends BaseProvider {
 
     getPendingOrders() {
         return this._pendingTrades;
+    }
+
+    async prunePendingOrders() {
+        this._pendingTrades = (await promiseMap(
+            this._pendingTrades,
+            async order => {
+                const orderStatus = await this.orderStatus(order.id);
+                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
+
+                return "";
+            }
+        )).filter(x => x !== "");
     }
 
     async orderStatus(orderId) {
