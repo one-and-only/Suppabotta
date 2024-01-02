@@ -98,7 +98,7 @@ export default class BaseProvider {
     /**
      * 
      * @param {string} coin reference currency
-     * @returns number minimum trade volume for trading pair
+     * @returns {number} minimum trade volume for trading pair
      */
     minOrderSize(coin) {
         return this._minTradeVolumes[coin.toUpperCase()];

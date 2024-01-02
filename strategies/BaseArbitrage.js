@@ -218,7 +218,7 @@ export default class BaseArbitrage extends BaseStrategy {
             });
         }
 
-        const rtmPriceInfoInternal = await connector.getMarketPrice(path[path.length - 1], "RTM");
+        const rtmPriceInfoInternal = await connector.getMarketPrice(path[path.length - 1], this._baseCurrency.toUpperCase());
         const marketPrice = (buying ? rtmPriceInfoInternal.buyPrice : rtmPriceInfoInternal.sellPrice);
         effectiveRtmPrice = effectiveRtmPrice * (marketPrice / effectiveRtmPrice) * takerFeeFactor;
         pathAndPriceInfo.effectiveRtmPrice = effectiveRtmPrice;

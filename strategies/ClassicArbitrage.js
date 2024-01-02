@@ -278,6 +278,17 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     return true;
                                 }
 
+                                const otherMinTradeSize = otherConnector.minOrderSize(otherConnectorPriceInfo.referenceCurrency)
+                                const pathMinTradeSize = pathConnector.minOrderSize(otherConnectorPriceInfo.referenceCurrency)
+
+                                // sometimes min trade volumes can be zero, so we are using a minimum here just in case
+                                const otherReferenceCurrencyMinTradeSize = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinTradeSize : otherMinTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"], 0.00001);
+                                const pathReferenceCurrencyMinTradeSize = Math.max(pathConnector.minTradeVolumeIsReferenceCurrency() ? pathMinTradeSize : pathMinTradeSize / effectivePrice.finalPrice, 0.00001);
+                                const referenceCurrencyTradeSize = otherReferenceCurrencyMinTradeSize > pathReferenceCurrencyMinTradeSize ? otherReferenceCurrencyMinTradeSize : pathReferenceCurrencyMinTradeSize;
+
+                                const otherBaseCurrencyTradeSize = referenceCurrencyTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"];
+                                const pathBaseCurrencyTradeSize = referenceCurrencyTradeSize / effectivePrice.finalPrice;
+
                                 if (otherConnectorBuying && effectivePrice.effectiveRtmPrice > otherConnectorPriceInfo.buyPrice) {
                                     if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
 
@@ -288,15 +299,15 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                             {
                                                 exchange: pathConnector._name,
                                                 price: effectivePrice.finalPrice,
-                                                amount: minimumCoinsRequired,
+                                                amount: pathBaseCurrencyTradeSize,
                                                 referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
                                                 baseCurrency: otherConnectorPriceInfo.baseCurrency,
                                                 isBuy: false
                                             },
                                             {
                                                 exchange: otherConnector._name,
-                                                price: 0.000, //? why is it 0? idk what I did here
-                                                amount: minimumCoinsRequired,
+                                                price: otherConnectorPriceInfo["buyPrice"],
+                                                amount: otherBaseCurrencyTradeSize,
                                                 referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
                                                 baseCurrency: otherConnectorPriceInfo.baseCurrency,
                                                 isBuy: true
@@ -312,8 +323,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         });
                                     } else {
                                         await Promise.all([
-                                            await pathConnector.addSellOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                            await otherConnector.addBuyOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                            await pathConnector.addSellOrder(pathBaseCurrencyTradeSize, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                            await otherConnector.addBuyOrder(otherBaseCurrencyTradeSize, otherConnectorPriceInfo["buyPrice"], otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
                                         ]);
                                     }
 
@@ -328,15 +339,15 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                             {
                                                 exchange: pathConnector._name,
                                                 price: effectivePrice.finalPrice,
-                                                amount: minimumCoinsRequired,
+                                                amount: pathBaseCurrencyTradeSize,
                                                 referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
                                                 baseCurrency: otherConnectorPriceInfo.baseCurrency,
                                                 isBuy: true
                                             },
                                             {
                                                 exchange: otherConnector._name,
-                                                price: 0.000, //? why is it 0? idk what I did here
-                                                amount: minimumCoinsRequired,
+                                                price: otherConnectorPriceInfo["sellPrice"],
+                                                amount: otherBaseCurrencyTradeSize,
                                                 referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
                                                 baseCurrency: otherConnectorPriceInfo.baseCurrency,
                                                 isBuy: false
@@ -352,8 +363,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         });
                                     } else {
                                         await Promise.all([
-                                            await pathConnector.addBuyOrder(minimumCoinsRequired, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                            await otherConnector.addSellOrder(minimumCoinsRequired, 0.000, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                            await pathConnector.addBuyOrder(pathBaseCurrencyTradeSize, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                            await otherConnector.addSellOrder(otherBaseCurrencyTradeSize, otherConnectorPriceInfo["sellPrice"], otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
                                         ]);
                                     }
 
