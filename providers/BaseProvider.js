@@ -184,7 +184,10 @@ export default class BaseProvider {
      * @returns {boolean} whether it exists or not
      */
     referenceCurrencyExists(referenceCurrency) {
-        return referenceCurrency in this._tradingPairs;
+        for (const currency of Object.keys(this._tradingPairs))
+            if (currency === referenceCurrency) return true;
+
+        return false;
     }
 
     /**
