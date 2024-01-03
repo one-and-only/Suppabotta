@@ -29,8 +29,8 @@ export default class NonKYC extends BaseProvider {
             for (const market of markets) {
                 if (!market.symbol.startsWith(this._baseCurrency)) continue;
 
-                this._tradingPairs[market.primaryTicker] = { pair: market.symbol, enabled: true };
-                this._minTradeVolumes[market.primaryTicker] = market.minimumQuantity ?? 0;
+                this._tradingPairs[market.symbol.split('/')[1]] = { pair: market.symbol, enabled: true };
+                this._minTradeVolumes[market.symbol.split('/')[1]] = market.minimumQuantity ?? 0;
             }
         } catch (e) {
             Logger.error(this._name, "initialize_allTradingPairs", "Failed to get market info");
