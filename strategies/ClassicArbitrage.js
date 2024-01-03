@@ -90,7 +90,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                         this.markAsProcessed([currentConnector._name, otherConnector._name], currentRtmPriceInfo, otherRtmPriceInfo);
 
                         if (otherRtmPriceInfo.referenceCurrency === currentRtmPriceInfo.referenceCurrency) {
-                            continue; //! re-enable once cross-currency stuff is done
                             const currentEffectiveBuyPrice = currentRtmPriceInfo.buyPrice * (1 + currentConnector._takerFeePct / 100); // spending more than the value of the coin with fees
                             const currentEffectiveSellPrice = currentRtmPriceInfo.sellPrice / (1 + currentConnector._takerFeePct / 100); // getting less money than the value of the coin with fees
                             const otherEffectiveBuyPrice = otherRtmPriceInfo.buyPrice * (1 + otherConnector._takerFeePct / 100);
