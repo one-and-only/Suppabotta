@@ -176,7 +176,7 @@ export default class BaseProvider {
     }
 
     /**
-     * Check whether there is an RTM trading pair available with the given reference currency
+     * Check whether there is a trading pair available for baseCurrency with the given reference currency
      * @param {string} referenceCurrency currency RTM is paired with
      * @returns {boolean} whether it exists or not
      */
