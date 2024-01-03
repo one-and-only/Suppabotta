@@ -87,7 +87,7 @@ export default class TradeOgre extends BaseProvider {
                 continue;
 
             for (const pair in market) {
-                this._tradingPairs[pair.split("-")[0]] = { pair: pair, enabled: true };
+                this._tradingPairs[pair.split("-")[1]] = { pair: pair, enabled: true };
             }
         }
 
