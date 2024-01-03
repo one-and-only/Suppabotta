@@ -7,8 +7,8 @@ import Bluebird from "bluebird";
 const { map: promiseMap } = Bluebird;
 
 export default class SouthXChange extends BaseProvider {
-    constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://www.southxchange.com/api", 0.1, 0.3, 0.00001354, true, [0, 1], "_", "SouthXChange");
+    constructor(apiSecret, apiKey, baseCurrency) {
+        super(apiSecret, apiKey, "https://www.southxchange.com/api", baseCurrency, 0.1, 0.3, 0.00001354, true, [0, 1], "_", "SouthXChange");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,

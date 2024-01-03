@@ -6,8 +6,8 @@ import Bluebird from "bluebird";
 const { map: promiseMap } = Bluebird;
 
 export default class TradeOgre extends BaseProvider {
-    constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", 0.2, 0.2, 0.01, true, [1, 0], "-", "TradeOgre");
+    constructor(apiSecret, apiKey, baseCurrency) {
+        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", baseCurrency, 0.2, 0.2, 0.01, true, [1, 0], "-", "TradeOgre");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
