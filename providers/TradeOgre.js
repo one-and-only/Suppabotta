@@ -83,7 +83,7 @@ export default class TradeOgre extends BaseProvider {
 
         for (const marketIdx in markets) {
             const market = markets[marketIdx];
-            if (!JSON.stringify(market).includes("RTM"))
+            if (!JSON.stringify(market).includes(this._baseCurrency))
                 continue;
 
             for (const pair in market) {

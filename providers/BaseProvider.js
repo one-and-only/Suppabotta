@@ -14,12 +14,14 @@ export default class BaseProvider {
     _exchangeApiPairCurrencyOrder;
     _exchangeApiCurrencySeparator;
     _name;
+    _baseCurrency;
 
     /**
      * Base class for an exchange provider (Exchange API interface class)
      * @param {string} apiSecret Private API key
      * @param {string} apiKey Public API key
      * @param {string} apiUrl Exchange API base URL
+     * @param {string} baseCurrency Base currency to use for initialization
      * @param {number} makerFeePct Exchange maker fee (%)
      * @param {number} takerFeePct Exchange taker fee (%)
      * @param {number} rtmWithdrawalFee Exchange withdrawal fee for RTM
@@ -28,10 +30,11 @@ export default class BaseProvider {
      * @param {string} exchangeApiCurrencySeparator Separator between the referenceCurrency and baseCurrency in the exchange API
      * @param {string} name Name/unique identifier of the exchange provider
      */
-    constructor(apiSecret, apiKey, apiUrl, makerFeePct, takerFeePct, rtmWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
+    constructor(apiSecret, apiKey, apiUrl, baseCurrency, makerFeePct, takerFeePct, rtmWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
+        this._baseCurrency = baseCurrency;
         this._pendingTrades = [];
         this._tradingPairs = {};
         this._balances = {};

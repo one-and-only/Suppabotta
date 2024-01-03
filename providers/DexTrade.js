@@ -75,7 +75,7 @@ export default class DexTrade extends BaseProvider {
 
         for (const symbolIdx in symbols.data) {
             const symbol = symbols.data[symbolIdx];
-            if (symbol.base === "RTM") {
+            if (symbol.base === this._baseCurrency) {
                 this._tradingPairs[symbol.quote] = { pair: symbol.pair, enabled: true };
                 this._minTradeVolumes[symbol.pair] = 28.125; // Dex-Trade Trading UI says 28.125 minimum RTM for all RTM pairs
             }

@@ -27,7 +27,7 @@ export default class Xeggex extends BaseProvider {
             const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/getlist`)).json();
 
             for (const market of markets) {
-                if (!market.symbol.startsWith("RTM")) continue;
+                if (!market.symbol.startsWith(this._baseCurrency)) continue;
 
                 this._tradingPairs[market.secondaryAsset.ticker] = { pair: market.symbol, enabled: true };
                 this._minTradeVolumes[market.secondaryAsset.ticker] = market.minimumQuantity;

@@ -50,7 +50,7 @@ export default class SouthXChange extends BaseProvider {
             const markets = await (await this._requestHelper.get(`${this._apiUrl}/markets`)).json();
 
             for (const market of markets) {
-                if (market[0] !== "RTM") continue;
+                if (market[0] !== this._baseCurrency) continue;
 
                 const tradingPair = `${market[0]}_${market[1]}`;
                 this._tradingPairs[market[1]] = { pair: tradingPair, enabled: true };

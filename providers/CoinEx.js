@@ -8,8 +8,8 @@ const { map: promiseMap } = Bluebird;
 export default class CoinEx extends BaseProvider {
     _referenceCurrencies = ["USDT", "USDC", "BTC"];
 
-    constructor(apiSecret, apiKey) {
-        super(apiSecret, apiKey, "https://api.coinex.com/v1", 0.1, 0.1, 0.3, false, [0, 1], "", "CoinEx");
+    constructor(apiSecret, apiKey, baseCurrency) {
+        super(apiSecret, apiKey, "https://api.coinex.com/v1", baseCurrency, 0.1, 0.1, 0.3, false, [0, 1], "", "CoinEx");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: 20,
@@ -26,7 +26,7 @@ export default class CoinEx extends BaseProvider {
     async allTradingPairs() {
         const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/info`)).json();
         for (const marketKey in markets.data) {
-            if (!marketKey.startsWith("RTM")) continue;
+            if (!marketKey.startsWith(this._baseCurrency)) continue;
 
             const market = markets.data[marketKey];
             this._tradingPairs[market.pricing_name] = { pair: marketKey, enabled: true };

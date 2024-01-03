@@ -247,14 +247,16 @@ app.post("/startTrading", async (req, res) => {
         wantsShutdown: false
     };
 
+    const tradingArgs = req.query.args ? JSON.parse(req.query.args) : {};
+
     for (const providerClass of strategyInfo.providers) {
         const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
         if (!providerCreds) continue;
-        const provider = await new providerClass(providerCreds.secret, providerCreds.key).initialize();
+        const provider = await new providerClass(providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency ?? "RTM").initialize();
         userQueueData[req.query.username].providers.push(provider);
     }
 
-    await userQueue.add(req.query.username, { username: req.query.username, strategyArgs: req.query.args ? JSON.parse(req.query.args) : {} });
+    await userQueue.add(req.query.username, { username: req.query.username, strategyArgs: tradingArgs });
 
     res.json({
         success: true,
