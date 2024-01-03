@@ -222,6 +222,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                              */
                             const processCrossCurrency = async (pathConnector, pathReferenceCurrency, otherConnector, otherConnectorPriceInfo, otherConnectorBuying) => {
                                 const shortestPath = this.shortestCrossCurrencyPath(pathConnector, pathReferenceCurrency, otherConnectorPriceInfo.referenceCurrency);
+                                if (!pathConnector.referenceCurrencyExists(otherConnectorPriceInfo.referenceCurrency)) return;
                                 if (!shortestPath) return;
 
                                 const effectivePrice = await this.effectiveReferencePrice(otherConnector, shortestPath, !otherConnectorBuying);
@@ -324,7 +325,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     } else {
                                         await Promise.all([
                                             await pathConnector.addSellOrder(pathBaseCurrencyTradeSize, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                            await otherConnector.addBuyOrder(otherBaseCurrencyTradeSize, otherConnectorPriceInfo["buyPrice"], otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                            await otherConnector.addBuyOrder(otherBaseCurrencyTradeSize, otherConnectorPriceInfo.buyPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
                                         ]);
                                     }
 
@@ -372,7 +373,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
                             }
 
-                            //! turn into Promise.all after done with debugging
                             await Promise.all([
                                 processCrossCurrency(currentConnector, currentRtmPriceInfo.referenceCurrency, otherConnector, otherRtmPriceInfo, false),
                                 processCrossCurrency(otherConnector, otherRtmPriceInfo.referenceCurrency, currentConnector, currentRtmPriceInfo, true)
