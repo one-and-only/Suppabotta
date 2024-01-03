@@ -373,8 +373,10 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                             }
 
                             //! turn into Promise.all after done with debugging
-                            await processCrossCurrency(currentConnector, currentRtmPriceInfo.referenceCurrency, otherConnector, otherRtmPriceInfo, false);
-                            await processCrossCurrency(otherConnector, otherRtmPriceInfo.referenceCurrency, currentConnector, currentRtmPriceInfo, true)
+                            await Promise.all([
+                                processCrossCurrency(currentConnector, currentRtmPriceInfo.referenceCurrency, otherConnector, otherRtmPriceInfo, false),
+                                processCrossCurrency(otherConnector, otherRtmPriceInfo.referenceCurrency, currentConnector, currentRtmPriceInfo, true)
+                            ]);
                         }
                     }
                 }
