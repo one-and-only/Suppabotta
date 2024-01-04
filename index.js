@@ -11,7 +11,6 @@ import Logger from "./Logger.js";
 const sleep = promisify(setTimeout);
 
 import TradeOgre from "./providers/TradeOgre.js";
-import SouthXChange from "./providers/SouthXChange.js";
 import CoinEx from "./providers/CoinEx.js";
 import DexTrade from "./providers/DexTrade.js";
 import Xeggex from "./providers/Xeggex.js";
@@ -30,11 +29,11 @@ const strategyMaps = {
         strategyClass: TickerMaintenanceStrategy
     },
     "ClassicArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex, NonKYC],
+        providers: [TradeOgre, CoinEx, DexTrade, Xeggex, NonKYC],
         strategyClass: ClassicArbitrageStrategy
     },
     "FloatingArbitrage": {
-        providers: [TradeOgre, SouthXChange, CoinEx, DexTrade, Xeggex, NonKYC],
+        providers: [TradeOgre, CoinEx, DexTrade, Xeggex, NonKYC],
         strategyClass: FloatingArbitrageStrategy
     }
 };
