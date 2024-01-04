@@ -68,7 +68,6 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
     ```json
     "profitCurrencyPreferences": {
         "TradeOgre": true,
-        "SouthXChange": true,
         "Xeggex": true,
         "CoinEx": true
     }

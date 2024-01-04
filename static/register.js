@@ -101,7 +101,7 @@ async function register() {
     }
     alert("Registered Successfully!"), window.location.href = "/"
 }
-var possibleExchanges = ["TradeOgre", "CoinEx", "Dex-Trade", "Graviex", "TxBit", "Catex", "AAX", "P2B", "Exbitron", "SouthXChange", "Xeggex", "NonKYC", "SafeTrade"],
+var possibleExchanges = ["TradeOgre", "CoinEx", "Dex-Trade", "Xeggex", "NonKYC", "SafeTrade"],
     alreadySelected = [];
 window.onload = function() {
     addExchangeSelector()
