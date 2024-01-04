@@ -64,6 +64,37 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         this._alreadyProcessed.push(combo);
     }
 
+    /**
+     * 
+     * @param {string} buyingFrom 
+     * @param {string} sellingOn 
+     * @param {string} baseCurrency 
+     * @param {string} referenceCurrency 
+     * @param {number} buyPrice 
+     * @param {number} buyAmount 
+     * @param {number} sellPrice 
+     * @param {number} sellAmount 
+     * @returns 
+     */
+    sameCurrencyTradeFromInfo(buyingFrom, sellingOn, baseCurrency, referenceCurrency, buyPrice, buyAmount, sellPrice, sellAmount) {
+        return {
+            buyingFrom: currentConnector._name,
+            sellingOn: otherConnector._name,
+            pair: {
+                baseCurrency: baseCurrency,
+                referenceCurrency: referenceCurrency,
+            },
+            buyTrade: {
+                price: currentRtmPriceInfo.buyPrice,
+                amount: effectiveMinOrderSizeRtm
+            },
+            sellTrade: {
+                price: otherRtmPriceInfo.sellPrice,
+                amount: amountRtmSelling
+            }
+        };
+    }
+
     async start() {
         Logger.info("ClassicArbitrage", "startup", "Caching connector info required for trading...", this._socketBroadcaster);
         await this.populateMarketCaches();
@@ -118,6 +149,33 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor); // since we always specify buy/sell amounts as RTM, $ value isn't affected much by rounding
                                 }
 
+                                if (this._paperTradingEnabled) {
+                                    const tradeInfo = this.sameCurrencyTradeFromInfo(
+                                        currentConnector._name,
+                                        otherConnector._name,
+                                        currentRtmPriceInfo.baseCurrency,
+                                        currentRtmPriceInfo.referenceCurrency,
+                                        currentRtmPriceInfo.buyPrice,
+                                        effectiveMinOrderSizeRtm,
+                                        otherRtmPriceInfo.sellPrice,
+                                        amountRtmSelling
+                                    );
+
+                                    if (this.isRecentTrade(tradeInfo)) return;
+
+                                    this.addToRecentPaperTrades(tradeInfo);
+
+                                    this._paperTradingMongoCollection.insertOne({
+                                        mongo_timestamp: new Date(),
+                                        trade_metadata: {
+                                            strategy: "ClassicArbitrage",
+                                            cross_currency: false
+                                        },
+                                        tradeInfo: tradeInfo
+                                    });
+                                    return;
+                                }
+
                                 if ((await this.currencyBalance(currentConnector, currentRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSizeRtm) {
                                     Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to buy required reference currency");
                                     return;
@@ -143,6 +201,35 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                                 if (!this.keepProfitAsReferenceCurrency(currentConnector._name) && currentMinOrderSizeRtm < (effectiveMinOrderSizeRtm / rtmProfitFactor)) {
                                     effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor);
+                                }
+
+                                if (this._paperTradingEnabled) {
+                                    const tradeInfo = this.sameCurrencyTradeFromInfo(
+                                        otherConnector._name,
+                                        currentConnector._name,
+                                        currentRtmPriceInfo.baseCurrency,
+                                        currentRtmPriceInfo.referenceCurrency,
+                                        otherRtmPriceInfo.buyPrice,
+                                        effectiveMinOrderSizeRtm,
+                                        currentRtmPriceInfo.sellPrice,
+                                        amountRtmSelling
+                                    );
+
+                                    if (this.isRecentTrade(tradeInfo)) return;
+
+                                    this.addToRecentPaperTrades(tradeInfo);
+
+                                    this._paperTradingMongoCollection.insertOne({
+                                        mongo_timestamp: new Date(),
+                                        trade_metadata: {
+                                            strategy: "ClassicArbitrage",
+                                            cross_currency: false
+                                        },
+                                        tradeInfo: tradeInfo
+                                    });
+
+                                    Logger.success("ClassicArbitrage", "orderSubmission", "Found profitable paper trades and saved them to the database");
+                                    return;
                                 }
 
                                 if ((await this.currencyBalance(otherConnector, otherRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSizeRtm) {
@@ -220,6 +307,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                              * @returns 
                              */
                             const processCrossCurrency = async (pathConnector, pathReferenceCurrency, otherConnector, otherConnectorPriceInfo, otherConnectorBuying) => {
+                                this.pruneRecentTrades();
                                 const shortestPath = this.shortestCrossCurrencyPath(pathConnector, pathReferenceCurrency, otherConnectorPriceInfo.referenceCurrency);
                                 if (!pathConnector.referenceCurrencyExists(otherConnectorPriceInfo.referenceCurrency)) return;
                                 if (!shortestPath) return;
@@ -289,35 +377,41 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 const otherBaseCurrencyTradeSize = referenceCurrencyTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"];
                                 const pathBaseCurrencyTradeSize = referenceCurrencyTradeSize / effectivePrice.finalPrice;
 
+                                paperTradeDetails.arbitrageTrades = [
+                                    {
+                                        exchange: pathConnector._name,
+                                        price: effectivePrice.finalPrice,
+                                        amount: pathBaseCurrencyTradeSize,
+                                        referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
+                                        baseCurrency: otherConnectorPriceInfo.baseCurrency,
+                                    },
+                                    {
+                                        exchange: otherConnector._name,
+                                        amount: otherBaseCurrencyTradeSize,
+                                        referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
+                                        baseCurrency: otherConnectorPriceInfo.baseCurrency,
+                                    }
+                                ]
+
                                 if (otherConnectorBuying && effectivePrice.effectiveRtmPrice > otherConnectorPriceInfo.buyPrice) {
                                     if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
 
                                     await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
 
                                     if (this._paperTradingEnabled) {
-                                        paperTradeDetails.arbitrageTrades = [
-                                            {
-                                                exchange: pathConnector._name,
-                                                price: effectivePrice.finalPrice,
-                                                amount: pathBaseCurrencyTradeSize,
-                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
-                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
-                                                isBuy: false
-                                            },
-                                            {
-                                                exchange: otherConnector._name,
-                                                price: otherConnectorPriceInfo["buyPrice"],
-                                                amount: otherBaseCurrencyTradeSize,
-                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
-                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
-                                                isBuy: true
-                                            }
-                                        ]
+                                        paperTradeDetails.arbitrageTrades[1].price = otherConnectorPriceInfo["buyPrice"];
+                                        paperTradeDetails.arbitrageTrades[0].isBuy = false
+                                        paperTradeDetails.arbitrageTrades[1].isBuy = true
+
+                                        if (this.isRecentTrade({ ...paperTradeDetails })) return;
+
+                                        this.addToRecentPaperTrades({ ...paperTradeDetails });
 
                                         this._paperTradingMongoCollection.insertOne({
                                             mongo_timestamp: new Date(),
                                             trade_metadata: {
-                                                strategy: "ClassicArbitrage"
+                                                strategy: "ClassicArbitrage",
+                                                cross_currency: true
                                             },
                                             tradeInfo: paperTradeDetails
                                         });
@@ -335,29 +429,19 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
 
                                     if (this._paperTradingEnabled) {
-                                        paperTradeDetails.arbitrageTrades = [
-                                            {
-                                                exchange: pathConnector._name,
-                                                price: effectivePrice.finalPrice,
-                                                amount: pathBaseCurrencyTradeSize,
-                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
-                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
-                                                isBuy: true
-                                            },
-                                            {
-                                                exchange: otherConnector._name,
-                                                price: otherConnectorPriceInfo["sellPrice"],
-                                                amount: otherBaseCurrencyTradeSize,
-                                                referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
-                                                baseCurrency: otherConnectorPriceInfo.baseCurrency,
-                                                isBuy: false
-                                            }
-                                        ]
+                                        paperTradeDetails.arbitrageTrades[1].price = otherConnectorPriceInfo["sellPrice"];
+                                        paperTradeDetails.arbitrageTrades[0].isBuy = true
+                                        paperTradeDetails.arbitrageTrades[1].isBuy = false
+
+                                        if (this.isRecentTrade({ ...paperTradeDetails })) return;
+
+                                        this.addToRecentPaperTrades({ ...paperTradeDetails });
 
                                         this._paperTradingMongoCollection.insertOne({
                                             mongo_timestamp: new Date(),
                                             trade_metadata: {
-                                                strategy: "ClassicArbitrage"
+                                                strategy: "ClassicArbitrage",
+                                                cross_currency: true
                                             },
                                             tradeInfo: paperTradeDetails
                                         });

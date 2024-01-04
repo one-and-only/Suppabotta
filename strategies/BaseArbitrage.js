@@ -6,6 +6,7 @@ export default class BaseArbitrage extends BaseStrategy {
     _profitCurrencyPreferences;
     _marketCaches;
     _paperTradingEnabled;
+    _recentPaperTrades;
 
     constructor(connectors, args, paperTradingMongoCollection) {
         super(connectors, args, paperTradingMongoCollection);
@@ -13,6 +14,7 @@ export default class BaseArbitrage extends BaseStrategy {
         this._baseCurrency = args.baseCurrency.toUpperCase();
         this._profitCurrencyPreferences = [];
         this._marketCaches = {};
+        this._recentPaperTrades = [];
 
         if (args.profitCurrencyPreferences) {
             for (const [connector, choice] of Object.entries(args.profitCurrencyPreferences)) {
@@ -86,6 +88,39 @@ export default class BaseArbitrage extends BaseStrategy {
 
     connectorMarkets(connectorName) {
         return this._marketCaches[connectorName];
+    }
+
+    /**
+     * Save trade data as a recent trade
+     * @param {object} tradeObj
+     */
+    addToRecentPaperTrades(tradeObj) {
+        this._recentPaperTrades.push(JSON.stringify({timestamp: Date.now(), uniqueMetadata: {...tradeObj}}));
+    }
+
+    /**
+     * Determine whether a trade has already happened recently and is thus a duplicate
+     * @param {object} tradeObj 
+     * @returns {boolean}
+     */
+    isRecentTrade(tradeObj) {
+        const tradeJson = JSON.stringify(tradeObj);
+
+        for (const recentTrade of this._recentPaperTrades) {
+            if (JSON.stringify(recentTrade.uniqueMetadata) === tradeJson) return true
+        }
+
+        return false;
+    }
+
+    /**
+     * Remove recent paper trades that are older than the pre-set cooldown (60 seconds)
+     */
+    pruneRecentTrades() {
+        const currentTimestamp = Date.now()
+
+        // currently a delay of 60 seconds
+        this._recentPaperTrades = this._recentPaperTrades.filter(x => currentTimestamp - x.timestamp < 60000)
     }
 
     /**
