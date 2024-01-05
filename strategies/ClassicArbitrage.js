@@ -173,6 +173,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         },
                                         tradeInfo: tradeInfo
                                     });
+
+                                    Logger.success("ClassicArbitrage", "orderSubmission", "Found profitable paper trades and saved them to the database");
                                     return;
                                 }
 
