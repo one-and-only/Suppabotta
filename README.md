@@ -90,3 +90,4 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
 * `baseCurrency | string`: The base currency that algorithmic trades are going to be occuring for. For example, in the RTM/USDT trading pair, RTM would be the base currency. Only one base currency can be used at any one time per trading algorithm run. Note that you can run multiple algorithm configurations at the same time, 1 in each browser tab.
 * `enablePaperTrade | boolean`: Instead of executing trades using a user's real exchange balance, it logs profitable opportunities to the database for later analysis. This mode is usually used to scout prospective markets for profit
 * `numCurveOrders | number`: Number of orders per market side that should be targetted in the FloatingArbitrage strategy
+* `minTradeSize | number`: The minimum trade size, in `baseCurrency`, that can be accepted as viable for execution

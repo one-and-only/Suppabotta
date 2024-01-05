@@ -7,6 +7,7 @@ export default class BaseArbitrage extends BaseStrategy {
     _marketCaches;
     _paperTradingEnabled;
     _recentPaperTrades;
+    _minTradeSizeBaseCurrency;
 
     constructor(connectors, args, paperTradingMongoCollection) {
         super(connectors, args, paperTradingMongoCollection);
@@ -27,6 +28,7 @@ export default class BaseArbitrage extends BaseStrategy {
         }
 
         this._paperTradingEnabled = args.enablePaperTrade ?? false;
+        this._minTradeSizeBaseCurrency = args.minTradeSize ?? 100;
     }
 
     /**
