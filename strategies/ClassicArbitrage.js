@@ -26,25 +26,23 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      */
     comboAlreadyProcessed(connector1AndPair, connector2AndPair) {
         for (const combo of this._alreadyProcessed) {
-            const match1 = (
+            if (
                 combo[connector1AndPair.connector] &&
                 combo[connector1AndPair.connector].referenceCurrency === connector1AndPair.tradingPair.referenceCurrency &&
                 combo[connector1AndPair.connector].baseCurrency === connector1AndPair.tradingPair.baseCurrency &&
                 combo[connector2AndPair.connector] &&
                 combo[connector2AndPair.connector].referenceCurrency === connector2AndPair.tradingPair.referenceCurrency &&
                 combo[connector2AndPair.connector].baseCurrency === connector2AndPair.tradingPair.baseCurrency
-            );
+            ) return;
 
-            const match2 = (
+            if (
                 combo[connector2AndPair.connector] &&
                 combo[connector2AndPair.connector].referenceCurrency === connector1AndPair.tradingPair.referenceCurrency &&
                 combo[connector2AndPair.connector].baseCurrency === connector1AndPair.tradingPair.baseCurrency &&
                 combo[connector1AndPair.connector] &&
                 combo[connector1AndPair.connector].referenceCurrency === connector2AndPair.tradingPair.referenceCurrency &&
                 combo[connector1AndPair.connector].baseCurrency === connector2AndPair.tradingPair.baseCurrency
-            );
-
-            if (match1 || match2) return true;
+            ) return;
         }
 
         return false;
