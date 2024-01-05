@@ -78,19 +78,19 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      */
     sameCurrencyTradeFromInfo(buyingFrom, sellingOn, baseCurrency, referenceCurrency, buyPrice, buyAmount, sellPrice, sellAmount) {
         return {
-            buyingFrom: currentConnector._name,
-            sellingOn: otherConnector._name,
+            buyingFrom: buyingFrom,
+            sellingOn: sellingOn,
             pair: {
                 baseCurrency: baseCurrency,
                 referenceCurrency: referenceCurrency,
             },
             buyTrade: {
-                price: currentRtmPriceInfo.buyPrice,
-                amount: effectiveMinOrderSizeRtm
+                price: buyPrice,
+                amount: buyAmount
             },
             sellTrade: {
-                price: otherRtmPriceInfo.sellPrice,
-                amount: amountRtmSelling
+                price: sellPrice,
+                amount: sellAmount
             }
         };
     }
