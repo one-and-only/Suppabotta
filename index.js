@@ -263,6 +263,40 @@ app.post("/startTrading", async (req, res) => {
     });
 });
 
+app.get("/pendingExchangeOrders", async (req, res) => {
+    if (!req.query.username || !req.query.password || !req.query.strategy) {
+        res.status(400).json({
+            success: false,
+            error: "One or more required parameters not provided"
+        });
+    }
+    const userInfo = await validLogin(req.query);
+
+    if (!userInfo) {
+        res.status(400).json({
+            success: false,
+            error: "Invalid username or password"
+        });
+        return;
+    }
+
+    const queueData = userQueueData[req.query.username];
+    if (!queueData) {
+        res.status(400).json({
+            success: false,
+            error: "Trading thread does not exist for this user"
+        });
+        return;
+    }
+
+    const res = {};
+    for (const connector of queueData.providers) {
+        res[connector._name] = connector.getPendingOrders();
+    }
+
+    io.to(req.query.username).emit("pendingOrdersUpdate", JSON.stringify(res));
+});
+
 const expressServer = createHttpsServer({
     key: readFileSync(process.env.SSL_KEY_PATH),
     cert: readFileSync(process.env.SSL_CERT_PATH),
