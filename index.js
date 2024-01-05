@@ -289,9 +289,9 @@ app.get("/pendingExchangeOrders", async (req, res) => {
         return;
     }
 
-    const res = {};
+    const ret = {};
     for (const connector of queueData.providers) {
-        res[connector._name] = connector.getPendingOrders();
+        ret[connector._name] = connector.getPendingOrders();
     }
 
     io.to(req.query.username).emit("pendingOrdersUpdate", JSON.stringify(res));
