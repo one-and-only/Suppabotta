@@ -74,7 +74,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      * @param {number} sellAmount 
      * @returns 
      */
-    sameCurrencyTradeFromInfo(buyingFrom, sellingOn, baseCurrency, referenceCurrency, buyPrice, buyAmount, sellPrice, sellAmount) {
+    sameCurrencyPaperTradeFromInfo(buyingFrom, sellingOn, baseCurrency, referenceCurrency, buyPrice, buyAmount, sellPrice, sellAmount) {
         return {
             buyingFrom: buyingFrom,
             sellingOn: sellingOn,
@@ -127,11 +127,10 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                             const currentMinOrderSize = currentConnector.minOrderSize(currentRtmPriceInfo.referenceCurrency);
                             const otherMinOrderSize = otherConnector.minOrderSize(otherRtmPriceInfo.referenceCurrency);
 
-                            const currentMinOrderSizeRtm = currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentRtmPriceInfo.buyPrice : currentMinOrderSize;
-                            const otherMinOrderSizeRtm = otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherRtmPriceInfo.buyPrice : otherMinOrderSize;
+                            const currentMinOrderSizeRtm = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentRtmPriceInfo.buyPrice : currentMinOrderSize, this._minTradeSizeBaseCurrency);
+                            const otherMinOrderSizeRtm = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherRtmPriceInfo.buyPrice : otherMinOrderSize, this._minTradeSizeBaseCurrency);
 
-                            const currentMinOrderSizeGreater = currentMinOrderSizeRtm > otherMinOrderSizeRtm;
-                            let effectiveMinOrderSizeRtm = currentMinOrderSizeGreater ? currentMinOrderSizeRtm : otherMinOrderSizeRtm;
+                            let effectiveMinOrderSizeRtm = currentMinOrderSizeRtm > otherMinOrderSizeRtm ? currentMinOrderSizeRtm : otherMinOrderSizeRtm;
 
                             // TODO: merge the order creation into one function to avoid repetition
 
@@ -148,7 +147,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
 
                                 if (this._paperTradingEnabled) {
-                                    const tradeInfo = this.sameCurrencyTradeFromInfo(
+                                    const tradeInfo = this.sameCurrencyPaperTradeFromInfo(
                                         currentConnector._name,
                                         otherConnector._name,
                                         currentRtmPriceInfo.baseCurrency,
@@ -204,7 +203,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
 
                                 if (this._paperTradingEnabled) {
-                                    const tradeInfo = this.sameCurrencyTradeFromInfo(
+                                    const tradeInfo = this.sameCurrencyPaperTradeFromInfo(
                                         otherConnector._name,
                                         currentConnector._name,
                                         currentRtmPriceInfo.baseCurrency,
@@ -370,8 +369,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 const pathMinTradeSize = pathConnector.minOrderSize(otherConnectorPriceInfo.referenceCurrency)
 
                                 // sometimes min trade volumes can be zero, so we are using a minimum here just in case
-                                const otherReferenceCurrencyMinTradeSize = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinTradeSize : otherMinTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"], 0.00001);
-                                const pathReferenceCurrencyMinTradeSize = Math.max(pathConnector.minTradeVolumeIsReferenceCurrency() ? pathMinTradeSize : pathMinTradeSize / effectivePrice.finalPrice, 0.00001);
+                                const otherReferenceCurrencyMinTradeSize = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"] : otherMinTradeSize, this._minTradeSizeBaseCurrency);
+                                const pathReferenceCurrencyMinTradeSize = Math.max(pathConnector.minTradeVolumeIsReferenceCurrency() ? pathMinTradeSize / effectivePrice.finalPrice : pathMinTradeSize, this._minTradeSizeBaseCurrency);
                                 const referenceCurrencyTradeSize = otherReferenceCurrencyMinTradeSize > pathReferenceCurrencyMinTradeSize ? otherReferenceCurrencyMinTradeSize : pathReferenceCurrencyMinTradeSize;
 
                                 const otherBaseCurrencyTradeSize = referenceCurrencyTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"];

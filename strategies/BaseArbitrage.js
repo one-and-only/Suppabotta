@@ -43,7 +43,7 @@ export default class BaseArbitrage extends BaseStrategy {
     /**
      * Get markets and price info for all baseCurrency pairs
      * @param {BaseProvider} connector Connector used to query price info for RTM markets
-     * @returns {Promise<{baseCurrency: string,referenceCurrency: string,success:true,sellPrice:number,sellDepth:number,buyPrice:number,buyDepth:number}>}
+     * @returns {Promise<{baseCurrency: string,referenceCurrency: string,success:true,sellPrice:number,sellDepth:number,buyPrice:number,buyDepth:number}[]>}
      */
     async baseCurrencyMarketPriceInfoForConnector(connector) {
         return await Promise.all(await this.connectorMarkets(connector._name).filter(x => x.baseCurrency === this._baseCurrency).map(async x => {
