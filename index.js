@@ -269,6 +269,7 @@ app.get("/pendingExchangeOrders", async (req, res) => {
             success: false,
             error: "One or more required parameters not provided"
         });
+        return;
     }
     const userInfo = await validLogin(req.query);
 
@@ -294,7 +295,9 @@ app.get("/pendingExchangeOrders", async (req, res) => {
         ret[connector._name] = connector.getPendingOrders();
     }
 
-    io.to(req.query.username).emit("pendingOrdersUpdate", JSON.stringify(res));
+    io.to(req.query.username).emit("pendingOrdersUpdate", JSON.stringify(ret));
+
+    res.json(ret);
 });
 
 const expressServer = createHttpsServer({
