@@ -42,17 +42,19 @@ async function updatePendingTradesWindow() {
     return;
   }
 
+  const pendingTradesJson = await pendingTrades.json();
+
   const coinex = document.getElementById("coinex");
   const dextrade = document.getElementById("dextrade");
   const nonkyc = document.getElementById("nonkyc");
   const tradeogre = document.getElementById("tradeogre");
   const xeggex = document.getElementById("xeggex");
 
-  coinex.append(...generateTradeRows(pendingTrades.CoinEx));
-  dextrade.append(...generateTradeRows(pendingTrades.DexTrade));
-  nonkyc.append(...generateTradeRows(pendingTrades.NonKYC));
-  tradeogre.append(...generateTradeRows(pendingTrades.TradeOgre));
-  xeggex.append(...generateTradeRows(pendingTrades.Xeggex));
+  coinex.replaceChildren(...generateTradeRows(pendingTradesJson.CoinEx));
+  dextrade.replaceChildren(...generateTradeRows(pendingTradesJson.DexTrade));
+  nonkyc.replaceChildren(...generateTradeRows(pendingTradesJson.NonKYC));
+  tradeogre.replaceChildren(...generateTradeRows(pendingTradesJson.TradeOgre));
+  xeggex.replaceChildren(...generateTradeRows(pendingTradesJson.Xeggex));
 }
 
 async function startTrading() {
