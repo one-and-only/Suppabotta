@@ -97,7 +97,7 @@ export default class BaseArbitrage extends BaseStrategy {
      * @param {object} tradeObj
      */
     addToRecentPaperTrades(tradeObj) {
-        this._recentPaperTrades.push(JSON.stringify({timestamp: Date.now(), uniqueMetadata: tradeObj}));
+        this._recentPaperTrades.push({timestamp: Date.now(), uniqueMetadata: tradeObj});
     }
 
     /**
@@ -106,10 +106,8 @@ export default class BaseArbitrage extends BaseStrategy {
      * @returns {boolean}
      */
     isRecentTrade(tradeObj) {
-        const tradeJson = JSON.stringify(tradeObj);
-
         for (const recentTrade of this._recentPaperTrades) {
-            if (JSON.stringify(recentTrade.uniqueMetadata) === tradeJson) return true
+            if (JSON.stringify(recentTrade.uniqueMetadata) === JSON.stringify(tradeObj)) return true
         }
 
         return false;
