@@ -402,7 +402,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         paperTradeDetails.arbitrageTrades[0].isBuy = false
                                         paperTradeDetails.arbitrageTrades[1].isBuy = true
 
-                                        if (this.isRecentTrade({ ...paperTradeDetails })) return;
+                                        if (this.isRecentTrade(paperTradeDetails)) return;
 
                                         this.addToRecentPaperTrades({ ...paperTradeDetails });
 
@@ -432,7 +432,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         paperTradeDetails.arbitrageTrades[0].isBuy = true
                                         paperTradeDetails.arbitrageTrades[1].isBuy = false
 
-                                        if (this.isRecentTrade({ ...paperTradeDetails })) return;
+                                        if (this.isRecentTrade(paperTradeDetails)) return;
 
                                         this.addToRecentPaperTrades({ ...paperTradeDetails });
 

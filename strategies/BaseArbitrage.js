@@ -97,7 +97,7 @@ export default class BaseArbitrage extends BaseStrategy {
      * @param {object} tradeObj
      */
     addToRecentPaperTrades(tradeObj) {
-        this._recentPaperTrades.push(JSON.stringify({timestamp: Date.now(), uniqueMetadata: {...tradeObj}}));
+        this._recentPaperTrades.push(JSON.stringify({timestamp: Date.now(), uniqueMetadata: tradeObj}));
     }
 
     /**
