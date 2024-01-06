@@ -4,7 +4,6 @@ function logout() {
 
 var pendingTradeUpdateInterval;
 
-//{ id: responseJson.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy }
 function generateTradeRows(trades) {
   const rows = [];
   for (const trade of trades) {
@@ -58,11 +57,13 @@ async function updatePendingTradesWindow() {
 }
 
 async function startTrading() {
-  let t = document.getElementById("tradingButton"),
-      e = localStorage.getItem("username"),
-      a = document.getElementById("passwordInput").value,
-      r = document.getElementById("strategyArgs").value,
-      s = document.getElementById("strategy").value;
+  const t = document.getElementById("tradingButton"),
+    e = localStorage.getItem("username"),
+    a = document.getElementById("passwordInput").value,
+    r = document.getElementById("strategyArgs").value,
+    s = document.getElementById("strategy").value;
+
+  window.ioSocket.emit("login as", `${e},${s}`)
   if (
       (t.setAttribute("disabled", !0),
       t.setAttribute("value", "Loading..."),
@@ -102,9 +103,10 @@ async function startTrading() {
   }
 }
 async function stopTrading() {
-  let t = document.getElementById("tradingButton"),
+  const t = document.getElementById("tradingButton"),
       e = localStorage.getItem("username"),
-      a = document.getElementById("passwordInput").value;
+      a = document.getElementById("passwordInput").value,
+      strategy = document.getElementById("strategy").value
   if (
       (t.setAttribute("disabled", !0),
       t.setAttribute("value", "Loading..."),
@@ -113,8 +115,8 @@ async function stopTrading() {
       alert("Please confirm your password and try again");
       return;
   }
-  let r = await (
-      await fetch(`/stopTrading?username=${e}&password=${a}`, {
+  const r = await (
+      await fetch(`/stopTrading?username=${e}&password=${a}&strategy=${strategy}`, {
           method: "POST",
       })
   ).json();
@@ -132,14 +134,13 @@ function clearServerMessages() {
   document.getElementById("serverMessagesDisplay").textContent = "";
 }
 window.onload = async function () {
-  let t = localStorage.getItem("username");
-  t || (window.location.href = "/login.html"),
-      (document.getElementById("usernameDisplay").innerHTML =
-          `<strong>${t}</strong>`),
-      (window.ioSocket = io()),
-      window.ioSocket.emit("login as", t),
-      window.ioSocket.on("message", (t) => {
-          let e = document.getElementById("serverMessagesDisplay");
-          (e.textContent += `${t}\n\n`), (e.scrollTop = e.scrollHeight);
-      });
+  window.ioSocket = io();
+  window.ioSocket.on("message", (t) => {
+    const e = document.getElementById("serverMessagesDisplay");
+    (e.textContent += `${t}\n\n`), (e.scrollTop = e.scrollHeight);
+  });
+
+  const username = localStorage.getItem("username");
+  username || (window.location.href = "/login.html"),
+    (document.getElementById("usernameDisplay").innerHTML = `<strong>${username}</strong>`)
 };

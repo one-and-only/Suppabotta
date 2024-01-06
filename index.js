@@ -56,14 +56,14 @@ const userQueueData = {};
 const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
 const userWorker = new Worker("userQueue", async job => {
-    const strategyData = userQueueData[job.data.username];
+    const strategyData = userQueueData[job.data.username][job.data.strategy];
     const strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...(job.data.strategyArgs), socketBroadcaster: strategyData.socketBroadcaster }, mongoDb.collection(process.env.PAPER_TRADING_MONGO_DATABASE));
 
     await strategyInstance.start();
     while (true) {
-        if (userQueueData[job.data.username].wantsShutdown) {
+        if (userQueueData[job.data.username][job.data.strategy].wantsShutdown) {
             await strategyInstance.shutdown();
-            delete userQueueData[job.data.username];
+            delete userQueueData[job.data.username][job.data.strategy];
             break;
         }
         await strategyInstance.tick();
@@ -142,15 +142,15 @@ app.post("/register", async (req, res) => {
 });
 
 app.post("/stopTrading", async (req, res) => {
-    if (!req.query.username || !req.query.password) {
+    if (!req.query.username || !req.query.password || !req.query.strategy) {
         res.status(400).json({
             success: false,
-            error: "Username or password not provided"
+            error: "Username, password, or strategy not provided"
         });
         return;
     }
 
-    if (!userQueueData[req.query.username]) {
+    if (!userQueueData[req.query.username]?.[req.query.strategy]) {
         res.status(400).json({
             success: false,
             error: "Trading thread does not exist for this user"
@@ -168,9 +168,9 @@ app.post("/stopTrading", async (req, res) => {
         return;
     }
 
-    userQueueData[req.query.username].wantsShutdown = true;
+    userQueueData[req.query.username][req.query.strategy].wantsShutdown = true;
     while (true) {
-        if (!userQueueData[req.query.username])
+        if (!userQueueData[req.query.username][req.query.strategy])
             break;
 
         await sleep(1000);
@@ -239,10 +239,13 @@ app.post("/startTrading", async (req, res) => {
     }
 
     const strategyInfo = strategyMaps[req.query.strategy];
-    userQueueData[req.query.username] = {
+
+    if (!userQueueData.hasOwnProperty(req.query.username)) userQueueData[req.query.username] = {};
+
+    userQueueData[req.query.username][req.query.strategy] = {
         providers: [],
         strategyClass: strategyInfo.strategyClass,
-        socketBroadcaster: io.to(req.query.username),
+        socketBroadcaster: io.to(`${req.query.username}_${req.query.strategy}`),
         wantsShutdown: false
     };
 
@@ -252,10 +255,10 @@ app.post("/startTrading", async (req, res) => {
         const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
         if (!providerCreds) continue;
         const provider = await new providerClass(providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency ?? "RTM").initialize();
-        userQueueData[req.query.username].providers.push(provider);
+        userQueueData[req.query.username][req.query.strategy].providers.push(provider);
     }
 
-    await userQueue.add(req.query.username, { username: req.query.username, strategyArgs: tradingArgs });
+    await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs });
 
     res.json({
         success: true,
@@ -281,7 +284,7 @@ app.get("/pendingExchangeOrders", async (req, res) => {
         return;
     }
 
-    const queueData = userQueueData[req.query.username];
+    const queueData = userQueueData[req.query.username]?.[req.query.strategy];
     if (!queueData) {
         res.status(400).json({
             success: false,
@@ -294,8 +297,6 @@ app.get("/pendingExchangeOrders", async (req, res) => {
     for (const connector of queueData.providers) {
         ret[connector._name] = connector.getPendingOrders();
     }
-
-    io.to(req.query.username).emit("pendingOrdersUpdate", JSON.stringify(ret));
 
     res.json(ret);
 });
@@ -314,8 +315,9 @@ const io = new socketIo.Server(expressServer, {
 });
 
 io.on("connection", socket => {
-    socket.on("login as", username => {
-        socket.join(username);
+    socket.on("login as", metadata => {
+        const split = metadata.split(',');
+        socket.join(`${split[0]}_${split[1]}`);
     });
 });
 
