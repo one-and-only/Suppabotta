@@ -7,6 +7,8 @@
       <h2>This page requires JavaScript to function!</h2>
     </noscript>
 
+    <link rel="stylesheet" href="/styles.css" />
+
     <script src="/html-loader.js"></script>
     <script src="/deps/socket.io.min.js"></script>
     <script src="/home.js"></script>
@@ -59,6 +61,81 @@
             <h3>Server Messages:</h3>
             <textarea readonly style="width: 934px; height: 116px;" id="serverMessagesDisplay"></textarea>
         </div>
+    </div>
+
+    <!-- Show pending orders for each exchange -->
+    <br>
+    <br>
+    <h2><u>Pending Trades</u></h2>
+    <div id="pendingExchangeOrders">
+      <!-- Coinex -->
+      <div>
+        <h3 style="color: #10ad97;">CoinEx</h3>
+        <table>
+          <tr>
+            <th>Price</th>
+            <th>Amount</th>
+            <th>Trading Pair</th>
+          </tr>
+          <div id="coinex"></div>
+        </table>
+      </div>
+      <hr style="width:20%; position: relative; right: 40%;">
+
+      <!-- Dex-Trade -->
+      <div>
+        <h3 style="color: #18223b;">Dex-Trade</h3>
+        <table>
+          <tr>
+            <th>Price</th>
+            <th>Amount</th>
+            <th>Trading Pair</th>
+          </tr>
+          <div id="dextrade"></div>
+        </table>
+      </div>
+      <hr style="width:20%; position: relative; right: 40%;">
+    </div>
+
+    <!-- NonKYC -->
+    <div>
+      <h3 style="color: #f4f564;">NonKYC</h3>
+      <table>
+        <tr>
+          <th>Price</th>
+          <th>Amount</th>
+          <th>Trading Pair</th>
+        </tr>
+        <div id="nonkyc"></div>
+      </table>
+    </div>
+    <hr style="width:20%; position: relative; right: 40%;">
+
+    <!-- TradeOgre -->
+    <div>
+      <h3 style="color: #6cf985;">TradeOgre</h3>
+      <table>
+        <tr>
+          <th>Price</th>
+          <th>Amount</th>
+          <th>Trading Pair</th>
+        </tr>
+        <div id="tradeogre"></div>
+      </table>
+    </div>
+    <hr style="width:20%; position: relative; right: 40%;">
+
+    <!-- Xeggex -->
+    <div>
+      <h3 style="color: #ebbe5a;">Xeggex</h3>
+      <table>
+        <tr>
+          <th>Price</th>
+          <th>Amount</th>
+          <th>Trading Pair</th>
+        </tr>
+        <div id="xeggex"></div>
+      </table>
     </div>
 
     <script>

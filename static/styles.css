@@ -1,0 +1,13 @@
+th {
+    border-left: solid black 3px;
+}
+
+th:nth-of-type(n+3),
+th:nth-of-type(n+3)+* {
+    border-left: solid black 3px;
+}
+
+th:nth-of-type(n+1),
+th:nth-of-type(n+1)+* {
+    border-right: solid black 3px;
+}
