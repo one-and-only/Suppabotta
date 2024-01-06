@@ -318,6 +318,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 buyupLoopCounter++;
             }
 
+            if (supplyBought < this._minTradeSizeBaseCurrency) continue;
+
             this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] += inventoryUsed
 
             if (this._paperTradingEnabled) {
