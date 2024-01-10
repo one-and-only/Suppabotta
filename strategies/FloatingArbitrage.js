@@ -361,6 +361,9 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             }
 
             if (this._paperTradingEnabled) {
+                if (this.isRecentTrade(paperTradeOrdersInfo).repeat) return;
+
+                this.addToRecentPaperTrades(paperTradeOrdersInfo, 1);
                 paperTradeOrdersInfo.curveOrders = curveEntryOrders;
                 await this._paperTradingMongoCollection.insertOne({
                     tradeInfo: paperTradeOrdersInfo,

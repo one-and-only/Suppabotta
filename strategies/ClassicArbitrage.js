@@ -146,6 +146,9 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor); // since we always specify buy/sell amounts as RTM, $ value isn't affected much by rounding
                                 }
 
+                                const numTimesRepeatable = Math.floor(Math.min(currentRtmPriceInfo.buyDepth, otherRtmPriceInfo.sellDepth) / effectiveMinOrderSizeRtm);
+                                if (numTimesRepeatable < 1) continue;
+
                                 if (this._paperTradingEnabled) {
                                     const tradeInfo = this.sameCurrencyPaperTradeFromInfo(
                                         currentConnector._name,
@@ -158,15 +161,17 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         amountRtmSelling
                                     );
 
-                                    if (this.isRecentTrade(tradeInfo)) return;
+                                    const recentTradeInfo = this.isRecentTrade(tradeInfo);
+                                    if (recentTradeInfo.repeat) return;
 
-                                    this.addToRecentPaperTrades(tradeInfo);
+                                    if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, numTimesRepeatable);
 
                                     this._paperTradingMongoCollection.insertOne({
                                         mongo_timestamp: new Date(),
                                         trade_metadata: {
                                             strategy: "ClassicArbitrage",
-                                            cross_currency: false
+                                            cross_currency: false,
+                                            repeat_number: recentTradeInfo.repeatNumber
                                         },
                                         tradeInfo: tradeInfo
                                     });
@@ -202,6 +207,9 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor);
                                 }
 
+                                const numTimesRepeatable = Math.floor(Math.min(otherRtmPriceInfo.buyDepth, currentRtmPriceInfo.sellDepth) / effectiveMinOrderSizeRtm);
+                                if (numTimesRepeatable < 1) continue;
+
                                 if (this._paperTradingEnabled) {
                                     const tradeInfo = this.sameCurrencyPaperTradeFromInfo(
                                         otherConnector._name,
@@ -214,15 +222,17 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         amountRtmSelling
                                     );
 
-                                    if (this.isRecentTrade(tradeInfo)) return;
+                                    const recentTradeInfo = this.isRecentTrade(tradeInfo);
+                                    if (recentTradeInfo.repeat) return;
 
-                                    this.addToRecentPaperTrades(tradeInfo);
+                                    if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, numTimesRepeatable);
 
                                     this._paperTradingMongoCollection.insertOne({
                                         mongo_timestamp: new Date(),
                                         trade_metadata: {
                                             strategy: "ClassicArbitrage",
-                                            cross_currency: false
+                                            cross_currency: false,
+                                            repeat_number: recentTradeInfo.repeatNumber
                                         },
                                         tradeInfo: tradeInfo
                                     });
@@ -342,10 +352,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         }
 
                                         // checking depth first to make sure that the exchange is good to go before undertaking the expensive operation of querying user balance
-                                        if (
-                                            (referenceCurrencyInverted && depth < minimumCoinsRequired) ||
-                                            (!referenceCurrencyInverted && depth < minimumCoinsRequired)
-                                        ) {
+                                        if (depth < minimumCoinsRequired) {
                                             Logger.warning("ClassicArbitrage", "multiCurrencyPathDepthCheck", "Favorable price was found, but the exchange doesn't have enough depth to execute all trades", this._socketBroadcaster);
                                             return false;
                                         }
@@ -402,15 +409,16 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         paperTradeDetails.arbitrageTrades[0].isBuy = false
                                         paperTradeDetails.arbitrageTrades[1].isBuy = true
 
-                                        if (this.isRecentTrade(paperTradeDetails)) return;
+                                        if (this.isRecentTrade(paperTradeDetails).repeat) return;
 
-                                        this.addToRecentPaperTrades({ ...paperTradeDetails });
+                                        this.addToRecentPaperTrades({ ...paperTradeDetails }, 1);
 
                                         this._paperTradingMongoCollection.insertOne({
                                             mongo_timestamp: new Date(),
                                             trade_metadata: {
                                                 strategy: "ClassicArbitrage",
-                                                cross_currency: true
+                                                cross_currency: true,
+                                                repeat_number: 1
                                             },
                                             tradeInfo: paperTradeDetails
                                         });
@@ -432,15 +440,16 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         paperTradeDetails.arbitrageTrades[0].isBuy = true
                                         paperTradeDetails.arbitrageTrades[1].isBuy = false
 
-                                        if (this.isRecentTrade(paperTradeDetails)) return;
+                                        if (this.isRecentTrade(paperTradeDetails).repeat) return;
 
-                                        this.addToRecentPaperTrades({ ...paperTradeDetails });
+                                        this.addToRecentPaperTrades({ ...paperTradeDetails }, 1);
 
                                         this._paperTradingMongoCollection.insertOne({
                                             mongo_timestamp: new Date(),
                                             trade_metadata: {
                                                 strategy: "ClassicArbitrage",
-                                                cross_currency: true
+                                                cross_currency: true,
+                                                repeat_number: 1
                                             },
                                             tradeInfo: paperTradeDetails
                                         });

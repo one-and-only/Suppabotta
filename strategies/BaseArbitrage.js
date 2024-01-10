@@ -93,24 +93,35 @@ export default class BaseArbitrage extends BaseStrategy {
     }
 
     /**
-     * Save trade data as a recent trade
-     * @param {object} tradeObj
+     * Save paper-trade data as a recent trade
+     * @param {object} tradeObj trade info that can be used to uniquely identify a duplicate
+     * @param {number} numAvailableRepeats number of times this trade can be executed, based on the depth of both markets
      */
-    addToRecentPaperTrades(tradeObj) {
-        this._recentPaperTrades.push({timestamp: Date.now(), uniqueMetadata: tradeObj});
+    addToRecentPaperTrades(tradeObj, numAvailableRepeats) {
+        this._recentPaperTrades.push({timestamp: Date.now(), numAvailableRepeats: numAvailableRepeats, repeatsDone: 1, uniqueMetadata: tradeObj});
     }
 
     /**
      * Determine whether a trade has already happened recently and is thus a duplicate
-     * @param {object} tradeObj 
-     * @returns {boolean}
+     * @param {object} tradeObj unique trade info 
+     * @returns {{repeat: boolean, repeatNumber: number}}
      */
     isRecentTrade(tradeObj) {
-        for (const recentTrade of this._recentPaperTrades) {
-            if (JSON.stringify(recentTrade.uniqueMetadata) === JSON.stringify(tradeObj)) return true
+        const tradeJson = JSON.stringify(tradeObj);
+        let numRepeats = 1;
+        let repeat = false
+
+        for (let i = 0; i < this._recentPaperTrades.length; i++) {
+            const recentTrade = this._recentPaperTrades[i];
+            if (JSON.stringify(recentTrade.uniqueMetadata) === tradeJson) {
+                if (recentTrade.numAvailableRepeats - recentTrade.repeatsDone === 0) repeat = true
+                else numRepeats = ++this._recentPaperTrades[i].repeatsDone;
+            } else {
+                console.log(`${JSON.stringify(recentTrade.uniqueMetadata)} !== ${tradeJson}`);
+            }
         }
 
-        return false;
+        return {repeat: repeat, repeatNumber: numRepeats};
     }
 
     /**
