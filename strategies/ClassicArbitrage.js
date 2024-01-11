@@ -131,23 +131,15 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                             const currentMinOrderSizeRtm = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentRtmPriceInfo.buyPrice : currentMinOrderSize, this._minTradeSizeBaseCurrency);
                             const otherMinOrderSizeRtm = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherRtmPriceInfo.buyPrice : otherMinOrderSize, this._minTradeSizeBaseCurrency);
 
-                            let effectiveMinOrderSizeRtm = currentMinOrderSizeRtm > otherMinOrderSizeRtm ? currentMinOrderSizeRtm : otherMinOrderSizeRtm;
+                            let effectiveMinOrderSize = currentMinOrderSizeRtm > otherMinOrderSizeRtm ? currentMinOrderSizeRtm : otherMinOrderSizeRtm;
 
                             // TODO: merge the order creation into one function to avoid repetition
 
-                            // NOTE: in the `if` and the `else if` referenceCurrency is always going to be the same on both otherConnector and currentConnector
-                            // NOTE: baseCurrency in the `if` and `else if` is always going to be RTM, as this trading bot is currently only for RTM
                             if (currentEffectiveBuyPrice < otherEffectiveSellPrice) {
-                                const rtmProfitFactor = otherRtmPriceInfo.sellPrice / currentRtmPriceInfo.buyPrice;
-                                const amountRtmSelling = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSizeRtm : Math.ceil(effectiveMinOrderSizeRtm / rtmProfitFactor); // sometimes we may want to keep the profit as RTM instead of referenceCurrency (Ex: USDT)
+                                // sometimes we may want to keep the profit as referenceCurrency instead of baseCurrency
+                                const amountBuying = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSize : effectiveMinOrderSize * (otherRtmPriceInfo.sellPrice / currentRtmPriceInfo.buyPrice);
 
-                                // if we're keeping profit as RTM on the otherConnector's exchange,
-                                // we need to make sure that the smallest amount of RTM we sell on the other end is greater than its min order size
-                                if (!this.keepProfitAsReferenceCurrency(otherConnector._name) && (otherMinOrderSizeRtm < (effectiveMinOrderSizeRtm / rtmProfitFactor))) {
-                                    effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor); // since we always specify buy/sell amounts as RTM, $ value isn't affected much by rounding
-                                }
-
-                                const numTimesRepeatable = Math.floor(Math.min(currentRtmPriceInfo.buyDepth, otherRtmPriceInfo.sellDepth) / effectiveMinOrderSizeRtm);
+                                const numTimesRepeatable = Math.floor(Math.min(currentRtmPriceInfo.buyDepth, otherRtmPriceInfo.sellDepth) / effectiveMinOrderSize);
                                 if (numTimesRepeatable < 1) continue;
 
                                 if (this._paperTradingEnabled) {
@@ -157,9 +149,9 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         currentRtmPriceInfo.baseCurrency,
                                         currentRtmPriceInfo.referenceCurrency,
                                         currentRtmPriceInfo.buyPrice,
-                                        effectiveMinOrderSizeRtm,
+                                        amountBuying,
                                         otherRtmPriceInfo.sellPrice,
-                                        amountRtmSelling
+                                        effectiveMinOrderSize
                                     );
 
                                     const recentTradeInfo = this.isRecentTrade(tradeInfo);
@@ -181,7 +173,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     return;
                                 }
 
-                                if ((await this.currencyBalance(currentConnector, currentRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSizeRtm) {
+                                if ((await this.currencyBalance(currentConnector, currentRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSize) {
                                     Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to buy required reference currency");
                                     return;
                                 }
@@ -192,7 +184,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
 
                                 if (!(await Promise.all([
-                                    currentConnector.addBuyOrder(effectiveMinOrderSizeRtm, currentRtmPriceInfo.buyPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency),
+                                    currentConnector.addBuyOrder(effectiveMinOrderSize, currentRtmPriceInfo.buyPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency),
                                     otherConnector.addSellOrder(amountRtmSelling, otherRtmPriceInfo.sellPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency)
                                 ])).every(a => a)) {
                                     Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
@@ -201,14 +193,9 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                                 Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
                             } else if (currentEffectiveSellPrice > otherEffectiveBuyPrice) {
-                                const rtmProfitFactor = currentRtmPriceInfo.sellPrice / otherRtmPriceInfo.buyPrice;
-                                const amountRtmSelling = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSizeRtm : Math.ceil(effectiveMinOrderSizeRtm / rtmProfitFactor);
+                                const amountBuying = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSize : effectiveMinOrderSize * (currentRtmPriceInfo.sellPrice / otherRtmPriceInfo.buyPrice);
 
-                                if (!this.keepProfitAsReferenceCurrency(currentConnector._name) && currentMinOrderSizeRtm < (effectiveMinOrderSizeRtm / rtmProfitFactor)) {
-                                    effectiveMinOrderSizeRtm = Math.ceil(effectiveMinOrderSizeRtm * rtmProfitFactor);
-                                }
-
-                                const numTimesRepeatable = Math.floor(Math.min(otherRtmPriceInfo.buyDepth, currentRtmPriceInfo.sellDepth) / effectiveMinOrderSizeRtm);
+                                const numTimesRepeatable = Math.floor(Math.min(otherRtmPriceInfo.buyDepth, currentRtmPriceInfo.sellDepth) / effectiveMinOrderSize);
                                 if (numTimesRepeatable < 1) continue;
 
                                 if (this._paperTradingEnabled) {
@@ -218,9 +205,9 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         currentRtmPriceInfo.baseCurrency,
                                         currentRtmPriceInfo.referenceCurrency,
                                         otherRtmPriceInfo.buyPrice,
-                                        effectiveMinOrderSizeRtm,
+                                        amountBuying,
                                         currentRtmPriceInfo.sellPrice,
-                                        amountRtmSelling
+                                        effectiveMinOrderSize
                                     );
 
                                     const recentTradeInfo = this.isRecentTrade(tradeInfo);
@@ -242,7 +229,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     return;
                                 }
 
-                                if ((await this.currencyBalance(otherConnector, otherRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSizeRtm) {
+                                if ((await this.currencyBalance(otherConnector, otherRtmPriceInfo.referenceCurrency)) < effectiveMinOrderSize) {
                                     Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to buy required reference currency");
                                     return;
                                 }
@@ -253,7 +240,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
 
                                 if (!(await Promise.all([
-                                    otherConnector.addBuyOrder(effectiveMinOrderSizeRtm, otherRtmPriceInfo.buyPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency),
+                                    otherConnector.addBuyOrder(effectiveMinOrderSize, otherRtmPriceInfo.buyPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency),
                                     currentConnector.addSellOrder(amountRtmSelling, currentRtmPriceInfo.sellPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency)
                                 ])).every(a => a)) {
                                     Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
