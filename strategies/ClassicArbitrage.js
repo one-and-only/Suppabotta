@@ -100,6 +100,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async tick() {
+        this.pruneRecentTrades();
         const paperTradeDetails = {
             currencyConversionPriceTransitions: {},
             arbitrageTrades: {},
@@ -316,7 +317,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                              * @returns 
                              */
                             const processCrossCurrency = async (pathConnector, pathReferenceCurrency, otherConnector, otherConnectorPriceInfo, otherConnectorBuying) => {
-                                this.pruneRecentTrades();
                                 const shortestPath = this.shortestCrossCurrencyPath(pathConnector, pathReferenceCurrency, otherConnectorPriceInfo.referenceCurrency);
                                 if (!pathConnector.referenceCurrencyExists(otherConnectorPriceInfo.referenceCurrency)) return;
                                 if (!shortestPath) return;
@@ -380,34 +380,33 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 const pathReferenceCurrencyMinTradeSize = Math.max(pathConnector.minTradeVolumeIsReferenceCurrency() ? pathMinTradeSize / effectivePrice.finalPrice : pathMinTradeSize, this._minTradeSizeBaseCurrency);
                                 const referenceCurrencyTradeSize = otherReferenceCurrencyMinTradeSize > pathReferenceCurrencyMinTradeSize ? otherReferenceCurrencyMinTradeSize : pathReferenceCurrencyMinTradeSize;
 
-                                const otherBaseCurrencyTradeSize = referenceCurrencyTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"];
-                                const pathBaseCurrencyTradeSize = referenceCurrencyTradeSize / effectivePrice.finalPrice;
-
                                 paperTradeDetails.arbitrageTrades = [
                                     {
                                         exchange: pathConnector._name,
                                         price: effectivePrice.finalPrice,
-                                        amount: pathBaseCurrencyTradeSize,
                                         referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
                                         baseCurrency: otherConnectorPriceInfo.baseCurrency,
                                     },
                                     {
                                         exchange: otherConnector._name,
-                                        amount: otherBaseCurrencyTradeSize,
                                         referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
                                         baseCurrency: otherConnectorPriceInfo.baseCurrency,
                                     }
                                 ]
 
-                                if (otherConnectorBuying && effectivePrice.effectiveRtmPrice > otherConnectorPriceInfo.buyPrice) {
+                                if (otherConnectorBuying && effectivePrice.finalPrice > otherConnectorPriceInfo.buyPrice) {
                                     if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
 
                                     await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
 
+                                    const amountBuying = this.keepProfitAsReferenceCurrency() ? referenceCurrencyTradeSize : referenceCurrencyTradeSize * (effectivePrice.finalPrice / otherConnectorPriceInfo.buyPrice);
+
                                     if (this._paperTradingEnabled) {
                                         paperTradeDetails.arbitrageTrades[1].price = otherConnectorPriceInfo["buyPrice"];
-                                        paperTradeDetails.arbitrageTrades[0].isBuy = false
-                                        paperTradeDetails.arbitrageTrades[1].isBuy = true
+                                        paperTradeDetails.arbitrageTrades[0].isBuy = false;
+                                        paperTradeDetails.arbitrageTrades[1].isBuy = true;
+                                        paperTradeDetails.arbitrageTrades[0].amount = referenceCurrencyTradeSize;
+                                        paperTradeDetails.arbitrageTrades[1].amount = amountBuying;
 
                                         if (this.isRecentTrade(paperTradeDetails).repeat) return;
 
@@ -424,21 +423,25 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         });
                                     } else {
                                         await Promise.all([
-                                            await pathConnector.addSellOrder(pathBaseCurrencyTradeSize, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                            await otherConnector.addBuyOrder(otherBaseCurrencyTradeSize, otherConnectorPriceInfo.buyPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                            await pathConnector.addSellOrder(referenceCurrencyTradeSize, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                            await otherConnector.addBuyOrder(amountBuying, otherConnectorPriceInfo.buyPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
                                         ]);
                                     }
 
                                     Logger.success("ClassicArbitrage", "orderSubmission", "yoooooo! you already know what it is :100: 1", this._socketBroadcaster);
-                                } else if (!otherConnectorBuying && effectivePrice.effectiveRtmPrice < otherConnectorPriceInfo.sellPrice) {
+                                } else if (!otherConnectorBuying && effectivePrice.finalPrice < otherConnectorPriceInfo.sellPrice) {
                                     if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
 
                                     await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
 
+                                    const amountBuying = this.keepProfitAsReferenceCurrency() ? referenceCurrencyTradeSize : referenceCurrencyTradeSize * (otherConnectorPriceInfo.sellPrice / effectivePrice.finalPrice);
+
                                     if (this._paperTradingEnabled) {
                                         paperTradeDetails.arbitrageTrades[1].price = otherConnectorPriceInfo["sellPrice"];
-                                        paperTradeDetails.arbitrageTrades[0].isBuy = true
-                                        paperTradeDetails.arbitrageTrades[1].isBuy = false
+                                        paperTradeDetails.arbitrageTrades[0].isBuy = true;
+                                        paperTradeDetails.arbitrageTrades[1].isBuy = false;
+                                        paperTradeDetails.arbitrageTrades[0].amount = referenceCurrencyTradeSize;
+                                        paperTradeDetails.arbitrageTrades[1].amount = amountBuying;
 
                                         if (this.isRecentTrade(paperTradeDetails).repeat) return;
 
@@ -455,8 +458,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         });
                                     } else {
                                         await Promise.all([
-                                            await pathConnector.addBuyOrder(pathBaseCurrencyTradeSize, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                            await otherConnector.addSellOrder(otherBaseCurrencyTradeSize, otherConnectorPriceInfo["sellPrice"], otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
+                                            await pathConnector.addBuyOrder(amountBuying, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
+                                            await otherConnector.addSellOrder(referenceCurrencyTradeSize, otherConnectorPriceInfo["sellPrice"], otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
                                         ]);
                                     }
 

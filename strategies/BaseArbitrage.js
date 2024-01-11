@@ -146,6 +146,8 @@ export default class BaseArbitrage extends BaseStrategy {
         if (!orderBook)
             orderBook = await connector.getOrderBook(tradingPair.baseCurrency, tradingPair.referenceCurrency);
 
+        if (orderBook[side].length === 0) return {amount: 0, relevantBookEntries: []};
+
         const currentSideMarketPrice = orderBook[side][0].price;
         const relevantBookEntries = [];
         let amount = 0;
