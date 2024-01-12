@@ -266,7 +266,11 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
         for (const polarPair of Object.keys(polarExchangeEntries)) {
             const polarEntry = polarExchangeEntries[polarPair];
-            const goodExchangeApplicableOrderBookEntries = polarEntry.goodExchangePairInfo.buyDepthEntries
+
+            // skip if we potentially can't buy any coins from the good depth exchange
+            if (polarEntry.goodExchangePairInfo.buyDepthEntries.length === 0) continue;
+
+            const goodExchangeApplicableOrderBookEntries = polarEntry.goodExchangePairInfo.buyDepthEntries;
 
             const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0].price + polarEntry.badExchangePairInfo.sellDepthEntries[0].price) / 2;
 
