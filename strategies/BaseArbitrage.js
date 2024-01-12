@@ -116,8 +116,6 @@ export default class BaseArbitrage extends BaseStrategy {
             if (JSON.stringify(recentTrade.uniqueMetadata) === tradeJson) {
                 if (recentTrade.numAvailableRepeats - recentTrade.repeatsDone === 0) repeat = true
                 else numRepeats = ++this._recentPaperTrades[i].repeatsDone;
-            } else {
-                console.log(`${JSON.stringify(recentTrade.uniqueMetadata)} !== ${tradeJson}`);
             }
         }
 

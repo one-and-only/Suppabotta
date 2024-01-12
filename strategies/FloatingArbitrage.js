@@ -253,6 +253,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     }
 
     async tick() {
+        this.pruneRecentTrades();
         // check if user deposited more funds to make defined inventory tradeable
         if (this._unfitToRun) {
             Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", this._socketBroadcaster);
@@ -265,8 +266,6 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
         for (const polarPair of Object.keys(polarExchangeEntries)) {
             const polarEntry = polarExchangeEntries[polarPair];
-            // const goodDepthExchangeMarketSide = polarEntry.goodExchangeSide === "buyPrice" ? "bid" : "ask";
-            // const badDepthExchangeMarketSide = polarEntry.badExchangeSide === "buyPrice" ? "bid" : "ask";
             const goodExchangeApplicableOrderBookEntries = polarEntry.goodExchangePairInfo.buyDepthEntries
 
             const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0].price + polarEntry.badExchangePairInfo.sellDepthEntries[0].price) / 2;
@@ -275,10 +274,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             let inventoryUsed = 0;
             const priceIncrementFactor = (badDepthExchangeAveragePrice - goodExchangeApplicableOrderBookEntries[0].price) / this._numCurveOrders;
 
-            if (priceIncrementFactor <= 0) {
-                console.log("unfavorable pricing conditions");
-                return;
-            }
+            if (priceIncrementFactor <= 0) return;
 
             const paperTradeOrdersInfo = {};
 
@@ -330,7 +326,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 }
             }
 
-            // used in this curve generation as: k=1 => numTotalTrades ∑ (nk + 5)
+            // used in this curve generation as: k=0 => numTotalTrades ∑ (nk + 5)
             // n = 103.08222136064(numTotalTrades)^(-1.7539080874066)
             // My work: https://www.desmos.com/calculator/aoxguwdwrl
             function getSupplyPctForTrade(tradeNum, numTotalTrades) {
@@ -361,19 +357,21 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             }
 
             if (this._paperTradingEnabled) {
-                if (this.isRecentTrade(paperTradeOrdersInfo).repeat) return;
-
-                this.addToRecentPaperTrades(paperTradeOrdersInfo, 1);
                 paperTradeOrdersInfo.curveOrders = curveEntryOrders;
+                const trade_metadata = {
+                    strategy: "FloatingArbitrage",
+                    badDepthExchange: polarEntry.badDepthExchange._name,
+                    goodDepthExchange: polarEntry.goodDepthExchange._name,
+                    goodDepthExchangeTradingPair: { referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency },
+                    badDepthExchangeTradingPair: { referenceCurrency: polarEntry.badExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.badExchangePairInfo.baseCurrency }
+                };
+                if (this.isRecentTrade(trade_metadata).repeat) return;
+
+                this.addToRecentPaperTrades(trade_metadata, 1);
+
                 await this._paperTradingMongoCollection.insertOne({
                     tradeInfo: paperTradeOrdersInfo,
-                    trade_metadata: {
-                        strategy: "FloatingArbitrage",
-                        badDepthExchange: polarEntry.badDepthExchange._name,
-                        goodDepthExchange: polarEntry.goodDepthExchange._name,
-                        goodDepthExchangeTradingPair: { referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency },
-                        badDepthExchangeTradingPair: { referenceCurrency: polarEntry.badExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.badExchangePairInfo.baseCurrency }
-                    },
+                    trade_metadata: trade_metadata,
                     mongo_timestamp: new Date()
                 });
             } else {
