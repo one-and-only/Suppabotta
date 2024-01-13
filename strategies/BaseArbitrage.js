@@ -164,6 +164,16 @@ export default class BaseArbitrage extends BaseStrategy {
         return { amount: amount, relevantBookEntries: relevantBookEntries };
     }
 
+    effectiveMinOrderSize(currentConnector, otherConnector, otherConnectorBuying, referenceCurrency, currentPriceInfo, otherPriceInfo) {
+        const otherMinTradeSize = otherConnector.minOrderSize(referenceCurrency)
+        const currentMinTradeSize = currentConnector.minOrderSize(referenceCurrency)
+
+        // sometimes min trade volumes can be zero, so we are using a minimum here just in case
+        const otherReferenceCurrencyMinTradeSize = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinTradeSize / otherPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"] : otherMinTradeSize, this._minTradeSizeBaseCurrency);
+        const currentReferenceCurrencyMinTradeSize = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinTradeSize / currentPriceInfo[otherConnectorBuying ? "sellPrice" : "buyPrice"] : currentMinTradeSize, this._minTradeSizeBaseCurrency);
+        return otherReferenceCurrencyMinTradeSize > currentReferenceCurrencyMinTradeSize ? otherReferenceCurrencyMinTradeSize : currentReferenceCurrencyMinTradeSize;
+    }
+
     /**
      * Find the shortest path from startingCurrency to endingCurrency
      * Algorithm partially from: https://chat.openai.com/share/f05d1e48-8140-4a35-a0da-bde79b5a5e0b
