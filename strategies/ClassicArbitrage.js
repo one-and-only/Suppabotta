@@ -184,8 +184,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
 
                                 if (!(await Promise.all([
-                                    currentConnector.addBuyOrder(effectiveMinOrderSize, currentRtmPriceInfo.buyPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency),
-                                    otherConnector.addSellOrder(amountRtmSelling, otherRtmPriceInfo.sellPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency)
+                                    currentConnector.addBuyOrder(amountBuying, currentRtmPriceInfo.buyPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency),
+                                    otherConnector.addSellOrder(effectiveMinOrderSize, otherRtmPriceInfo.sellPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency)
                                 ])).every(a => a)) {
                                     Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
                                     return;
@@ -240,8 +240,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
 
                                 if (!(await Promise.all([
-                                    otherConnector.addBuyOrder(effectiveMinOrderSize, otherRtmPriceInfo.buyPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency),
-                                    currentConnector.addSellOrder(amountRtmSelling, currentRtmPriceInfo.sellPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency)
+                                    otherConnector.addBuyOrder(amountBuying, otherRtmPriceInfo.buyPrice, otherRtmPriceInfo.referenceCurrency, otherRtmPriceInfo.baseCurrency),
+                                    currentConnector.addSellOrder(effectiveMinOrderSize, currentRtmPriceInfo.sellPrice, currentRtmPriceInfo.referenceCurrency, currentRtmPriceInfo.baseCurrency)
                                 ])).every(a => a)) {
                                     Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
                                     return;
