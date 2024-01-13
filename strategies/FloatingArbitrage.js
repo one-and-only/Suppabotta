@@ -378,9 +378,11 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     trade_metadata: trade_metadata,
                     mongo_timestamp: new Date()
                 });
+
+                Logger.success("FloatingArbitrage", "orderSubmission", "Found profitable paper trade and saved it to the database", this._socketBroadcaster);
             } else {
                 if (!(await this.executeOrders(curveEntryOrders, polarEntry.badDepthExchange, polarEntry.badExchangePairInfo.referenceCurrency, polarEntry.badExchangePairInfo.baseCurrency, false))) {
-                    Logger.error("FloatingArbitrage", "acquireSupply", "One or more buyup orders failed to execute on the exchange", this._socketBroadcaster);
+                    Logger.error("FloatingArbitrage", "acquireSupply", "One or more curve orders failed to execute on the exchange", this._socketBroadcaster);
                 }
             }
         }
