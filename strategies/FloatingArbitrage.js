@@ -271,12 +271,24 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             if (polarEntry.goodExchangePairInfo.buyDepthEntries.length === 0) continue;
 
             const goodExchangeApplicableOrderBookEntries = polarEntry.goodExchangePairInfo.buyDepthEntries;
+            const sellPrice = polarEntry.badExchangePairInfo.sellDepthEntries[0]?.price ?? goodExchangeApplicableOrderBookEntries[0].price;
 
-            const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0].price + polarEntry.badExchangePairInfo.sellDepthEntries[0].price) / 2;
+            const effectiveMinOrderSize = this.effectiveMinOrderSize(
+                polarEntry.goodDepthExchange,
+                polarEntry.badDepthExchange,
+                false,
+                polarEntry.goodExchangePairInfo.referenceCurrency,
+                { buyPrice: goodExchangeApplicableOrderBookEntries[0].price },
+                { sellPrice: sellPrice }
+            );
+
+            const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0]?.price ?? sellPrice + sellPrice) / 2;
 
             const inventoryForTrading = (this._inventoryDefinition[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] - this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency]) * (this._maxInvPct / 100);
             let inventoryUsed = 0;
-            const priceIncrementFactor = (badDepthExchangeAveragePrice - goodExchangeApplicableOrderBookEntries[0].price) / this._numCurveOrders;
+
+            // price maximum is at most 2% above spot
+            const priceIncrementFactor = ((badDepthExchangeAveragePrice - goodExchangeApplicableOrderBookEntries[0].price) * 0.02) / this._numCurveOrders;
 
             if (priceIncrementFactor <= 0) return;
 
@@ -330,32 +342,21 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 }
             }
 
-            // used in this curve generation as: k=0 => numTotalTrades ∑ (nk + 5)
-            // n = 103.08222136064(numTotalTrades)^(-1.7539080874066)
-            // My work: https://www.desmos.com/calculator/aoxguwdwrl
-            function getSupplyPctForTrade(tradeNum, numTotalTrades) {
-                return tradeNum * 103.08222136064 * Math.pow(numTotalTrades, -1.7539080874066) + 5
-            }
-
             // generate orders that fit the curve
             for (let i = 0; i < this._numCurveOrders; i++) {
-                const supplyPctFactorForTrade = getSupplyPctForTrade(i, this._numCurveOrders) / 100;
-                const supplyCoinAmount = supplyPctFactorForTrade * supplyBought;
                 const supplyAvailable = supplyBought - supplyUsed;
-                let coinAmount;
+                let coinAmount = effectiveMinOrderSize;
 
                 if (supplyAvailable <= 0) break;
 
-                if (this._numCurveOrders - i === 1) coinAmount = supplyAvailable
-                else if (supplyAvailable < supplyCoinAmount) coinAmount = supplyAvailable;
-                else coinAmount = supplyCoinAmount;
+                if (this._numCurveOrders - i === 1 || supplyAvailable < effectiveMinOrderSize) coinAmount = supplyAvailable
 
                 curveEntryOrders.push({
                     price: currentPrice,
                     amount: coinAmount
                 });
 
-                supplyUsed += coinAmount
+                supplyUsed += coinAmount;
 
                 currentPrice += priceIncrementFactor;
             }
