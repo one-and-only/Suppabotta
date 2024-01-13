@@ -399,6 +399,6 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         // });
         // Logger.info("FloatingArbitrage", "shutdown", `Failed to cancel pending orders in: ${statuses.every(x => x === true) ? "None (nothing left to do)" : statuses.map(x => x === true ? "" : x).join(", ")}`, this._socketBroadcaster);
         // Logger.info("FloatingArbitrage", "shutdown", "If any connectors failed to cancel pending orders, please go into your exchange's account and cancel the applicable orders manually.", this._socketBroadcaster);
-        // Logger.success("FloatingArbitrage", "shutdown", "Algorithm shutdown complete and algorithm stopped", this._socketBroadcaster);
+        Logger.success("FloatingArbitrage", "shutdown", "Algorithm shutdown complete and trading stopped", this._socketBroadcaster);
     }
 }
