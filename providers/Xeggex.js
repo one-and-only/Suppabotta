@@ -8,7 +8,7 @@ const { map: promiseMap } = Bluebird;
 
 export default class Xeggex extends BaseProvider {
     constructor(apiSecret, apiKey, baseCurrency) {
-        super(apiSecret, apiKey, "https://api.xeggex.com/api/v2", baseCurrency, 0.2, 0.2, 0.62, true, [0, 1], "_", "Xeggex");
+        super(apiSecret, apiKey, "https://api.xeggex.com/api/v2", baseCurrency, 0.3, 0.3, 0.62, true, [0, 1], "_", "Xeggex");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,

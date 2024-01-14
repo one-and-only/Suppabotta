@@ -15,7 +15,7 @@ import BigNumber from "bignumber.js";
 // insertion order must be respected in code to achieve this
 export default class DexTrade extends BaseProvider {
     constructor(apiSecret, apiKey, baseCurrency) {
-        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", baseCurrency, 0, 0, 0.05, true, [0, 1], "", "DexTrade");
+        super(apiSecret, apiKey, "https://api.dex-trade.com/v1", baseCurrency, 0.1, 0.1, 0.05, true, [0, 1], "", "DexTrade");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
