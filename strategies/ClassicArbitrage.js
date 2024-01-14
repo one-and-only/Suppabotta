@@ -128,14 +128,15 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                             const currentMinOrderSize = currentConnector.minOrderSize(currentRtmPriceInfo.referenceCurrency);
                             const otherMinOrderSize = otherConnector.minOrderSize(otherRtmPriceInfo.referenceCurrency);
 
-                            const currentMinOrderSizeRtm = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentRtmPriceInfo.buyPrice : currentMinOrderSize, this._minTradeSizeBaseCurrency);
+                            const currentMinOrderSizeBaseCurrency = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentRtmPriceInfo.buyPrice : currentMinOrderSize, this._minTradeSizeBaseCurrency);
                             const otherMinOrderSizeRtm = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherRtmPriceInfo.buyPrice : otherMinOrderSize, this._minTradeSizeBaseCurrency);
 
-                            let effectiveMinOrderSize = currentMinOrderSizeRtm > otherMinOrderSizeRtm ? currentMinOrderSizeRtm : otherMinOrderSizeRtm;
+                            let effectiveMinOrderSize = currentMinOrderSizeBaseCurrency > otherMinOrderSizeRtm ? currentMinOrderSizeBaseCurrency : otherMinOrderSizeRtm;
 
                             // TODO: merge the order creation into one function to avoid repetition
 
                             if (currentEffectiveBuyPrice < otherEffectiveSellPrice) {
+                                if (otherEffectiveSellPrice / currentEffectiveBuyPrice < 1.01) continue; // target a profit of at least 1%
                                 // sometimes we may want to keep the profit as referenceCurrency instead of baseCurrency
                                 const amountBuying = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSize : effectiveMinOrderSize * (otherRtmPriceInfo.sellPrice / currentRtmPriceInfo.buyPrice);
 
@@ -193,6 +194,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                                 Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
                             } else if (currentEffectiveSellPrice > otherEffectiveBuyPrice) {
+                                if (currentEffectiveSellPrice / otherEffectiveBuyPrice < 1.01) continue; // target a profit of at least 1%
+
                                 const amountBuying = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSize : effectiveMinOrderSize * (currentRtmPriceInfo.sellPrice / otherRtmPriceInfo.buyPrice);
 
                                 const numTimesRepeatable = Math.floor(Math.min(otherRtmPriceInfo.buyDepth, currentRtmPriceInfo.sellDepth) / effectiveMinOrderSize);
