@@ -99,9 +99,9 @@ export default class DexTrade extends BaseProvider {
 
     /**
      * 
-     * @param {number} amount amount of RTM you're selling or buying
-     * @param {number} price price per RTM
-     * @param {string} referenceCurrency currency you're pairing RTM with
+     * @param {number} amount amount of `baseAmount` you're selling or buying
+     * @param {number} price price per `baseAmount`
+     * @param {string} referenceCurrency currency you're pairing `baseAmount` with
      * @param {boolean} isBuy Whether the trade is of type "buy" or not (type "sell")
      * @returns {boolean} success or failure
      */

@@ -43,7 +43,7 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
                 const commonMinOrderAmount = connector.minTradeVolumeIsReferenceCurrency() ? minOrderSize : minOrderSize * priceInfo.buyPrice;
 
                 if (referenceBalance.available < commonMinOrderAmount || (baseCurrencyBalance.available * priceInfo.sellPrice) < commonMinOrderAmount) {
-                    Logger.warning("TickerMaintenance", `balanceCheck_${connector._name}`, `Not enough balance on ${connector._name} RTM/${referenceCurrency}`, this._socketBroadcaster);
+                    Logger.warning("TickerMaintenance", `balanceCheck_${connector._name}`, `Not enough balance on ${connector._name} ${this._baseCurrency} /${referenceCurrency}`, this._socketBroadcaster);
                     connector._tradingPairs[referenceCurrency].enabled = false;
                     continue;
                 }

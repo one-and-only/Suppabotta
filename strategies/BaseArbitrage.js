@@ -42,7 +42,7 @@ export default class BaseArbitrage extends BaseStrategy {
 
     /**
      * Get markets and price info for all baseCurrency pairs
-     * @param {BaseProvider} connector Connector used to query price info for RTM markets
+     * @param {BaseProvider} connector Connector used to query price info for `baseAmount` markets
      * @returns {Promise<{baseCurrency: string,referenceCurrency: string,success:true,sellPrice:number,sellDepth:number,buyPrice:number,buyDepth:number}[]>}
      */
     async baseCurrencyMarketPriceInfoForConnector(connector) {
@@ -57,7 +57,7 @@ export default class BaseArbitrage extends BaseStrategy {
 
     /**
      * Get markets and price info for all baseCurrency pairs
-     * @param {BaseProvider} connector Connector used to query price info for RTM markets
+     * @param {BaseProvider} connector Connector used to query price info for `baseAmount` markets
      * @returns {Promise<{baseCurrency: string,referenceCurrency: string,success:true,bid:{price:number,amount:number}[],ask:{price:number,amount:number}[]}[]>}
      */
     async baseCurrencyOrberBookInfosForConnector(connector) {
@@ -226,15 +226,15 @@ export default class BaseArbitrage extends BaseStrategy {
     }
 
     /**
-     * Get effective price for one RTM in each cross-currency direction for use in determining if profitable trades exist
+     * Get effective price for one `baseAmount` in each cross-currency direction for use in determining if profitable trades exist
      * @param {BaseProvider} connector 
      * @param {string[]} path 
      * @param {boolean} buying 
-     * @param {number} minimumRtmAmount Minimum order size, in RTM.
-     * @returns {Promise<{effectiveRtmPrice:number,finalPrice:number,path:{baseCurrency:string,depth:number,price:number,referenceCurrency:string,referenceCurrencyInverted:boolean,minimumCoinsRequired:number|undefined}[]}>} path and price information
+     * @param {number} minimumBaseCurrencyAmount Minimum order size, in `baseCurrency`.
+     * @returns {Promise<{effectiveBaseCurrencyPrice:number,finalPrice:number,path:{baseCurrency:string,depth:number,price:number,referenceCurrency:string,referenceCurrencyInverted:boolean,minimumCoinsRequired:number|undefined}[]}>} path and price information
      */
-    async effectiveReferencePrice(connector, path, buying, minimumRtmAmount = 0) {
-        let effectiveRtmPrice;
+    async effectiveReferencePrice(connector, path, buying, minimumBaseCurrencyAmount = 0) {
+        let effectiveBaseCurrencyPrice;
         const pathAndPriceInfo = { path: [] };
         const takerFeeFactor = 1 + connector._takerFeePct / 100;
 
@@ -243,7 +243,7 @@ export default class BaseArbitrage extends BaseStrategy {
             const currentTargetCurrency = path[i];
 
             // the path graph shows both sides are valid pairs
-            // Ex: RTM-BTC and BTC-RTM are both valid pairs when representing pairs IRL, but only one is valid from the exchange's POV
+            // Ex: RTM-BTC and BTC-RTM are both valid pairs when representing pairs in real life, but only one is valid from the exchange's point-of-view
             let referenceCurrencyInverted = false;
 
             let priceInfoInternal = await connector.getMarketPrice(nextTargetCurrency, currentTargetCurrency);
@@ -258,11 +258,11 @@ export default class BaseArbitrage extends BaseStrategy {
 
             const correctPrice = referenceCurrencyInverted ? priceInfoInternal.buyPrice : priceInfoInternal.sellPrice;
             // first ever loop run, so we're just initializing to the sell price of the currency we own
-            if (!effectiveRtmPrice) {
-                effectiveRtmPrice = correctPrice;
+            if (!effectiveBaseCurrencyPrice) {
+                effectiveBaseCurrencyPrice = correctPrice;
             }
             else {
-                effectiveRtmPrice = effectiveRtmPrice * (correctPrice / effectiveRtmPrice) * takerFeeFactor;
+                effectiveBaseCurrencyPrice = effectiveBaseCurrencyPrice * (correctPrice / effectiveBaseCurrencyPrice) * takerFeeFactor;
             }
 
             pathAndPriceInfo.path.push({
@@ -274,13 +274,13 @@ export default class BaseArbitrage extends BaseStrategy {
             });
         }
 
-        const rtmPriceInfoInternal = await connector.getMarketPrice(path[path.length - 1], this._baseCurrency.toUpperCase());
-        const marketPrice = (buying ? rtmPriceInfoInternal.buyPrice : rtmPriceInfoInternal.sellPrice);
-        effectiveRtmPrice = effectiveRtmPrice * (marketPrice / effectiveRtmPrice) * takerFeeFactor;
-        pathAndPriceInfo.effectiveRtmPrice = effectiveRtmPrice;
+        const baseCurrencyPriceInfoInternal = await connector.getMarketPrice(path[path.length - 1], this._baseCurrency.toUpperCase());
+        const marketPrice = (buying ? baseCurrencyPriceInfoInternal.buyPrice : baseCurrencyPriceInfoInternal.sellPrice);
+        effectiveBaseCurrencyPrice = effectiveBaseCurrencyPrice * (marketPrice / effectiveBaseCurrencyPrice) * takerFeeFactor;
+        pathAndPriceInfo.effectiveBaseCurrencyPrice = effectiveBaseCurrencyPrice;
         pathAndPriceInfo.finalPrice = marketPrice;
 
-        pathAndPriceInfo.path[pathAndPriceInfo.path.length - 1].minimumCoinsRequired = minimumRtmAmount * effectiveRtmPrice;
+        pathAndPriceInfo.path[pathAndPriceInfo.path.length - 1].minimumCoinsRequired = minimumBaseCurrencyAmount * effectiveBaseCurrencyPrice;
 
         return pathAndPriceInfo;
     }

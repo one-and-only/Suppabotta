@@ -8,7 +8,7 @@ export default class BaseProvider {
     _balances;
     _makerFeePct;
     _takerFeePct;
-    _rtmWithdrawalFee;
+    _baseCurrencyWithdrawalFee;
     _minTradeVolumes;
     _minTradeVolumeIsReferenceCurrency;
     _exchangeApiPairCurrencyOrder;
@@ -24,13 +24,13 @@ export default class BaseProvider {
      * @param {string} baseCurrency Base currency to use for initialization
      * @param {number} makerFeePct Exchange maker fee (%)
      * @param {number} takerFeePct Exchange taker fee (%)
-     * @param {number} rtmWithdrawalFee Exchange withdrawal fee for RTM
+     * @param {number} baseCurrencyWithdrawalFee Exchange withdrawal fee for `baseCurrency`
      * @param {boolean} minTradeVolumeIsReferenceCurrency Whether the minimum trade volume is measured in `baseCurrency` or `referenceCurrency`
      * @param {[number, number]} exchangeApiPairCurrencyOrder This array controls whether the referenceCurrency or baseCurrency is inserted first when formatting coins into an exchange trading pair
      * @param {string} exchangeApiCurrencySeparator Separator between the referenceCurrency and baseCurrency in the exchange API
      * @param {string} name Name/unique identifier of the exchange provider
      */
-    constructor(apiSecret, apiKey, apiUrl, baseCurrency, makerFeePct, takerFeePct, rtmWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
+    constructor(apiSecret, apiKey, apiUrl, baseCurrency, makerFeePct, takerFeePct, baseCurrencyWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
@@ -40,7 +40,7 @@ export default class BaseProvider {
         this._balances = {};
         this._makerFeePct = makerFeePct;
         this._takerFeePct = takerFeePct;
-        this._rtmWithdrawalFee = rtmWithdrawalFee;
+        this._baseCurrencyWithdrawalFee = baseCurrencyWithdrawalFee;
         this._minTradeVolumes = {};
         this._minTradeVolumeIsReferenceCurrency = minTradeVolumeIsReferenceCurrency;
         this._exchangeApiPairCurrencyOrder = exchangeApiPairCurrencyOrder;
@@ -129,7 +129,7 @@ export default class BaseProvider {
      * Get the current market prices
      * Highest you can sell for
      * Lowest you can buy for
-     * @param {string} referenceCurrency crypto which RTM is paired with. Ex: "BTC" (case insensitive)
+     * @param {string} referenceCurrency crypto which `baseCurrency` is paired with. Ex: "BTC" (case insensitive)
      * @returns {Promise<{ success: true, sellPrice: number, sellDepth: number, buyPrice: number, buyDepth: number} | { success: false, error: string }>} market price data
      */
     async getMarketPrice(referenceCurrency, baseCurrency) {
@@ -138,9 +138,10 @@ export default class BaseProvider {
 
     /**
      * Add a buy order to the books
-     * @param {number} amountRtm Amount of RTM to buy
-     * @param {number} price Price, in `referenceCurrency`, to buy each RTM for
-     * @param {string} referenceCurrency currency buying RTM with
+     * @param {number} baseAmount Amount of `baseCurrency` to buy
+     * @param {number} price Price, in `referenceCurrency`, to buy each `baseCurrency` for
+     * @param {string} referenceCurrency currency buying `baseCurrency` with
+     * @param {string} baseCurrency `baseCurrency`
      * @returns {Promise<boolean>} success or failure
      */
     async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
@@ -149,9 +150,10 @@ export default class BaseProvider {
 
     /**
      * Add a sell order to the books
-     * @param {number} amountRtm Amount of RTM to sell
-     * @param {number} price Price, in `referenceCurrency`, to sell each RTM for
-     * @param {string} referenceCurrency currency buying RTM with
+     * @param {number} baseAmount Amount of `baseCurrency` to sell
+     * @param {number} price Price, in `referenceCurrency`, to sell each `baseCurrency` for
+     * @param {string} referenceCurrency currency buying `baseCurrency` with
+     * * @param {string} baseCurrency `baseCurrency`
      * @returns {Promise<boolean>} success or failure
      */
     async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
@@ -180,7 +182,7 @@ export default class BaseProvider {
 
     /**
      * Check whether there is a trading pair available for baseCurrency with the given reference currency
-     * @param {string} referenceCurrency currency RTM is paired with
+     * @param {string} referenceCurrency currency `baseAmount` is paired with
      * @returns {boolean} whether it exists or not
      */
     referenceCurrencyExists(referenceCurrency) {
