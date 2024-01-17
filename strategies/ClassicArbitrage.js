@@ -120,6 +120,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                         this.markAsProcessed([currentConnector._name, otherConnector._name], currentBaseCurrencyPriceInfo, otherBaseCurrencyPriceInfo);
 
                         if (otherBaseCurrencyPriceInfo.referenceCurrency === currentBaseCurrencyPriceInfo.referenceCurrency) {
+                            continue;
                             const currentEffectiveBuyPrice = currentBaseCurrencyPriceInfo.buyPrice * (1 + currentConnector._takerFeePct / 100); // spending more than the value of the coin with fees
                             const currentEffectiveSellPrice = currentBaseCurrencyPriceInfo.sellPrice / (1 + currentConnector._takerFeePct / 100); // getting less money than the value of the coin with fees
                             const otherEffectiveBuyPrice = otherBaseCurrencyPriceInfo.buyPrice * (1 + otherConnector._takerFeePct / 100);
@@ -253,214 +254,43 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
                             }
                         } else {
-                            if (this._disableCrossCurrency) continue;
-
+                            // TODO: finish cross-currency
                             /**
-                             * Exchange a starting currency into an ending currency, using the provided exchange path information.
-                             * This just gets us the right currency in the exchange we are shuffling around coins and not the full trade process.
-                             * We would still need to buy on one exchange and sell on the other
-                             * @param {BaseProvider} pathConnector 
-                             * @param {{baseCurrency:string,depth:number,price:number,referenceCurrency:string,referenceCurrencyInverted:boolean,minimumCoinsRequired:number|undefined}[]} pathInfo 
-                             */
-                            const fulfillCrossCurrencyExchangePath = async (pathConnector, pathInfo) => {
-                                const takerFeeFactor = 1 + pathConnector._takerFeePct / 100;
-
-                                // we first need to calculate how many coins we need for each step
-                                const amountRequired = [];
-                                let _internalIntermediateMinimum;
-                                for (let i = pathInfo.length - 1; i > 0; i--) {
-                                    if (i === pathInfo.length - 1) _internalIntermediateMinimum = pathInfo[i].minimumCoinsRequired;
-                                    else _internalIntermediateMinimum = (_internalIntermediateMinimum / pathInfo[i].price) * takerFeeFactor;
-
-                                    amountRequired.push(_internalIntermediateMinimum);
-                                }
-
-                                // depth and balance has already been checked before calling this function
-                                for (let i = 0; i < pathInfo.length; i++) {
-                                    const { price, referenceCurrencyInverted } = pathInfo[i];
-                                    let { referenceCurrency, baseCurrency } = pathInfo[i];
-                                    const endingCurrency = referenceCurrency;
-
-                                    // we buy when the currencies are inverted (normally we sell our way to the ending currency)
-                                    if (referenceCurrencyInverted) {
-                                        referenceCurrency = baseCurrency;
-                                        baseCurrency = endingCurrency;
-
-                                        // we have already inverted referenceCurrency and baseCurrency a few lines ago, so this is fine
-                                        //                                                                                                ∨                ∨
-                                        if (!this._paperTradingEnabled) await pathConnector.addBuyOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
-                                    } else {
-                                        if (!this._paperTradingEnabled) await pathConnector.addSellOrder(amountRequired[i], price, referenceCurrency, baseCurrency);
-                                    }
-                                }
-
-                                Logger.success("ClassicArbitrage", "currencyConversion", "Finish converting currency", this._socketBroadcaster);
-                            }
-
-                            /**
-                             * Check and, if applicable, fulfill a profitable cross-currency trade
-                             * @param {BaseProvider} pathConnector 
-                             * @param {string} pathReferenceCurrency 
+                             * 
+                             * @param {BaseProvider} currentConnector 
                              * @param {BaseProvider} otherConnector 
-                             * @param {{ referenceCurrency: string, baseCurrency: string, sellPrice: number, sellDepth: number, buyPrice: number, buyDepth: number }} otherConnectorPriceInfo 
-                             * @param {boolean} otherConnectorBuying 
-                             * @returns 
                              */
-                            const processCrossCurrency = async (pathConnector, pathReferenceCurrency, otherConnector, otherConnectorPriceInfo, otherConnectorBuying) => {
-                                const shortestPath = this.shortestCrossCurrencyPath(pathConnector, pathReferenceCurrency, otherConnectorPriceInfo.referenceCurrency);
-                                if (!pathConnector.referenceCurrencyExists(otherConnectorPriceInfo.referenceCurrency)) return;
-                                if (!shortestPath) return;
+                            const processCrossCurrency = async (currentConnector, otherConnector) => {
+                                const potentialMarket = this._marketCaches[currentConnector].filter(x => x.baseCurrency === currentBaseCurrencyPriceInfo.baseCurrency && x.referenceCurrency === currentBaseCurrencyPriceInfo.referenceCurrency);
+                                if (potentialMarket.length === 0) return;
+                                console.assert(potentialMarket.length === 1, `Cross currency exchange market possibilities are not unique (${potentialMarket.length} > 1)`);
 
-                                const effectivePrice = await this.effectiveReferencePrice(otherConnector, shortestPath, !otherConnectorBuying);
-                                paperTradeDetails.currencyConversionPriceTransitions = {
-                                    path: effectivePrice.path,
-                                    exchange: pathConnector._name
-                                };
+                                const crossExchangeMarket = potentialMarket[0];
+                                const crossExchangePriceInfo = await currentConnector.getMarketPrice(crossExchangeMarket.referenceCurrency, crossExchangeMarket.baseCurrency);
 
-                                /**
-                                 * Ensure that the user has enough balance and the exchange has enough depth for each trading step
-                                 * @param {BaseProvider} pathConnector Connector that the path data is tied to
-                                 * @param {{baseCurrency:string,depth:number,price:number,referenceCurrency:string,referenceCurrencyInverted:boolean,minimumCoinsRequired:number|undefined}[]} pathInfo array of trading steps that need to be taken to convert one currency to another
-                                 * @returns {Promise<boolean>} Whether the given path is fully actionable
-                                 */
-                                const tradeConditionsSatisfied = async (pathConnector, pathInfo) => {
-                                    let minimumCoinsRequired;
-                                    const takerFeeFactor = 1 + pathConnector._takerFeePct / 100;
-
-                                    for (let i = pathInfo.length - 1; i > 0; i--) {
-                                        const { depth, price, referenceCurrencyInverted } = pathInfo[i];
-                                        let { referenceCurrency, baseCurrency } = pathInfo[i];
-                                        const endingCurrency = referenceCurrency;
-
-                                        // this data is something that is given inside of the last step of `pathInfo`
-                                        if (i === (pathInfo.length - 1)) minimumCoinsRequired = pathInfo[i].minimumCoinsRequired;
-                                        else minimumCoinsRequired = (minimumCoinsRequired / price) * takerFeeFactor;
-
-                                        if (referenceCurrencyInverted) {
-                                            referenceCurrency = baseCurrency;
-                                            baseCurrency = endingCurrency;
-                                        }
-
-                                        // checking depth first to make sure that the exchange is good to go before undertaking the expensive operation of querying user balance
-                                        if (depth < minimumCoinsRequired) {
-                                            Logger.warning("ClassicArbitrage", "multiCurrencyPathDepthCheck", "Favorable price was found, but the exchange doesn't have enough depth to execute all trades", this._socketBroadcaster);
-                                            return false;
-                                        }
-
-                                        // the original baseCurrency is what we are targetting for a balance check
-                                        // because that is the currency we are converting towards the ending currency
-                                        let balance;
-                                        if (this._paperTradingEnabled) balance = parseInt(process.env.PAPER_TRADE_MODE_REFERENCE_BALANCE)
-                                        else balance = (await pathConnector.getBalance(referenceCurrencyInverted ? referenceCurrency : baseCurrency));
-
-                                        if (balance < minimumCoinsRequired) {
-                                            Logger.warning("ClassicArbitrage", "multiCurrencyPathBalanceCheck", "Favorable price was found, but the user didn't have enough balance to execute all trades", this._socketBroadcaster);
-                                            return false;
-                                        }
-                                    }
-
-                                    return true;
+                                const potentialRtmMarketCurrentConnector = this._marketCaches[currentConnector._name].filter(x => x.baseCurrency === otherBaseCurrencyPriceInfo.baseCurrency && x.referenceCurrency === otherBaseCurrencyPriceInfo.referenceCurrency);
+                                if (potentialRtmMarketCurrentConnector.length === 0) {
+                                    console.log(`${JSON.stringify(otherBaseCurrencyPriceInfo.baseCurrency + "-" + otherBaseCurrencyPriceInfo.referenceCurrency)} not a valid pair on ${currentConnector._name}`);
+                                    return;
                                 }
 
-                                const otherMinTradeSize = otherConnector.minOrderSize(otherConnectorPriceInfo.referenceCurrency)
-                                const pathMinTradeSize = pathConnector.minOrderSize(otherConnectorPriceInfo.referenceCurrency)
+                                console.assert(potentialRtmMarketCurrentConnector.length === 1, "Found more than one related markets for cross currency");
+                                const baseCurrencyMarketCurrenctConnector = potentialRtmMarketCurrentConnector[0];
+                                const baseCurrencyMarketCurrentConnectorPriceInfo = await currentConnector.getMarketPrice(baseCurrencyMarketCurrenctConnector.referenceCurrency, baseCurrencyMarketCurrenctConnector.baseCurrency);
 
-                                // sometimes min trade volumes can be zero, so we are using a minimum here just in case
-                                const otherReferenceCurrencyMinTradeSize = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinTradeSize / otherConnectorPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"] : otherMinTradeSize, this._minTradeSizeBaseCurrency);
-                                const pathReferenceCurrencyMinTradeSize = Math.max(pathConnector.minTradeVolumeIsReferenceCurrency() ? pathMinTradeSize / effectivePrice.finalPrice : pathMinTradeSize, this._minTradeSizeBaseCurrency);
-                                const referenceCurrencyTradeSize = otherReferenceCurrencyMinTradeSize > pathReferenceCurrencyMinTradeSize ? otherReferenceCurrencyMinTradeSize : pathReferenceCurrencyMinTradeSize;
+                                const samePairCurrentPriceInfo = await currentConnector.getMarketPrice(otherBaseCurrencyPriceInfo.referenceCurrency, otherBaseCurrencyPriceInfo.baseCurrency);
+                                console.assert(samePairCurrentPriceInfo.success, "Failed to get same pair current price info in cross currency");
+                                
+                                const minimumCrossExchangeTradeSize = currentConnector._minTradeVolumes[currentConnector.coinsToExchangePair([crossExchangeMarket.baseCurrency, crossExchangeMarket.referenceCurrency])];
+                                console.assert(minimumCrossExchangeTradeSize >= 0, `Failed to get minimum trade size for ${currentConnector._name} | ${currentConnector.coinsToExchangePair([crossExchangeMarket.baseCurrency, crossExchangeMarket.referenceCurrency])}`);
 
-                                paperTradeDetails.arbitrageTrades = [
-                                    {
-                                        exchange: pathConnector._name,
-                                        price: effectivePrice.finalPrice,
-                                        referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
-                                        baseCurrency: otherConnectorPriceInfo.baseCurrency,
-                                    },
-                                    {
-                                        exchange: otherConnector._name,
-                                        referenceCurrency: otherConnectorPriceInfo.referenceCurrency,
-                                        baseCurrency: otherConnectorPriceInfo.baseCurrency,
-                                    }
-                                ]
+                                const minimumCrossExchangeTradeSizeIntermediary = currentConnector.minTradeVolumeIsReferenceCurrency() ? minimumCrossExchangeTradeSize / crossExchangePriceInfo.buyPrice : minimumCrossExchangeTradeSize;
+                                const minimumCrossExchangeTradeSizeBaseCurrency = minimumCrossExchangeTradeSizeIntermediary / baseCurrencyMarketCurrentConnectorPriceInfo.buyPrice;
 
-                                if (otherConnectorBuying && effectivePrice.finalPrice > otherConnectorPriceInfo.buyPrice) {
-                                    if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
-
-                                    await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
-
-                                    const amountBuying = this.keepProfitAsReferenceCurrency() ? referenceCurrencyTradeSize : referenceCurrencyTradeSize * (effectivePrice.finalPrice / otherConnectorPriceInfo.buyPrice);
-
-                                    if (this._paperTradingEnabled) {
-                                        paperTradeDetails.arbitrageTrades[1].price = otherConnectorPriceInfo["buyPrice"];
-                                        paperTradeDetails.arbitrageTrades[0].isBuy = false;
-                                        paperTradeDetails.arbitrageTrades[1].isBuy = true;
-                                        paperTradeDetails.arbitrageTrades[0].amount = referenceCurrencyTradeSize;
-                                        paperTradeDetails.arbitrageTrades[1].amount = amountBuying;
-
-                                        if (this.isRecentTrade(paperTradeDetails).repeat) return;
-
-                                        this.addToRecentPaperTrades({ ...paperTradeDetails }, 1);
-
-                                        this._paperTradingMongoCollection.insertOne({
-                                            mongo_timestamp: new Date(),
-                                            trade_metadata: {
-                                                strategy: "ClassicArbitrage",
-                                                cross_currency: true,
-                                                repeat_number: 1
-                                            },
-                                            tradeInfo: paperTradeDetails
-                                        });
-                                    } else {
-                                        await Promise.all([
-                                            await pathConnector.addSellOrder(referenceCurrencyTradeSize, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                            await otherConnector.addBuyOrder(amountBuying, otherConnectorPriceInfo.buyPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
-                                        ]);
-                                    }
-
-                                    Logger.success("ClassicArbitrage", "orderSubmission", "yoooooo! you already know what it is :100: 1", this._socketBroadcaster);
-                                } else if (!otherConnectorBuying && effectivePrice.finalPrice < otherConnectorPriceInfo.sellPrice) {
-                                    if (!(await tradeConditionsSatisfied(pathConnector, effectivePrice.path))) return;
-
-                                    await fulfillCrossCurrencyExchangePath(pathConnector, shortestPath);
-
-                                    const amountBuying = this.keepProfitAsReferenceCurrency() ? referenceCurrencyTradeSize : referenceCurrencyTradeSize * (otherConnectorPriceInfo.sellPrice / effectivePrice.finalPrice);
-
-                                    if (this._paperTradingEnabled) {
-                                        paperTradeDetails.arbitrageTrades[1].price = otherConnectorPriceInfo["sellPrice"];
-                                        paperTradeDetails.arbitrageTrades[0].isBuy = true;
-                                        paperTradeDetails.arbitrageTrades[1].isBuy = false;
-                                        paperTradeDetails.arbitrageTrades[0].amount = referenceCurrencyTradeSize;
-                                        paperTradeDetails.arbitrageTrades[1].amount = amountBuying;
-
-                                        if (this.isRecentTrade(paperTradeDetails).repeat) return;
-
-                                        this.addToRecentPaperTrades({ ...paperTradeDetails }, 1);
-
-                                        this._paperTradingMongoCollection.insertOne({
-                                            mongo_timestamp: new Date(),
-                                            trade_metadata: {
-                                                strategy: "ClassicArbitrage",
-                                                cross_currency: true,
-                                                repeat_number: 1
-                                            },
-                                            tradeInfo: paperTradeDetails
-                                        });
-                                    } else {
-                                        await Promise.all([
-                                            await pathConnector.addBuyOrder(amountBuying, effectivePrice.finalPrice, otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency),
-                                            await otherConnector.addSellOrder(referenceCurrencyTradeSize, otherConnectorPriceInfo["sellPrice"], otherConnectorPriceInfo.referenceCurrency, otherConnectorPriceInfo.baseCurrency)
-                                        ]);
-                                    }
-
-                                    Logger.success("ClassicArbitrage", "orderSubmission", "yoooooo! you already know what it is :100: 2", this._socketBroadcaster);
-                                }
+                                
                             }
 
-                            await Promise.all([
-                                processCrossCurrency(currentConnector, currentRtmPriceInfo.referenceCurrency, otherConnector, otherRtmPriceInfo, false),
-                                processCrossCurrency(otherConnector, otherRtmPriceInfo.referenceCurrency, currentConnector, currentRtmPriceInfo, true)
-                            ]);
+                            await processCrossCurrency(currentConnector, otherConnector);
                         }
                     }
                 }
