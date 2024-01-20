@@ -27,10 +27,11 @@ export default class Xeggex extends BaseProvider {
             const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/getlist`)).json();
 
             for (const market of markets) {
+                this._minTradeVolumes[market.symbol.split("/").join("")] = market.minimumQuantity ?? 0;
+
                 if (!market.symbol.startsWith(this._baseCurrency)) continue;
 
-                this._tradingPairs[market.symbol.split('/')[1]] = { pair: market.symbol, enabled: true };
-                this._minTradeVolumes[market.symbol.split('/')[1]] = market.minimumQuantity ?? 0;
+                this._tradingPairs[market.symbol.split("/")[1]] = { pair: market.symbol, enabled: true };
             }
         } catch (e) {
             Logger.error(this._name, "initialize_allTradingPairs", "Failed to get market info");

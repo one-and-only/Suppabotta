@@ -26,11 +26,12 @@ export default class CoinEx extends BaseProvider {
     async allTradingPairs() {
         const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/info`)).json();
         for (const marketKey in markets.data) {
+            const market = markets.data[marketKey];
+            this._minTradeVolumes[this.coinsToExchangePair([market.trading_name, market.pricing_name])] = parseFloat(market.min_amount);
+
             if (!marketKey.startsWith(this._baseCurrency)) continue;
 
-            const market = markets.data[marketKey];
             this._tradingPairs[market.pricing_name] = { pair: marketKey, enabled: true };
-            this._minTradeVolumes[market.pricing_name] = parseFloat(market.min_amount);
         }
     }
 

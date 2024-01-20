@@ -84,16 +84,16 @@ export default class TradeOgre extends BaseProvider {
         for (const marketIdx in markets) {
             const market = markets[marketIdx];
             if (!JSON.stringify(market).includes(this._baseCurrency))
-                continue;
+                this._minTradeVolumes[marketIdx] = 0;
 
             for (const pair in market) {
                 this._tradingPairs[pair.split("-")[1]] = { pair: pair, enabled: true };
             }
         }
 
-        this._minTradeVolumes["BTC"] = 0.00005;
-        this._minTradeVolumes["USDT"] = 1;
-        this._minTradeVolumes["LTC"] = 0.01;
+        this._minTradeVolumes["RTM-BTC"] = 0.00005;
+        this._minTradeVolumes["RTM-USDT"] = 1;
+        this._minTradeVolumes["RTM-LTC"] = 0.01;
     }
 
     // TradeOgre makes buy and sell really intuitive :)
