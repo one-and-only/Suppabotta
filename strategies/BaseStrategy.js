@@ -4,6 +4,7 @@ export default class BaseStrategy {
     _connectors;
     _socketBroadcaster;
     _paperTradingMongoCollection;
+    _recentPaperTrades;
 
     /**
      * 
@@ -13,6 +14,7 @@ export default class BaseStrategy {
         this._connectors = connectors;
         this._socketBroadcaster = args.socketBroadcaster;
         this._paperTradingMongoCollection = paperTradingMongoCollection;
+        this._recentPaperTrades = [];
     }
 
     async start() {
@@ -30,5 +32,9 @@ export default class BaseStrategy {
     decimalRounding(floatNum, numDecimals) {
         const numDecimalsFactor = 10 ** (numDecimals - 1);
         return Math.round((floatNum + Number.EPSILON) * numDecimalsFactor) / numDecimalsFactor;
+    }
+
+    recentPaperTrades() {
+        return this._recentPaperTrades;
     }
 }

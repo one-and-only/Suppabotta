@@ -6,7 +6,6 @@ export default class BaseArbitrage extends BaseStrategy {
     _profitCurrencyPreferences;
     _marketCaches;
     _paperTradingEnabled;
-    _recentPaperTrades;
     _minTradeSizeBaseCurrency;
 
     constructor(connectors, args, paperTradingMongoCollection) {
