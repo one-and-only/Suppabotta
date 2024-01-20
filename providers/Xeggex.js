@@ -27,7 +27,7 @@ export default class Xeggex extends BaseProvider {
             const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/getlist`)).json();
 
             for (const market of markets) {
-                this._minTradeVolumes[market.symbol.split("/").join("")] = market.minimumQuantity ?? 0;
+                this._minTradeVolumes[market.symbol.split("/").join("_")] = market.minimumQuantity ?? 0;
 
                 if (!market.symbol.startsWith(this._baseCurrency)) continue;
 
