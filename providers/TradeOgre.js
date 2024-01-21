@@ -7,7 +7,7 @@ const { map: promiseMap } = Bluebird;
 
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey, baseCurrency) {
-        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", baseCurrency, 0.3, 0.3, 0.01, true, [1, 0], "-", "TradeOgre");
+        super(apiSecret, apiKey, "https://tradeogre.com/api/v1", baseCurrency, 0.3, 0.3, 0.01, true, [0, 1], "-", "TradeOgre");
         this._requestHelper = new RequestHelper({
             public: {
                 amount: -1,
@@ -38,7 +38,7 @@ export default class TradeOgre extends BaseProvider {
 
     async getOrderBook(baseCurrency, referenceCurrency) {
         try {
-            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-${baseCurrency.toUpperCase()}`)).json();
+            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/orders/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();
 
             return {
                 bid: Object.keys(orderBook.buy).map(price => { return { price: parseFloat(price), amount: parseFloat(orderBook.buy[price]) } }).reverse(),
@@ -83,11 +83,10 @@ export default class TradeOgre extends BaseProvider {
 
         for (const marketIdx in markets) {
             const market = markets[marketIdx];
-            if (!JSON.stringify(market).includes(this._baseCurrency))
-                this._minTradeVolumes[marketIdx] = 0;
 
             for (const pair in market) {
                 this._tradingPairs[pair.split("-")[1]] = { pair: pair, enabled: true };
+                this._minTradeVolumes[pair] = 0;
             }
         }
 

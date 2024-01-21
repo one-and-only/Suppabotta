@@ -83,7 +83,7 @@ export default class BaseProvider {
      * @returns {string} exchange API-formatted string representing a trading pair
      */
     coinsToExchangePair(coins) {
-        return `${coins[this._exchangeApiPairCurrencyOrder[0]].toUpperCase()}${this._exchangeApiCurrencySeparator}${coins[this._exchangeApiPairCurrencyOrder[1]].toUpperCase()}`;
+        return `${coins[this._exchangeApiPairCurrencyOrder[0]]}${this._exchangeApiCurrencySeparator}${coins[this._exchangeApiPairCurrencyOrder[1]]}`;
     }
 
     /**
