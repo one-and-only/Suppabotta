@@ -2,6 +2,18 @@ import Logger from "../Logger.js";
 import BaseProvider from "../providers/BaseProvider.js";
 import BaseArbitrage from "./BaseArbitrage.js";
 
+import Bluebird from "bluebird";
+const { map: promiseMap } = Bluebird;
+
+/**
+ * @typedef {Object} DepthEntry
+ * @property {number} amount amount of coins at a depth level
+ * @property {number} price price of the coins at a depth level
+ */
+/**
+ * @typedef {DepthEntry} Order
+ */
+
 export default class ClassicArbitrageStrategy extends BaseArbitrage {
     _alreadyProcessed;
     _disableCrossCurrency;
@@ -99,6 +111,99 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         Logger.info("ClassicArbitrage", "startup", "Startup complete and trading started!", this._socketBroadcaster);
     }
 
+    /**
+     * Gather same pair arbitrage orders that can be used to fulfill profitable trades
+     * @param {Order[]} currentOrderBookInfo `currentConnector` order book for the applicable market
+     * @param {Order[]} otherOrderBookInfo `otherConnector` order book for the applicable market
+     * @param {number} currentMinOrderSize minimum order size on `currentConnector` for the applicable market
+     * @param {number} otherMinOrderSize minimum order size on `otherConnector` for the applicable market
+     * @param {boolean} direction `true` when buying on `currentConnector` and `false` when buying on `otherConnector`
+     * @returns {{buyOrders: Order[], sellOrders: Order[], profitable: boolean, numTimesRepeatable: number}}
+     */
+    gatherEffectiveArbitrageOrders(currentOrderBookInfo, otherOrderBookInfo, currentMinOrderSize, otherMinOrderSize, direction) {
+        const effectiveMinOrderSize = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
+        const minimumBuyingOrderSize = direction ? currentMinOrderSize : otherMinOrderSize;
+        const minimumSellingOrderSize = direction ? otherMinOrderSize : currentMinOrderSize;
+
+        const buyingOrderBook = direction ? currentOrderBookInfo : otherOrderBookInfo;
+        const sellingOrderBook = direction ? otherOrderBookInfo : currentOrderBookInfo;
+
+        /**
+         * Get a specific order from an applicable order book
+         * @param {("buy" | "sell")} side which side of the order book to get
+         * @param {number} index order book index to get
+         * @returns {Order}
+         */
+        const getOrderIndex = (side, index) => {
+            return side === "buy" ? buyingOrderBook.ask[index] : sellingOrderBook.bid[index];
+        }
+
+        let coinsCollected = 0;
+        const buyupOrders = [];
+        let buyupCounter = -1;
+        while (coinsCollected < effectiveMinOrderSize && (buyupCounter + 1) < buyingOrderBook.ask.length) {
+            buyupCounter++;
+
+            const coinsNeeded = effectiveMinOrderSize - coinsCollected;
+            const nearestBuyOrder = getOrderIndex("buy", buyupCounter);
+
+            // this means that at this price level there is only "dust" left that we can't buy
+            if (nearestBuyOrder.amount < minimumBuyingOrderSize) continue;
+
+            const buyingAmount = coinsNeeded < nearestBuyOrder.amount ? coinsNeeded : nearestBuyOrder.amount;
+            coinsCollected += buyingAmount;
+
+            buyupOrders.push({ price: nearestBuyOrder.price, amount: buyingAmount });
+        }
+
+        if (coinsCollected < effectiveMinOrderSize) {
+            return {
+                buyOrders: [],
+                sellOrders: [],
+                profitable: false,
+                numTimesRepeatable: 0
+            }
+        }
+
+        const sellOrders = [];
+        let sellOrderCounter = -1;
+        let coinsSold = 0;
+
+        while (coinsSold < coinsCollected && (sellOrderCounter + 1) < sellingOrderBook.bid.length) {
+            sellOrderCounter++;
+            
+            const coinsNeeded = coinsCollected - coinsSold;
+            const nearestSellOrder = getOrderIndex("sell", sellOrderCounter);
+
+            // this means that at this price level there is only "dust" left that we can't sell
+            if (nearestSellOrder.amount < minimumSellingOrderSize) continue;
+
+            const sellingAmount = coinsNeeded < nearestSellOrder.amount ? coinsNeeded : nearestSellOrder.amount;
+            coinsSold += sellingAmount;
+
+            sellOrders.push({ price: nearestSellOrder.price, amount: sellingAmount });
+        }
+
+        if (coinsSold < coinsCollected) {
+            return {
+                buyOrders: [],
+                sellOrders: [],
+                profitable: false,
+                numTimesRepeatable: 0
+            };
+        }
+
+        const buyingCost = buyupOrders.map(x => x.amount * x.price).reduce((acc, curr) => acc += curr);
+        const sellingRevenue = sellOrders.map(x => x.amount * x.price).reduce((acc, curr) => acc += curr);
+
+        return {
+            buyOrders: buyupOrders,
+            sellOrders: sellOrders,
+            profitable: sellingRevenue / buyingCost >= 1.01, // target at least 1% profit
+            numTimesRepeatable: 1
+        };
+    }
+
     async tick() {
         this.pruneRecentTrades();
         const paperTradeDetails = {
@@ -107,153 +212,122 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         };
 
         for (const currentConnector of this._connectors) {
-            const currentBaseCurrencyPriceInfos = await this.baseCurrencyMarketPriceInfoForConnector(currentConnector);
+            const currentBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(currentConnector);
 
-            for (const currentBaseCurrencyPriceInfo of currentBaseCurrencyPriceInfos) {
+            for (const currentBaseCurrencyOrderBookInfo of currentBaseCurrencyOrderBookInfos) {
                 for (const otherConnector of this._connectors) {
                     if (currentConnector._name === otherConnector._name) continue;
 
-                    const otherBaseCurrencyPriceInfos = await this.baseCurrencyMarketPriceInfoForConnector(otherConnector);
+                    const otherBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(otherConnector);
 
-                    for (const otherBaseCurrencyPriceInfo of otherBaseCurrencyPriceInfos) {
-                        if (this.comboAlreadyProcessed({ connector: currentConnector._name, tradingPair: currentBaseCurrencyPriceInfo }, { connector: otherConnector._name, tradingPair: otherBaseCurrencyPriceInfo })) continue;
-                        this.markAsProcessed([currentConnector._name, otherConnector._name], currentBaseCurrencyPriceInfo, otherBaseCurrencyPriceInfo);
+                    for (const otherBaseCurrencyOrderBookInfo of otherBaseCurrencyOrderBookInfos) {
+                        if (this.comboAlreadyProcessed({ connector: currentConnector._name, tradingPair: currentBaseCurrencyOrderBookInfo }, { connector: otherConnector._name, tradingPair: otherBaseCurrencyOrderBookInfo })) continue;
+                        this.markAsProcessed([currentConnector._name, otherConnector._name], currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo);
 
-                        if (otherBaseCurrencyPriceInfo.referenceCurrency === currentBaseCurrencyPriceInfo.referenceCurrency) {
-                            continue;
-                            const currentEffectiveBuyPrice = currentBaseCurrencyPriceInfo.buyPrice * (1 + currentConnector._takerFeePct / 100); // spending more than the value of the coin with fees
-                            const currentEffectiveSellPrice = currentBaseCurrencyPriceInfo.sellPrice / (1 + currentConnector._takerFeePct / 100); // getting less money than the value of the coin with fees
-                            const otherEffectiveBuyPrice = otherBaseCurrencyPriceInfo.buyPrice * (1 + otherConnector._takerFeePct / 100);
-                            const otherEffectiveSellPrice = otherBaseCurrencyPriceInfo.sellPrice / (1 + otherConnector._takerFeePct / 100);
+                        if (otherBaseCurrencyOrderBookInfo.referenceCurrency === currentBaseCurrencyOrderBookInfo.referenceCurrency) {
+                            const currentEffectiveBuyPrice = currentBaseCurrencyOrderBookInfo.ask[0]?.price;
+                            // const currentEffectiveSellPrice = currentBaseCurrencyOrderBookInfo.bid[0]?.price;
+                            const otherEffectiveBuyPrice = otherBaseCurrencyOrderBookInfo.ask[0]?.price;
+                            // const otherEffectiveSellPrice = otherBaseCurrencyOrderBookInfo.bid[0]?.price;
 
-                            const currentMinOrderSize = currentConnector.minOrderSize(currentBaseCurrencyPriceInfo.referenceCurrency);
-                            const otherMinOrderSize = otherConnector.minOrderSize(otherBaseCurrencyPriceInfo.referenceCurrency);
+                            const currentMinOrderSize = currentConnector.minOrderSize(this._baseCurrency, currentBaseCurrencyOrderBookInfo.referenceCurrency);
+                            const otherMinOrderSize = otherConnector.minOrderSize(this._baseCurrency, otherBaseCurrencyOrderBookInfo.referenceCurrency);
 
-                            const currentMinOrderSizeBaseCurrency = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentBaseCurrencyPriceInfo.buyPrice : currentMinOrderSize, this._minTradeSizeBaseCurrency);
-                            const otherMinOrderSizeBaseCurrency = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherBaseCurrencyPriceInfo.buyPrice : otherMinOrderSize, this._minTradeSizeBaseCurrency);
+                            const currentMinOrderSizeBaseCurrency = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentEffectiveBuyPrice : currentMinOrderSize, this._minTradeSizeBaseCurrency);
+                            const otherMinOrderSizeBaseCurrency = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherEffectiveBuyPrice : otherMinOrderSize, this._minTradeSizeBaseCurrency);
 
-                            let effectiveMinOrderSize = currentMinOrderSizeBaseCurrency > otherMinOrderSizeBaseCurrency ? currentMinOrderSizeBaseCurrency : otherMinOrderSizeBaseCurrency;
+                            // let effectiveMinOrderSize = currentMinOrderSizeBaseCurrency > otherMinOrderSizeBaseCurrency ? currentMinOrderSizeBaseCurrency : otherMinOrderSizeBaseCurrency;
 
-                            // TODO: merge the order creation into one function to avoid repetition
+                            const buyFromCurrentOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, true);
+                            const buyFromOtherOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, false);
 
-                            if (currentEffectiveBuyPrice < otherEffectiveSellPrice) {
-                                if (otherEffectiveSellPrice / currentEffectiveBuyPrice < 1.01) continue; // target a profit of at least 1%
-                                // sometimes we may want to keep the profit as referenceCurrency instead of baseCurrency
-                                const amountBuying = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSize : effectiveMinOrderSize * (otherBaseCurrencyPriceInfo.sellPrice / currentBaseCurrencyPriceInfo.buyPrice);
-
-                                const numTimesRepeatable = Math.floor(Math.min(currentBaseCurrencyPriceInfo.buyDepth, otherBaseCurrencyPriceInfo.sellDepth) / effectiveMinOrderSize);
-                                if (numTimesRepeatable < 1) continue;
-
+                            if (buyFromCurrentOrders.profitable) {
                                 if (this._paperTradingEnabled) {
-                                    const tradeInfo = this.sameCurrencyPaperTradeFromInfo(
-                                        currentConnector._name,
-                                        otherConnector._name,
-                                        currentBaseCurrencyPriceInfo.baseCurrency,
-                                        currentBaseCurrencyPriceInfo.referenceCurrency,
-                                        currentBaseCurrencyPriceInfo.buyPrice,
-                                        amountBuying,
-                                        otherBaseCurrencyPriceInfo.sellPrice,
-                                        effectiveMinOrderSize
-                                    );
+                                    const tradeInfo = {
+                                        pair: `${currentBaseCurrencyOrderBookInfo.referenceCurrency}-${currentBaseCurrencyOrderBookInfo.baseCurrency}`,
+                                        buyingFrom: currentConnector._name,
+                                        sellingOn: otherConnector._name,
+                                        buyOrders: buyFromCurrentOrders.buyOrders,
+                                        sellOrders: buyFromCurrentOrders.sellOrders
+                                    };
 
                                     const recentTradeInfo = this.isRecentTrade(tradeInfo);
                                     if (recentTradeInfo.repeat) return;
 
-                                    if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, numTimesRepeatable);
+                                    if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, buyFromCurrentOrders.numTimesRepeatable);
 
                                     this._paperTradingMongoCollection.insertOne({
                                         mongo_timestamp: new Date(),
                                         trade_metadata: {
                                             strategy: "ClassicArbitrage",
                                             cross_currency: false,
-                                            repeat_number: recentTradeInfo.repeatNumber
                                         },
                                         tradeInfo: tradeInfo
                                     });
 
                                     Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", this._socketBroadcaster);
                                     return;
-                                }
-
-                                if ((await this.currencyBalance(currentConnector, currentBaseCurrencyPriceInfo.referenceCurrency)) < amountBuying) {
-                                    Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to buy required reference currency");
-                                    return;
-                                }
-
-                                if ((await this.currencyBalance(otherConnector, otherBaseCurrencyPriceInfo.baseCurrency)) < effectiveMinOrderSize) {
-                                    Logger.warning("ClassicArbitrage", "balanceCheck", `A favorable trade was found, but the exchange didn't have enough balance to sell required number of ${this._baseCurrency}`);
-                                    return;
-                                }
-
-                                if (!(await Promise.all([
-                                    currentConnector.addBuyOrder(amountBuying, currentBaseCurrencyPriceInfo.buyPrice, currentBaseCurrencyPriceInfo.referenceCurrency, currentBaseCurrencyPriceInfo.baseCurrency),
-                                    otherConnector.addSellOrder(effectiveMinOrderSize, otherBaseCurrencyPriceInfo.sellPrice, otherBaseCurrencyPriceInfo.referenceCurrency, otherBaseCurrencyPriceInfo.baseCurrency)
-                                ])).every(a => a)) {
-                                    Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
-                                    return;
-                                }
-
-                                Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
-                            } else if (currentEffectiveSellPrice > otherEffectiveBuyPrice) {
-                                if (currentEffectiveSellPrice / otherEffectiveBuyPrice < 1.01) continue; // target a profit of at least 1%
-
-                                const amountBuying = this.keepProfitAsReferenceCurrency() ? effectiveMinOrderSize : effectiveMinOrderSize * (currentBaseCurrencyPriceInfo.sellPrice / otherBaseCurrencyPriceInfo.buyPrice);
-
-                                const numTimesRepeatable = Math.floor(Math.min(otherBaseCurrencyPriceInfo.buyDepth, currentBaseCurrencyPriceInfo.sellDepth) / effectiveMinOrderSize);
-                                if (numTimesRepeatable < 1) continue;
-
-                                if (this._paperTradingEnabled) {
-                                    const tradeInfo = this.sameCurrencyPaperTradeFromInfo(
-                                        otherConnector._name,
-                                        currentConnector._name,
-                                        currentBaseCurrencyPriceInfo.baseCurrency,
-                                        currentBaseCurrencyPriceInfo.referenceCurrency,
-                                        otherBaseCurrencyPriceInfo.buyPrice,
-                                        amountBuying,
-                                        currentBaseCurrencyPriceInfo.sellPrice,
-                                        effectiveMinOrderSize
+                                } else {
+                                    await promiseMap(
+                                        buyFromCurrentOrders.buyOrders,
+                                        async order => {
+                                            await currentConnector.addBuyOrder(order.amount, order.price, currentBaseCurrencyOrderBookInfo.referenceCurrency, currentBaseCurrencyOrderBookInfo.baseCurrency);
+                                        }
                                     );
+
+                                    await promiseMap(
+                                        buyFromCurrentOrders.sellOrders,
+                                        async order => {
+                                            await otherConnector.addSellOrder(order.amount, order.price, currentBaseCurrencyOrderBookInfo.referenceCurrency, currentBaseCurrencyOrderBookInfo.baseCurrency);
+                                        }
+                                    );
+                                }
+                            }
+
+                            if (buyFromOtherOrders.profitable) {
+                                if (this._paperTradingEnabled) {
+                                    const tradeInfo = {
+                                        pair: `${currentBaseCurrencyOrderBookInfo.referenceCurrency}-${currentBaseCurrencyOrderBookInfo.baseCurrency}`,
+                                        buyingFrom: otherConnector._name,
+                                        sellingOn: currentConnector._name,
+                                        buyOrders: buyFromOtherOrders.buyOrders,
+                                        sellOrders: buyFromOtherOrders.sellOrders
+                                    };
 
                                     const recentTradeInfo = this.isRecentTrade(tradeInfo);
                                     if (recentTradeInfo.repeat) return;
 
-                                    if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, numTimesRepeatable);
+                                    if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, buyFromOtherOrders.numTimesRepeatable);
 
                                     this._paperTradingMongoCollection.insertOne({
                                         mongo_timestamp: new Date(),
                                         trade_metadata: {
                                             strategy: "ClassicArbitrage",
                                             cross_currency: false,
-                                            repeat_number: recentTradeInfo.repeatNumber
                                         },
                                         tradeInfo: tradeInfo
                                     });
 
                                     Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", this._socketBroadcaster);
                                     return;
-                                }
+                                } else {
+                                    await promiseMap(
+                                        buyFromOtherOrders.buyOrders,
+                                        async order => {
+                                            await otherConnector.addBuyOrder(order.amount, order.price, currentBaseCurrencyOrderBookInfo.referenceCurrency, currentBaseCurrencyOrderBookInfo.baseCurrency);
+                                        }
+                                    );
 
-                                if ((await this.currencyBalance(otherConnector, otherBaseCurrencyPriceInfo.referenceCurrency)) < amountBuying) {
-                                    Logger.warning("ClassicArbitrage", "balanceCheck", "A favorable trade was found, but the exchange didn't have enough balance to buy required reference currency");
-                                    return;
+                                    await promiseMap(
+                                        buyFromOtherOrders.sellOrders,
+                                        async order => {
+                                            await currentConnector.addSellOrder(order.amount, order.price, currentBaseCurrencyOrderBookInfo.referenceCurrency, currentBaseCurrencyOrderBookInfo.baseCurrency);
+                                        }
+                                    );
                                 }
-
-                                if ((await this.currencyBalance(currentConnector, currentBaseCurrencyPriceInfo.baseCurrency)) < effectiveMinOrderSize) {
-                                    Logger.warning("ClassicArbitrage", "balanceCheck", `A favorable trade was found, but the exchange didn't have enough balance to sell required number of ${this._baseCurrency}`);
-                                    return;
-                                }
-
-                                if (!(await Promise.all([
-                                    otherConnector.addBuyOrder(amountBuying, otherBaseCurrencyPriceInfo.buyPrice, otherBaseCurrencyPriceInfo.referenceCurrency, otherBaseCurrencyPriceInfo.baseCurrency),
-                                    currentConnector.addSellOrder(effectiveMinOrderSize, currentBaseCurrencyPriceInfo.sellPrice, currentBaseCurrencyPriceInfo.referenceCurrency, currentBaseCurrencyPriceInfo.baseCurrency)
-                                ])).every(a => a)) {
-                                    Logger.error("ClassicArbitrage", "submitBuyOrder", "One or more buy order submissions failed");
-                                    return;
-                                }
-
-                                Logger.info("ClassicArbitrage", "tradeCompletion", "All orders placed and profitable trade completed successfully!", this._socketBroadcaster);
                             }
                         } else {
+                            return;
                             // TODO: finish cross-currency
                             /**
                              * 
@@ -261,16 +335,16 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                              * @param {BaseProvider} otherConnector 
                              */
                             const processCrossCurrency = async (currentConnector, otherConnector) => {
-                                const potentialMarket = this._marketCaches[currentConnector].filter(x => x.baseCurrency === currentBaseCurrencyPriceInfo.baseCurrency && x.referenceCurrency === currentBaseCurrencyPriceInfo.referenceCurrency);
+                                const potentialMarket = this._marketCaches[currentConnector._name].filter(x => x.baseCurrency === currentBaseCurrencyOrderBookInfo.baseCurrency && x.referenceCurrency === currentBaseCurrencyOrderBookInfo.referenceCurrency);
                                 if (potentialMarket.length === 0) return;
                                 console.assert(potentialMarket.length === 1, `Cross currency exchange market possibilities are not unique (${potentialMarket.length} > 1)`);
 
                                 const crossExchangeMarket = potentialMarket[0];
                                 const crossExchangePriceInfo = await currentConnector.getMarketPrice(crossExchangeMarket.referenceCurrency, crossExchangeMarket.baseCurrency);
 
-                                const potentialRtmMarketCurrentConnector = this._marketCaches[currentConnector._name].filter(x => x.baseCurrency === otherBaseCurrencyPriceInfo.baseCurrency && x.referenceCurrency === otherBaseCurrencyPriceInfo.referenceCurrency);
+                                const potentialRtmMarketCurrentConnector = this._marketCaches[currentConnector._name].filter(x => x.baseCurrency === otherBaseCurrencyOrderBookInfo.baseCurrency && x.referenceCurrency === otherBaseCurrencyOrderBookInfo.referenceCurrency);
                                 if (potentialRtmMarketCurrentConnector.length === 0) {
-                                    console.log(`${JSON.stringify(otherBaseCurrencyPriceInfo.baseCurrency + "-" + otherBaseCurrencyPriceInfo.referenceCurrency)} not a valid pair on ${currentConnector._name}`);
+                                    console.log(`${JSON.stringify(otherBaseCurrencyOrderBookInfo.baseCurrency + "-" + otherBaseCurrencyOrderBookInfo.referenceCurrency)} not a valid pair on ${currentConnector._name}`);
                                     return;
                                 }
 
@@ -278,16 +352,15 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 const baseCurrencyMarketCurrenctConnector = potentialRtmMarketCurrentConnector[0];
                                 const baseCurrencyMarketCurrentConnectorPriceInfo = await currentConnector.getMarketPrice(baseCurrencyMarketCurrenctConnector.referenceCurrency, baseCurrencyMarketCurrenctConnector.baseCurrency);
 
-                                const samePairCurrentPriceInfo = await currentConnector.getMarketPrice(otherBaseCurrencyPriceInfo.referenceCurrency, otherBaseCurrencyPriceInfo.baseCurrency);
+                                const samePairCurrentPriceInfo = await currentConnector.getMarketPrice(otherBaseCurrencyOrderBookInfo.referenceCurrency, otherBaseCurrencyOrderBookInfo.baseCurrency);
                                 console.assert(samePairCurrentPriceInfo.success, "Failed to get same pair current price info in cross currency");
-                                
-                                const minimumCrossExchangeTradeSize = currentConnector._minTradeVolumes[currentConnector.coinsToExchangePair([crossExchangeMarket.baseCurrency, crossExchangeMarket.referenceCurrency])];
+
+                                const minimumCrossExchangeTradeSize = currentConnector.minOrderSize(crossExchangeMarket.baseCurrency, crossExchangeMarket.referenceCurrency);
                                 console.assert(minimumCrossExchangeTradeSize >= 0, `Failed to get minimum trade size for ${currentConnector._name} | ${currentConnector.coinsToExchangePair([crossExchangeMarket.baseCurrency, crossExchangeMarket.referenceCurrency])}`);
 
                                 const minimumCrossExchangeTradeSizeIntermediary = currentConnector.minTradeVolumeIsReferenceCurrency() ? minimumCrossExchangeTradeSize / crossExchangePriceInfo.buyPrice : minimumCrossExchangeTradeSize;
                                 const minimumCrossExchangeTradeSizeBaseCurrency = minimumCrossExchangeTradeSizeIntermediary / baseCurrencyMarketCurrentConnectorPriceInfo.buyPrice;
-
-                                
+                                console.log(minimumCrossExchangeTradeSizeBaseCurrency);
                             }
 
                             await processCrossCurrency(currentConnector, otherConnector);
