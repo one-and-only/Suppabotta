@@ -122,8 +122,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      */
     gatherEffectiveArbitrageOrders(currentOrderBookInfo, otherOrderBookInfo, currentMinOrderSize, otherMinOrderSize, direction) {
         const effectiveMinOrderSize = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
-        const minimumBuyingOrderSize = direction ? currentMinOrderSize : otherMinOrderSize;
-        const minimumSellingOrderSize = direction ? otherMinOrderSize : currentMinOrderSize;
+        const minimumBuyingOrderSize = Math.max(direction ? currentMinOrderSize : otherMinOrderSize, this._minTradeSizeBaseCurrency);
+        const minimumSellingOrderSize = Math.max(direction ? otherMinOrderSize : currentMinOrderSize, this._minTradeSizeBaseCurrency);
 
         const buyingOrderBook = direction ? currentOrderBookInfo : otherOrderBookInfo;
         const sellingOrderBook = direction ? otherOrderBookInfo : currentOrderBookInfo;
