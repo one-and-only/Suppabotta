@@ -163,9 +163,9 @@ export default class BaseArbitrage extends BaseStrategy {
         return { amount: amount, relevantBookEntries: relevantBookEntries };
     }
 
-    effectiveMinOrderSize(currentConnector, otherConnector, otherConnectorBuying, referenceCurrency, currentPriceInfo, otherPriceInfo) {
-        const otherMinTradeSize = otherConnector.minOrderSize(referenceCurrency)
-        const currentMinTradeSize = currentConnector.minOrderSize(referenceCurrency)
+    effectiveMinOrderSizeBaseCurrency(currentConnector, otherConnector, otherConnectorBuying, referenceCurrency, currentPriceInfo, otherPriceInfo) {
+        const otherMinTradeSize = otherConnector.minOrderSize(this._baseCurrency, referenceCurrency)
+        const currentMinTradeSize = currentConnector.minOrderSize(this._baseCurrency, referenceCurrency)
 
         // sometimes min trade volumes can be zero, so we are using a minimum here just in case
         const otherReferenceCurrencyMinTradeSize = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinTradeSize / otherPriceInfo[otherConnectorBuying ? "buyPrice" : "sellPrice"] : otherMinTradeSize, this._minTradeSizeBaseCurrency);
