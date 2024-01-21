@@ -14,6 +14,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     _maxPriceDropPct;
     _currencyUsed;
     _numCurveOrders;
+    _coveringOrders;
 
     constructor(connectors, args, paperTradingMongoCollection) {
         super(connectors, args, paperTradingMongoCollection);
@@ -29,6 +30,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         this._maxInvPct = args.maxInvPct;
         this._inventoryDefinition = args.inventoryDefinition;
         this._numCurveOrders = args.numCurveOrders;
+        this._coveringOrders = [];
 
         this._currencyUsed = {};
         for (const connector of Object.keys(args.inventoryDefinition)) {
@@ -263,6 +265,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         }
 
         const polarExchangeEntries = await this.getPolarExchanges();
+        let uniqueComboId = 0;
 
         for (const polarPair of Object.keys(polarExchangeEntries)) {
             const polarEntry = polarExchangeEntries[polarPair];
@@ -273,7 +276,9 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             const goodExchangeApplicableOrderBookEntries = polarEntry.goodExchangePairInfo.buyDepthEntries;
             const sellPrice = polarEntry.badExchangePairInfo.sellDepthEntries[0]?.price ?? goodExchangeApplicableOrderBookEntries[0].price;
 
-            const effectiveMinOrderSize = this.effectiveMinOrderSize(
+            let minBuyTradeSize = polarEntry.goodDepthExchange.minOrderSize(this._baseCurrency, polarEntry.goodExchangePairInfo.referenceCurrency);
+            if (polarEntry.goodDepthExchange.minTradeVolumeIsReferenceCurrency()) minBuyTradeSize = minBuyTradeSize / polarEntry.goodExchangePairInfo.buyDepthEntries[0].price;
+            const effectiveMinOrderSize = this.effectiveMinOrderSizeBaseCurrency(
                 polarEntry.goodDepthExchange,
                 polarEntry.badDepthExchange,
                 false,
@@ -282,21 +287,21 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 { sellPrice: sellPrice }
             );
 
-            const badDepthExchangeAveragePrice = (polarEntry.badExchangePairInfo.buyDepthEntries[0]?.price ?? sellPrice + sellPrice) / 2;
+            const badDepthExchangeAveragePrice = polarEntry.badExchangePairInfo.buyDepthEntries[0]?.price ?? sellPrice;
 
             const inventoryForTrading = (this._inventoryDefinition[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] - this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency]) * (this._maxInvPct / 100);
             let inventoryUsed = 0;
 
             // price maximum is at most 2% above spot
-            const priceIncrementFactor = ((badDepthExchangeAveragePrice - goodExchangeApplicableOrderBookEntries[0].price) * 0.02) / this._numCurveOrders;
+            const priceIncrementFactor = (badDepthExchangeAveragePrice * 0.02) / this._numCurveOrders;
 
-            if (priceIncrementFactor <= 0) return;
+            if (badDepthExchangeAveragePrice < sellPrice) return;
 
             const paperTradeOrdersInfo = {};
 
             // curve orders generation
 
-            let currentPrice = goodExchangeApplicableOrderBookEntries[0].price + priceIncrementFactor;
+            let currentPrice = badDepthExchangeAveragePrice + priceIncrementFactor;
             let supplyBought = 0;
             let supplyUsed = 0;
 
@@ -320,6 +325,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 const availableInventory = inventoryForTrading - inventoryUsed;
                 const coinAmount = (availableInventory < goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount) ? availableInventory : goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount;
 
+                if (coinAmount < minBuyTradeSize) continue;
+
                 inventoryGatheringOrders.push({
                     amount: coinAmount,
                     price: goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price
@@ -330,7 +337,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 buyupLoopCounter++;
             }
 
-            if (supplyBought < this._minTradeSizeBaseCurrency) continue;
+            if (supplyBought < effectiveMinOrderSize * this._numCurveOrders) continue;
 
             this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] += inventoryUsed
 
@@ -360,9 +367,11 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
                 currentPrice += priceIncrementFactor;
             }
+            paperTradeOrdersInfo.curveOrders = curveEntryOrders;
+
+            const isRecentPaperTrade = this.isRecentTrade(paperTradeOrdersInfo).repeat;
 
             if (this._paperTradingEnabled) {
-                paperTradeOrdersInfo.curveOrders = curveEntryOrders;
                 const trade_metadata = {
                     strategy: "FloatingArbitrage",
                     badDepthExchange: polarEntry.badDepthExchange._name,
@@ -370,9 +379,9 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     goodDepthExchangeTradingPair: { referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency },
                     badDepthExchangeTradingPair: { referenceCurrency: polarEntry.badExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.badExchangePairInfo.baseCurrency }
                 };
-                if (this.isRecentTrade(trade_metadata).repeat) return;
+                if (isRecentPaperTrade) return;
 
-                this.addToRecentPaperTrades(trade_metadata, 1);
+                this.addToRecentPaperTrades(paperTradeOrdersInfo, 1);
 
                 await this._paperTradingMongoCollection.insertOne({
                     tradeInfo: paperTradeOrdersInfo,
@@ -386,6 +395,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     Logger.error("FloatingArbitrage", "acquireSupply", "One or more curve orders failed to execute on the exchange", this._socketBroadcaster);
                 }
             }
+
+            uniqueComboId++;
         }
     }
 
