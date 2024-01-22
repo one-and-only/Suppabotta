@@ -191,7 +191,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                                 currentConnector: currentMarketInfo.connector._name,
                                 otherConnector: otherMarketInfo.connector._name,
                                 currentConnectorPair: `${currentPair.baseCurrency}-${currentPair.referenceCurrency}`,
-                                otherConnectorPair: `${otherBaseCurrencyOrderBookInfo.baseCurrency}-${otherBaseCurrencyOrderBookInfo.referenceCurrency}`,
+                                otherConnectorPair: `${otherPair.baseCurrency}-${otherPair.referenceCurrency}`,
                                 currentConnectorOrderBook: { bid: currentPair.sellDepthEntries, ask: currentPair.buyDepthEntries },
                                 otherConnectorOrderBook: { bid: otherPair.sellDepthEntries, ask: otherPair.buyDepthEntries }
                             });
