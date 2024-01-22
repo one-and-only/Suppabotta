@@ -221,6 +221,20 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                     const otherBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(otherConnector);
 
                     for (const otherBaseCurrencyOrderBookInfo of otherBaseCurrencyOrderBookInfos) {
+                        if (this._paperTradingEnabled) {
+                            await this._paperTradingMongoCollection.insertOne({
+                                trade_metadata: {
+                                    strategy: "DebugMarketInfo,ClassicArbitrage"
+                                },
+                                currentConnector: currentConnector._name,
+                                otherConnector: otherConnector._name,
+                                currentConnectorPair: `${currentBaseCurrencyOrderBookInfo.baseCurrency}-${currentBaseCurrencyOrderBookInfo.referenceCurrency}`,
+                                otherConnectorPair: `${otherBaseCurrencyOrderBookInfo.baseCurrency}-${otherBaseCurrencyOrderBookInfo.referenceCurrency}`,
+                                currentConnectorOrderBook: { bid: currentBaseCurrencyOrderBookInfo.bid, ask: currentBaseCurrencyOrderBookInfo.ask },
+                                otherConnectorOrderBook: { bid: otherBaseCurrencyOrderBookInfo.bid, ask: otherBaseCurrencyOrderBookInfo.ask }
+                            });
+                        }
+
                         if (this.comboAlreadyProcessed({ connector: currentConnector._name, tradingPair: currentBaseCurrencyOrderBookInfo }, { connector: otherConnector._name, tradingPair: otherBaseCurrencyOrderBookInfo })) continue;
                         this.markAsProcessed([currentConnector._name, otherConnector._name], currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo);
 
