@@ -224,14 +224,22 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                         if (this._paperTradingEnabled) {
                             await this._paperTradingMongoCollection.insertOne({
                                 trade_metadata: {
-                                    strategy: "DebugMarketInfo,ClassicArbitrage"
+                                    strategy: "DebugMarketInfo"
                                 },
-                                currentConnector: currentConnector._name,
-                                otherConnector: otherConnector._name,
-                                currentConnectorPair: `${currentBaseCurrencyOrderBookInfo.baseCurrency}-${currentBaseCurrencyOrderBookInfo.referenceCurrency}`,
-                                otherConnectorPair: `${otherBaseCurrencyOrderBookInfo.baseCurrency}-${otherBaseCurrencyOrderBookInfo.referenceCurrency}`,
-                                currentConnectorOrderBook: { bid: currentBaseCurrencyOrderBookInfo.bid, ask: currentBaseCurrencyOrderBookInfo.ask },
-                                otherConnectorOrderBook: { bid: otherBaseCurrencyOrderBookInfo.bid, ask: otherBaseCurrencyOrderBookInfo.ask }
+                                c: currentConnector._name,
+                                p: `${currentBaseCurrencyOrderBookInfo.baseCurrency}-${currentBaseCurrencyOrderBookInfo.referenceCurrency}`,
+                                o: { bid: currentBaseCurrencyOrderBookInfo.bid, ask: currentBaseCurrencyOrderBookInfo.ask },
+                                t: Date.now()
+                            });
+
+                            await this._paperTradingMongoCollection.insertOne({
+                                trade_metadata: {
+                                    strategy: "DebugMarketInfo"
+                                },
+                                c: otherConnector._name,
+                                p: `${otherBaseCurrencyOrderBookInfo.baseCurrency}-${otherBaseCurrencyOrderBookInfo.referenceCurrency}`,
+                                o: { bid: otherBaseCurrencyOrderBookInfo.bid, ask: otherBaseCurrencyOrderBookInfo.ask },
+                                t: Date.now()
                             });
                         }
 

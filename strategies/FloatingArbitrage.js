@@ -188,12 +188,20 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                                 trade_metadata: {
                                     strategy: "DebugMarketInfo,FloatingArbitrage"
                                 },
-                                currentConnector: currentMarketInfo.connector._name,
-                                otherConnector: otherMarketInfo.connector._name,
-                                currentConnectorPair: `${currentPair.baseCurrency}-${currentPair.referenceCurrency}`,
-                                otherConnectorPair: `${otherPair.baseCurrency}-${otherPair.referenceCurrency}`,
-                                currentConnectorOrderBook: { bid: currentPair.sellDepthEntries, ask: currentPair.buyDepthEntries },
-                                otherConnectorOrderBook: { bid: otherPair.sellDepthEntries, ask: otherPair.buyDepthEntries }
+                                c: currentMarketInfo.connector._name,
+                                p: `${currentPair.baseCurrency}-${currentPair.referenceCurrency}`,
+                                o: { bid: currentPair.sellDepthEntries, ask: currentPair.buyDepthEntries },
+                                t: Date.now()
+                            });
+
+                            await this._paperTradingMongoCollection.insertOne({
+                                trade_metadata: {
+                                    strategy: "DebugMarketInfo,FloatingArbitrage"
+                                },
+                                c: otherMarketInfo.connector._name,
+                                p: `${otherPair.baseCurrency}-${otherPair.referenceCurrency}`,
+                                o: { bid: otherPair.sellDepthEntries, ask: otherPair.buyDepthEntries },
+                                t: Date.now()
                             });
                         }
 
