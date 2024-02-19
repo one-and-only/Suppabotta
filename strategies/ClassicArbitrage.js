@@ -266,8 +266,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                             const buyFromCurrentOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, true);
                             const buyFromOtherOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, false);
                             
-                            console.log(`current: ${buyFromCurrentOrders.profitFactor} | other: ${buyFromOtherOrders.profitFactor}`)
-
                             console.assert((buyFromCurrentOrders.profitable && buyFromCurrentOrders.profitFactor >= 1.01) || (!buyFromCurrentOrders.profitable && buyFromCurrentOrders.profitFactor < 1.01), `profitability boolean mismatch: ${buyFromCurrentOrders.profitFactor}`);
                             console.assert((buyFromOtherOrders.profitable && buyFromOtherOrders.profitFactor >= 1.01) || (!buyFromOtherOrders.profitable && buyFromOtherOrders.profitFactor < 1.01), `profitability boolean mismatch: ${buyFromOtherOrders.profitFactor}`);
                             if (buyFromCurrentOrders.profitable) {
