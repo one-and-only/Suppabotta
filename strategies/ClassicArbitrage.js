@@ -118,7 +118,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      * @param {number} currentMinOrderSize minimum order size on `currentConnector` for the applicable market
      * @param {number} otherMinOrderSize minimum order size on `otherConnector` for the applicable market
      * @param {boolean} direction `true` when buying on `currentConnector` and `false` when buying on `otherConnector`
-     * @returns {{buyOrders: Order[], sellOrders: Order[], profitable: boolean, numTimesRepeatable: number}}
+     * @returns {{buyOrders: Order[], sellOrders: Order[], profitable: boolean, numTimesRepeatable: number, profitFactor: number}}
      */
     gatherEffectiveArbitrageOrders(currentOrderBookInfo, otherOrderBookInfo, currentMinOrderSize, otherMinOrderSize, direction) {
         const effectiveMinOrderSize = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
@@ -134,8 +134,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
          * @param {number} index order book index to get
          * @returns {Order}
          */
-        const getOrderIndex = (side, index) => {
-            return side === "buy" ? buyingOrderBook.ask[index] : sellingOrderBook.bid[index];
+        function getOrderIndex(side, index) {
+            return buyingOrderBook[side][index];
         }
 
         let coinsCollected = 0;
@@ -145,10 +145,10 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
             buyupCounter++;
 
             const coinsNeeded = effectiveMinOrderSize - coinsCollected;
-            const nearestBuyOrder = getOrderIndex("buy", buyupCounter);
+            const nearestBuyOrder = buyingOrderBook.ask[buyupCounter];
 
             // this means that at this price level there is only "dust" left that we can't buy
-            if (nearestBuyOrder.amount < minimumBuyingOrderSize) continue;
+            if (nearestBuyOrder?.amount < minimumBuyingOrderSize) continue;
 
             const buyingAmount = coinsNeeded < nearestBuyOrder.amount ? coinsNeeded : nearestBuyOrder.amount;
             coinsCollected += buyingAmount;
@@ -161,7 +161,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                 buyOrders: [],
                 sellOrders: [],
                 profitable: false,
-                numTimesRepeatable: 0
+                numTimesRepeatable: 0,
+                profitFactor: -1
             }
         }
 
@@ -173,10 +174,10 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
             sellOrderCounter++;
             
             const coinsNeeded = coinsCollected - coinsSold;
-            const nearestSellOrder = getOrderIndex("sell", sellOrderCounter);
+            const nearestSellOrder = sellingOrderBook.bid[sellOrderCounter];
 
             // this means that at this price level there is only "dust" left that we can't sell
-            if (nearestSellOrder.amount < minimumSellingOrderSize) continue;
+            if (nearestSellOrder?.amount < minimumSellingOrderSize) continue;
 
             const sellingAmount = coinsNeeded < nearestSellOrder.amount ? coinsNeeded : nearestSellOrder.amount;
             coinsSold += sellingAmount;
@@ -189,7 +190,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                 buyOrders: [],
                 sellOrders: [],
                 profitable: false,
-                numTimesRepeatable: 0
+                numTimesRepeatable: 0,
+                profitFactor: -1
             };
         }
 
@@ -199,17 +201,18 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         return {
             buyOrders: buyupOrders,
             sellOrders: sellOrders,
-            profitable: sellingRevenue / buyingCost >= 1.01, // target at least 1% profit
-            numTimesRepeatable: 1
+            profitable: (sellingRevenue / buyingCost) >= 1.01, // target at least 1% profit
+            numTimesRepeatable: 1,
+            profitFactor: sellingRevenue / buyingCost
         };
     }
 
     async tick() {
         this.pruneRecentTrades();
-        const paperTradeDetails = {
-            currencyConversionPriceTransitions: {},
-            arbitrageTrades: {},
-        };
+        // const paperTradeDetails = {
+        //     currencyConversionPriceTransitions: {},
+        //     arbitrageTrades: {},
+        // };
 
         for (const currentConnector of this._connectors) {
             const currentBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(currentConnector);
@@ -262,7 +265,11 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                             const buyFromCurrentOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, true);
                             const buyFromOtherOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, false);
+                            
+                            console.log(`current: ${buyFromCurrentOrders.profitFactor} | other: ${buyFromOtherOrders.profitFactor}`)
 
+                            console.assert((buyFromCurrentOrders.profitable && buyFromCurrentOrders.profitFactor >= 1.01) || (!buyFromCurrentOrders.profitable && buyFromCurrentOrders.profitFactor < 1.01), `profitability boolean mismatch: ${buyFromCurrentOrders.profitFactor}`);
+                            console.assert((buyFromOtherOrders.profitable && buyFromOtherOrders.profitFactor >= 1.01) || (!buyFromOtherOrders.profitable && buyFromOtherOrders.profitFactor < 1.01), `profitability boolean mismatch: ${buyFromOtherOrders.profitFactor}`);
                             if (buyFromCurrentOrders.profitable) {
                                 if (this._paperTradingEnabled) {
                                     const tradeInfo = {
@@ -274,7 +281,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     };
 
                                     const recentTradeInfo = this.isRecentTrade(tradeInfo);
-                                    if (recentTradeInfo.repeat) return;
+                                    if (recentTradeInfo.repeat) continue;
 
                                     if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, buyFromCurrentOrders.numTimesRepeatable);
 
@@ -288,7 +295,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     });
 
                                     Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", this._socketBroadcaster);
-                                    return;
                                 } else {
                                     await promiseMap(
                                         buyFromCurrentOrders.buyOrders,
@@ -317,7 +323,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     };
 
                                     const recentTradeInfo = this.isRecentTrade(tradeInfo);
-                                    if (recentTradeInfo.repeat) return;
+                                    if (recentTradeInfo.repeat) continue;
 
                                     if (recentTradeInfo.repeatNumber === 1) this.addToRecentPaperTrades(tradeInfo, buyFromOtherOrders.numTimesRepeatable);
 
@@ -331,7 +337,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                     });
 
                                     Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", this._socketBroadcaster);
-                                    return;
                                 } else {
                                     await promiseMap(
                                         buyFromOtherOrders.buyOrders,
@@ -349,8 +354,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                 }
                             }
                         } else {
-                            return;
-                            // TODO: finish cross-currency
+                            continue;
                             /**
                              * 
                              * @param {BaseProvider} currentConnector 
