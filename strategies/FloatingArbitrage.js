@@ -183,28 +183,6 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     if (currentMarketInfo.connector._name === otherMarketInfo.connector._name) continue;
 
                     for (const otherPair of otherMarketInfo.tradingPairs) {
-                        if (this._paperTradingEnabled) {
-                            await this._paperTradingMongoCollection.insertOne({
-                                trade_metadata: {
-                                    strategy: "DebugMarketInfo,FloatingArbitrage"
-                                },
-                                c: currentMarketInfo.connector._name,
-                                p: `${currentPair.baseCurrency}-${currentPair.referenceCurrency}`,
-                                o: { bid: currentPair.sellDepthEntries, ask: currentPair.buyDepthEntries },
-                                t: Date.now()
-                            });
-
-                            await this._paperTradingMongoCollection.insertOne({
-                                trade_metadata: {
-                                    strategy: "DebugMarketInfo,FloatingArbitrage"
-                                },
-                                c: otherMarketInfo.connector._name,
-                                p: `${otherPair.baseCurrency}-${otherPair.referenceCurrency}`,
-                                o: { bid: otherPair.sellDepthEntries, ask: otherPair.buyDepthEntries },
-                                t: Date.now()
-                            });
-                        }
-
                         let currentCorrectDepthKey = "buyDepth";
                         if (comboAlreadyProcessed({ connector: currentMarketInfo.connector, tradingPair: currentPair }, { connector: otherMarketInfo.connector, tradingPair: otherPair })) currentCorrectDepthKey = "sellDepth";
 

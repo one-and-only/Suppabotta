@@ -224,28 +224,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                     const otherBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(otherConnector);
 
                     for (const otherBaseCurrencyOrderBookInfo of otherBaseCurrencyOrderBookInfos) {
-                        if (this._paperTradingEnabled) {
-                            await this._paperTradingMongoCollection.insertOne({
-                                trade_metadata: {
-                                    strategy: "DebugMarketInfo"
-                                },
-                                c: currentConnector._name,
-                                p: `${currentBaseCurrencyOrderBookInfo.baseCurrency}-${currentBaseCurrencyOrderBookInfo.referenceCurrency}`,
-                                o: { bid: currentBaseCurrencyOrderBookInfo.bid, ask: currentBaseCurrencyOrderBookInfo.ask },
-                                t: Date.now()
-                            });
-
-                            await this._paperTradingMongoCollection.insertOne({
-                                trade_metadata: {
-                                    strategy: "DebugMarketInfo"
-                                },
-                                c: otherConnector._name,
-                                p: `${otherBaseCurrencyOrderBookInfo.baseCurrency}-${otherBaseCurrencyOrderBookInfo.referenceCurrency}`,
-                                o: { bid: otherBaseCurrencyOrderBookInfo.bid, ask: otherBaseCurrencyOrderBookInfo.ask },
-                                t: Date.now()
-                            });
-                        }
-
                         if (this.comboAlreadyProcessed({ connector: currentConnector._name, tradingPair: currentBaseCurrencyOrderBookInfo }, { connector: otherConnector._name, tradingPair: otherBaseCurrencyOrderBookInfo })) continue;
                         this.markAsProcessed([currentConnector._name, otherConnector._name], currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo);
 
