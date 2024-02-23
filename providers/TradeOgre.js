@@ -10,8 +10,8 @@ export default class TradeOgre extends BaseProvider {
         super(apiSecret, apiKey, "https://tradeogre.com/api/v1", baseCurrency, 0.3, 0.3, 0.01, true, [0, 1], "-", "TradeOgre");
         this._requestHelper = new RequestHelper({
             public: {
-                amount: -1,
-                interval: -1,
+                amount: 2000,
+                interval: 60000,
             }
         }, true);
     }
