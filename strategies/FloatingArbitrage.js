@@ -287,7 +287,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 { sellPrice: sellPrice }
             );
 
-            const badDepthExchangeAveragePrice = polarEntry.badExchangePairInfo.buyDepthEntries[0]?.price ?? sellPrice;
+            const badDepthExchangeAveragePrice = polarEntry.badExchangePairInfo.sellDepthEntries[0]?.price ?? sellPrice;
 
             const inventoryForTrading = (this._inventoryDefinition[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] - this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency]) * (this._maxInvPct / 100);
             let inventoryUsed = 0;
@@ -303,12 +303,12 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
             let currentPrice = badDepthExchangeAveragePrice + priceIncrementFactor;
             let supplyBought = 0;
-            let supplyUsed = 0;
 
             /**
              * @type Order[]
              */
             const inventoryGatheringOrders = [];
+            const gatheringPriceLevelUsages = [];
 
             /**
              * @type Order[]
@@ -318,26 +318,34 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             let buyupLoopCounter = 0;
 
             // generate orders to buy the required supply for the curve orders
-            while (inventoryUsed < inventoryForTrading) {
+            while (inventoryGatheringOrders.length < this._numCurveOrders) {
                 if (buyupLoopCounter >= goodExchangeApplicableOrderBookEntries.length) break;
                 if (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price >= badDepthExchangeAveragePrice) break;
+                // check if we have enough inventory
+                if (inventoryForTrading - inventoryUsed < effectiveMinOrderSize) break;
 
-                const availableInventory = inventoryForTrading - inventoryUsed;
-                const coinAmount = (availableInventory < goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount) ? availableInventory : goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount;
-
-                if (coinAmount < minBuyTradeSize) continue;
+                if (
+                    (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount < effectiveMinOrderSize) ||
+                    (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount - (gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`] ?? 0) < effectiveMinOrderSize)
+                ) {
+                    buyupLoopCounter++;
+                    continue;
+                }
 
                 inventoryGatheringOrders.push({
-                    amount: coinAmount,
+                    amount: effectiveMinOrderSize,
                     price: goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price
                 });
 
-                inventoryUsed += coinAmount * goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price;
-                supplyBought += coinAmount;
-                buyupLoopCounter++;
+                if (!gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`]) gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`] = 0;
+                gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`] += effectiveMinOrderSize;
+
+                inventoryUsed += effectiveMinOrderSize * goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price;
+                supplyBought += effectiveMinOrderSize;
+                // buyupLoopCounter++;
             }
 
-            if (supplyBought < effectiveMinOrderSize * this._numCurveOrders) continue;
+            if (inventoryGatheringOrders.length < this._numCurveOrders) continue;
 
             this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] += inventoryUsed
 
@@ -351,19 +359,12 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
             // generate orders that fit the curve
             for (let i = 0; i < this._numCurveOrders; i++) {
-                const supplyAvailable = supplyBought - supplyUsed;
                 let coinAmount = effectiveMinOrderSize;
-
-                if (supplyAvailable <= 0) break;
-
-                if (this._numCurveOrders - i === 1 || supplyAvailable < effectiveMinOrderSize) coinAmount = supplyAvailable
 
                 curveEntryOrders.push({
                     price: currentPrice,
                     amount: coinAmount
                 });
-
-                supplyUsed += coinAmount;
 
                 currentPrice += priceIncrementFactor;
             }
