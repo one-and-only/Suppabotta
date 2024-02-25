@@ -195,6 +195,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
             };
         }
 
+        console.assert(buyupOrders.length > 0, "buyupOrders length is zero");
+        console.assert(sellOrders.length > 0, "sellOrders length is zero");
         const buyingCost = buyupOrders.map(x => x.amount * x.price).reduce((acc, curr) => acc += curr);
         const sellingRevenue = sellOrders.map(x => x.amount * x.price).reduce((acc, curr) => acc += curr);
 
@@ -209,10 +211,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
     async tick() {
         this.pruneRecentTrades();
-        // const paperTradeDetails = {
-        //     currencyConversionPriceTransitions: {},
-        //     arbitrageTrades: {},
-        // };
 
         for (const currentConnector of this._connectors) {
             const currentBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(currentConnector);
@@ -229,17 +227,13 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
 
                         if (otherBaseCurrencyOrderBookInfo.referenceCurrency === currentBaseCurrencyOrderBookInfo.referenceCurrency) {
                             const currentEffectiveBuyPrice = currentBaseCurrencyOrderBookInfo.ask[0]?.price;
-                            // const currentEffectiveSellPrice = currentBaseCurrencyOrderBookInfo.bid[0]?.price;
                             const otherEffectiveBuyPrice = otherBaseCurrencyOrderBookInfo.ask[0]?.price;
-                            // const otherEffectiveSellPrice = otherBaseCurrencyOrderBookInfo.bid[0]?.price;
 
                             const currentMinOrderSize = currentConnector.minOrderSize(this._baseCurrency, currentBaseCurrencyOrderBookInfo.referenceCurrency);
                             const otherMinOrderSize = otherConnector.minOrderSize(this._baseCurrency, otherBaseCurrencyOrderBookInfo.referenceCurrency);
 
                             const currentMinOrderSizeBaseCurrency = Math.max(currentConnector.minTradeVolumeIsReferenceCurrency() ? currentMinOrderSize / currentEffectiveBuyPrice : currentMinOrderSize, this._minTradeSizeBaseCurrency);
                             const otherMinOrderSizeBaseCurrency = Math.max(otherConnector.minTradeVolumeIsReferenceCurrency() ? otherMinOrderSize / otherEffectiveBuyPrice : otherMinOrderSize, this._minTradeSizeBaseCurrency);
-
-                            // let effectiveMinOrderSize = currentMinOrderSizeBaseCurrency > otherMinOrderSizeBaseCurrency ? currentMinOrderSizeBaseCurrency : otherMinOrderSizeBaseCurrency;
 
                             const buyFromCurrentOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, true);
                             const buyFromOtherOrders = this.gatherEffectiveArbitrageOrders(currentBaseCurrencyOrderBookInfo, otherBaseCurrencyOrderBookInfo, currentMinOrderSizeBaseCurrency, otherMinOrderSizeBaseCurrency, false);
