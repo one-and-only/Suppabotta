@@ -210,12 +210,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                             }
                         }
 
-                        if (currentPair.referenceCurrency === otherPair.referenceCurrency) {
-                            executePolarityScan();
-                        } else {
-                            // this is where we'll need to check for conversion rates to see if it's viable
-                            // then run executePolarityScan()
-                        }
+                        if (currentPair.referenceCurrency === otherPair.referenceCurrency) executePolarityScan();
                     }
                 }
             }
