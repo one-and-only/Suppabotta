@@ -87,10 +87,6 @@ app.get("/queue_info", async (req, res) => {
     });
 });
 
-app.get("/", (req, res) => {
-    res.send(readFileSync("static/index.html").toString());
-});
-
 app.post("/register", async (req, res) => {
     if (!req.body.username || !req.body.password) {
         res.status(400).json({
