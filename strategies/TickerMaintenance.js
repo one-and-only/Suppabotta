@@ -4,8 +4,9 @@ import Logger from '../Logger.js';
 
 export default class TickerMaintenanceStrategy extends BaseStrategy {
     _lastMaintainedTimestamp;
-    _lastBalanceCheckTimestamp;
     _baseCurrency;
+    _maintenanceInterval;
+    _markets;
 
     /**
      * 
@@ -19,77 +20,57 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
         }
 
         this._lastMaintainedTimestamp = 0;
-        this._lastBalanceCheckTimestamp = 0;
-        this._buyingReferenceCurrency = false;
         this._baseCurrency = args.baseCurrency;
-    }
-
-    async balanceCheck() {
-        this._lastBalanceCheckTimestamp = Date.now();
-        for (const connector of this._connectors) {
-            const baseCurrencyBalance = await connector.getBalance(this._baseCurrency);
-
-            for (const tradingPairIdx in connector._tradingPairs) {
-                const referenceCurrency = connector.exchangePairToCoin(connector._tradingPairs[tradingPairIdx]);
-
-                if (!baseCurrencyBalance.success) {
-                    connector._tradingPairs[referenceCurrency].enabled = false;
-                    continue;
-                }
-
-                const priceInfo = await connector.getMarketPrice(referenceCurrency);
-                const referenceBalance = await connector.getBalance(referenceCurrency);
-                const minOrderSize = connector.minOrderSize(referenceCurrency);
-                const commonMinOrderAmount = connector.minTradeVolumeIsReferenceCurrency() ? minOrderSize : minOrderSize * priceInfo.buyPrice;
-
-                if (referenceBalance.available < commonMinOrderAmount || (baseCurrencyBalance.available * priceInfo.sellPrice) < commonMinOrderAmount) {
-                    Logger.warning("TickerMaintenance", `balanceCheck_${connector._name}`, `Not enough balance on ${connector._name} ${this._baseCurrency} /${referenceCurrency}`, this._socketBroadcaster);
-                    connector._tradingPairs[referenceCurrency].enabled = false;
-                    continue;
-                }
-
-                connector._tradingPairs[referenceCurrency].enabled = true;
-            }
-        }
+        this._maintenanceInterval = process.env.TICKER_MAINTENANCE_INTERVAL ? parseInt(process.env.TICKER_MAINTENANCE_INTERVAL) : 300000;
+        this._markets = {};
     }
 
     async start() {
-        await this.balanceCheck();
+        for (const connector of this._connectors) {
+            this._markets[connector._name] = [];
+
+            const markets = await connector.getAllMarkets();
+            for (const market of markets) {
+                if (market.baseCurrency !== this._baseCurrency) continue;
+
+                this._markets[connector._name].push(market);
+            }
+        }
     }
 
     async tick() {
         const currentTimestamp = Date.now();
 
-        // balance check every 60 seconds
-        if (currentTimestamp - this._lastBalanceCheckTimestamp > 60000) {
-            await this.balanceCheck();
-        }
-
-        // ticker maintenance every 5 minutes
-        if (currentTimestamp - this._lastMaintainedTimestamp > (process.env.TICKER_MAINTENANCE_INTERVAL ? parseInt(process.env.TICKER_MAINTENANCE_INTERVAL) : 300000)) {
+        // ticker maintenance every 5 minutes (by default)
+        if ((currentTimestamp - this._lastMaintainedTimestamp) > (this._maintenanceInterval)) {
             this._lastMaintainedTimestamp = currentTimestamp;
-
             for (const connector of this._connectors) {
-                for (const referenceCurrency in connector._tradingPairs) {
-                    const minTradeVolume = connector.minOrderSize(referenceCurrency);
+                for (const tradingPair of this._markets[connector._name]) {
+                    const priceData = await connector.getMarketPrice(tradingPair.referenceCurrency, tradingPair.baseCurrency);
 
-                    const market = await connector.getMarketPrice(referenceCurrency);
-                    const settledPrice = this.decimalRounding((market.buy - market.sell) / 2, 11);
+                    let minTradeSize = connector.minOrderSize(this._baseCurrency, tradingPair.referenceCurrency);
+                    if (connector.minTradeVolumeIsReferenceCurrency()) minTradeSize = minTradeSize / priceData.sellPrice;
 
-                    const baseCurrencyAmount = minTradeVolume / settledPrice;
+                    const referenceCurrencyBalance = await connector.getBalance(tradingPair.referenceCurrency);
+                    const baseCurrencyBalance = await connector.getBalance(this._baseCurrency);
+
+                    if (
+                        (referenceCurrencyBalance < minTradeSize * priceData.sellPrice) ||
+                        (baseCurrencyBalance < minTradeSize)
+                    ) {
+                        Logger.warning("TickerMaintenance", "balanceCheck", `Found inadequate balance on the ${tradingPair.baseCurrency}-${tradingPair.referenceCurrency} pair`, this._socketBroadcaster);
+                        continue;
+                    }
+
+                    // set auto-fulfill orders
                     await Promise.all([
-                        connector.addBuyOrder(baseCurrencyAmount, settledPrice, referenceCurrency, this._baseCurrency),
-                        connector.addSellOrder(baseCurrencyAmount, settledPrice, referenceCurrency, this._baseCurrency)
+                        await connector.addSellOrder(minTradeSize, (priceData.buyPrice + priceData.sellPrice) / 2, tradingPair.referenceCurrency, this._baseCurrency),
+                        await connector.addBuyOrder(minTradeSize, (priceData.buyPrice + priceData.sellPrice) / 2, tradingPair.referenceCurrency, this._baseCurrency)
                     ]);
                 }
             }
         }
     }
 
-    async shutdown() {
-        for (const connector of this._connectors) {
-            await connector.cancelAllPending();
-        }
-        return;
-    }
+    async shutdown() {}
 }
