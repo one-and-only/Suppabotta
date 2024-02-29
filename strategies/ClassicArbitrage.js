@@ -128,6 +128,17 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         const buyingOrderBook = direction ? currentOrderBookInfo : otherOrderBookInfo;
         const sellingOrderBook = direction ? otherOrderBookInfo : currentOrderBookInfo;
 
+        if (currentOrderBookInfo.length == 0 || otherOrderBookInfo.length == 0) {
+            Logger.warning("ClassicArbitrage", "gatherOrders", "One of the given order books are empty", this._socketBroadcaster);
+            return {
+                buyOrders: [],
+                sellOrders: [],
+                profitable: false,
+                numTimesRepeatable: 0,
+                profitFactor: -1
+            }
+        }
+
         /**
          * Get a specific order from an applicable order book
          * @param {("buy" | "sell")} side which side of the order book to get
