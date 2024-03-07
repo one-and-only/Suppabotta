@@ -1,5 +1,6 @@
 import Bottleneck from "bottleneck";
 import fetch from "node-fetch";
+import * as https from "https";
 
 /**
  * `node-fetch` wrapper with rate limiting. No more pesky 429s from Exchange APIs!
@@ -58,6 +59,9 @@ export default class RequestHelper {
         let requestOptions = {
             method: method,
             headers: headers,
+            agent: new https.Agent({
+                localAddress: process.env.APPLICABLE_REQUEST_IP
+            })
         };
 
         if (method === "POST")
