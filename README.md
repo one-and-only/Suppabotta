@@ -91,3 +91,4 @@ Use these arguments to customize the behavior of the trading algorithm. These ar
 * `enablePaperTrade | boolean`: Instead of executing trades using a user's real exchange balance, it logs profitable opportunities to the database for later analysis. This mode is usually used to scout prospective markets for profit
 * `numCurveOrders | number`: Number of orders per market side that should be targetted in the FloatingArbitrage strategy
 * `minTradeSize | number`: The minimum trade size, in `baseCurrency`, that can be accepted as viable for execution
+* `customLocalIp | string`: Customize which IP should be used to make outbound requests and other connections to the exchange APIs (Useful to avoid rate limitting or IP ban from a single IP)

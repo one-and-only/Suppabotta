@@ -8,6 +8,9 @@ import * as socketIo from "socket.io";
 import { promisify } from "util";
 import Logger from "./Logger.js";
 
+import IP from "ip";
+const { address: ipAddress } = IP;
+
 const sleep = promisify(setTimeout);
 
 import TradeOgre from "./providers/TradeOgre.js";
@@ -254,7 +257,7 @@ app.post("/startTrading", async (req, res) => {
         userQueueData[req.query.username][req.query.strategy].providers.push(provider);
     }
 
-    await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs });
+    await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs, ip: tradingArgs.customLocalIp ?? ipAddress() });
 
     res.json({
         success: true,
