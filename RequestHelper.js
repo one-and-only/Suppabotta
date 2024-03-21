@@ -49,18 +49,19 @@ export default class RequestHelper {
      * @param {url} url Complete URL of request
      * @param {string} method Request method. Ex: "GET"
      * @param {any} data Request `body` contents
-     * @param {boolean} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
-     * @param {object} headers 
+     * @param {boolean} is_private Whether this endpoint requires API key authentication
+     * @param {object} headers Headers that should be sent to the outbound server, along with any other applicable data
+     * @param {string} outbound_ip IP, and in turn interface, that should be used for the outbound request. Useful for bypassing IP-based rate limits if you have multiple public IPs.
      * @returns {Promise<Response>} Response data
      */
-    async request(url, method, data, is_private, headers = {}) {
+    async request(url, method, data, is_private, headers = {}, outbound_ip) {
         const appropriate_fetch = is_private ? this._fetch_private : this._fetch;
 
         let requestOptions = {
             method: method,
             headers: headers,
             agent: new https.Agent({
-                localAddress: process.env.APPLICABLE_REQUEST_IP
+                localAddress: outbound_ip
             })
         };
 
@@ -77,10 +78,11 @@ export default class RequestHelper {
      * @param {*} data request `body` contents
      * @param {*} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
      * @param {*} headers Request headers
+     * @param {string} outbound_ip IP, and in turn interface, that should be used for the outbound request. Useful for bypassing IP-based rate limits if you have multiple public IPs.
      * @returns {Promise<Response>} Response data
      */
-    async post(url, data={}, is_private=false, headers={}) {
-        return this.request(url, "POST", data, is_private, headers);
+    async post(url, data={}, is_private=false, headers={}, outbound_ip) {
+        return this.request(url, "POST", data, is_private, headers, outbound_ip);
     }
 
     /**
@@ -88,10 +90,11 @@ export default class RequestHelper {
      * @param {string} url Complete URL of request
      * @param {*} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
      * @param {*} headers Request headers
+     * @param {string} outbound_ip IP, and in turn interface, that should be used for the outbound request. Useful for bypassing IP-based rate limits if you have multiple public IPs.
      * @returns {Promise<Response>} Response data
      */
-    async get(url, is_private=false, headers={}) {
-        return this.request(url, "GET", {}, is_private, headers);
+    async get(url, is_private=false, headers={}, outbound_ip) {
+        return this.request(url, "GET", {}, is_private, headers, outbound_ip);
     }
 
 }
