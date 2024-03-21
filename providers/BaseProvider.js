@@ -1,4 +1,5 @@
 export default class BaseProvider {
+    _outboundIp;
     _apiSecret;
     _apiKey;
     _apiUrl;
@@ -17,7 +18,8 @@ export default class BaseProvider {
     _baseCurrency;
 
     /**
-     * Base class for an exchange provider (Exchange API interface class)
+     * Base class for an exchange provider (Exchange API interface)
+     * @param {string} outboundIp IP that should be used for all outbound requests. Useful for bypassing IP-based API rate limits when you have multiple public IPs
      * @param {string} apiSecret Private API key
      * @param {string} apiKey Public API key
      * @param {string} apiUrl Exchange API base URL
@@ -30,7 +32,8 @@ export default class BaseProvider {
      * @param {string} exchangeApiCurrencySeparator Separator between the referenceCurrency and baseCurrency in the exchange API
      * @param {string} name Name/unique identifier of the exchange provider
      */
-    constructor(apiSecret, apiKey, apiUrl, baseCurrency, makerFeePct, takerFeePct, baseCurrencyWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
+    constructor(outboundIp, apiSecret, apiKey, apiUrl, baseCurrency, makerFeePct, takerFeePct, baseCurrencyWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
+        this._outboundIp = outboundIp;
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
