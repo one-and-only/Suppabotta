@@ -8,8 +8,8 @@ const { map: promiseMap } = Bluebird;
 export default class CoinEx extends BaseProvider {
     _referenceCurrencies = ["USDT", "USDC", "BTC"];
 
-    constructor(apiSecret, apiKey, baseCurrency) {
-        super(apiSecret, apiKey, "https://api.coinex.com/v1", baseCurrency, 0.2, 0.2, 0.3, false, [0, 1], "", "CoinEx");
+    constructor(outboundIp, apiSecret, apiKey, baseCurrency) {
+        super(outboundIp, apiSecret, apiKey, "https://api.coinex.com/v1", baseCurrency, 0.2, 0.2, 0.3, false, [0, 1], "", "CoinEx");
         this._requestHelper = new RequestHelper(
             {
                 public: {

@@ -231,15 +231,14 @@ app.post("/startTrading", async (req, res) => {
         global.doingTickerMaintenance = true;
     }
 
-    if (!strategyMaps[req.query.strategy]) {
+    const strategyInfo = strategyMaps[req.query.strategy];
+    if (!strategyInfo) {
         res.status(400).json({
             success: false,
             error: "Invalid trading strategy"
         });
         return;
     }
-
-    const strategyInfo = strategyMaps[req.query.strategy];
 
     if (!userQueueData.hasOwnProperty(req.query.username)) userQueueData[req.query.username] = {};
 
