@@ -247,7 +247,6 @@ app.post("/startTrading", async (req, res) => {
         providers: [],
         strategyClass: strategyInfo.strategyClass,
         socketBroadcaster: io.to(`${req.query.username}_${req.query.strategy}`),
-        ip: tradingArgs.customLocalIp ?? ipAddress(),
         wantsShutdown: false
     };
 
@@ -256,7 +255,7 @@ app.post("/startTrading", async (req, res) => {
     for (const providerClass of strategyInfo.providers) {
         const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
         if (!providerCreds) continue;
-        const provider = await new providerClass(providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency ?? "RTM").initialize();
+        const provider = await new providerClass(tradingArgs.customLocalIp ?? ipAddress(), providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency ?? "RTM").initialize();
         userQueueData[req.query.username][req.query.strategy].providers.push(provider);
     }
 

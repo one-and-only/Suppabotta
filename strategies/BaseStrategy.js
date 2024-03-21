@@ -5,7 +5,6 @@ export default class BaseStrategy {
     _socketBroadcaster;
     _paperTradingMongoCollection;
     _recentPaperTrades;
-    _outboundIp;
 
     /**
      * 
@@ -16,8 +15,6 @@ export default class BaseStrategy {
         this._socketBroadcaster = args.socketBroadcaster;
         this._paperTradingMongoCollection = paperTradingMongoCollection;
         this._recentPaperTrades = [];
-        console.assert(args.ip, "Outbound IP Address was not correctly passed in as an argument internally or trading parameter was set incorrectly");
-        this._outboundIp = args.ip;
     }
 
     async start() {
