@@ -1,2 +1,2 @@
 # Exhange Graveyard
-This is where exchanges that were mostly working, but exchange API limitations made their functionality inadequate, are archived.
+This is where exchange connectors that are no longer supported are stored. This could either be API inadequacies or exchange closures.
