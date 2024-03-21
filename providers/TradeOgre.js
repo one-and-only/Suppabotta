@@ -8,12 +8,16 @@ const { map: promiseMap } = Bluebird;
 export default class TradeOgre extends BaseProvider {
     constructor(apiSecret, apiKey, baseCurrency) {
         super(apiSecret, apiKey, "https://tradeogre.com/api/v1", baseCurrency, 0.3, 0.3, 0.01, true, [0, 1], "-", "TradeOgre");
-        this._requestHelper = new RequestHelper({
-            public: {
-                amount: 2000,
-                interval: 60000,
-            }
-        }, true);
+        this._requestHelper = new RequestHelper(
+            {
+                public: {
+                    amount: 2000,
+                    interval: 60000,
+                }
+            },
+            true,
+            this._outboundIp
+        );
     }
 
     async initialize() {
@@ -52,7 +56,7 @@ export default class TradeOgre extends BaseProvider {
         }
     }
 
-    async getMarketPrice(referenceCurrency, baseCurrency="RTM") {
+    async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
             const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-${baseCurrency.toUpperCase()}`)).json();
 

@@ -10,12 +10,16 @@ export default class CoinEx extends BaseProvider {
 
     constructor(apiSecret, apiKey, baseCurrency) {
         super(apiSecret, apiKey, "https://api.coinex.com/v1", baseCurrency, 0.2, 0.2, 0.3, false, [0, 1], "", "CoinEx");
-        this._requestHelper = new RequestHelper({
-            public: {
-                amount: 20,
-                interval: 2
-            }
-        }, true);
+        this._requestHelper = new RequestHelper(
+            {
+                public: {
+                    amount: 20,
+                    interval: 2
+                }
+            },
+            true,
+            this._outboundIp
+        );
     }
 
     async initialize() {
