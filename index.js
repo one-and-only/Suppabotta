@@ -26,6 +26,8 @@ import TickerMaintenanceStrategy from "./strategies/TickerMaintenance.js";
 import ClassicArbitrageStrategy from "./strategies/ClassicArbitrage.js";
 import FloatingArbitrageStrategy from "./strategies/FloatingArbitrage.js";
 
+// TODO: Update all connectors to support custom outbound IP when using `RequestHelper`
+
 const strategyMaps = {
     "TickerMaintenance": {
         providers: [DexTrade],
@@ -245,6 +247,7 @@ app.post("/startTrading", async (req, res) => {
         providers: [],
         strategyClass: strategyInfo.strategyClass,
         socketBroadcaster: io.to(`${req.query.username}_${req.query.strategy}`),
+        ip: tradingArgs.customLocalIp ?? ipAddress(),
         wantsShutdown: false
     };
 
@@ -257,7 +260,7 @@ app.post("/startTrading", async (req, res) => {
         userQueueData[req.query.username][req.query.strategy].providers.push(provider);
     }
 
-    await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs, ip: tradingArgs.customLocalIp ?? ipAddress() });
+    await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs });
 
     res.json({
         success: true,
