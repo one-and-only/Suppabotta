@@ -59,6 +59,12 @@ export default class RequestHelper {
     async request(url, method, data, is_private, headers = {}) {
         const appropriate_fetch = is_private ? this._fetch_private : this._fetch;
 
+        // set some headers so we can fake being Chrome
+        headers["SEC-CH-UA-FULL-VERSION"] = "122.0.6261.112";
+        headers["UPGRADE-INSECURE-REQUESTS"] = "1";
+        headers["USER-AGENT"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+        headers["VIEWPORT-WIDTH"] = "1470";
+
         let requestOptions = {
             method: method,
             headers: headers,
