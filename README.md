@@ -42,11 +42,6 @@ PAPER_TRADING_MONGO_DATABASE=PaperTradingHistory
 ```
 1. Run the bot using `node index.js`
 
-## Want to Use Docker Instead?
-1. Clone this repositpry and open in a terminal
-1. `docker build --pull -t suppabotta:local .`
-1. `docker run -it -v $(pwd):/app suppabotta:local`
-
 ## Adding Users for Trading
 1. Navigate to the web interface using your browser to `https://localhost:EXPRESS_PORT/`
     * Replace EXPRESS_PORT with the port you chose in the .env file
