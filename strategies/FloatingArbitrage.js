@@ -115,6 +115,16 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
      * @property {DepthEntry[]} sellDepthEntries The relevant depth values on the sell side
      */
     /**
+     * @typedef {Object} PolarEntry
+     * @property {BaseProvider} badDepthExchange
+     * @property {BaseProvider} goodDepthExchange
+     * @property {number} depthDelta
+     * @property {string} goodExchangeSide
+     * @property {TradingPairInfo} goodExchangePairInfo
+     * @property {string} badExchangeSide
+     * @property {TradingPairInfo} badExchangePairInfo
+     */
+    /**
      * Get the exchange that has the worst depth and the exchange that has the best depth for each baseCurrency trading pair
      * @returns {Promise<{[pairId:string]:{badDepthExchange:BaseProvider,goodDepthExchange:BaseProvider,depthDelta:number,goodExchangeSide:string,goodExchangePairInfo:TradingPairInfo,badExchangeSide:string,badExchangePairInfo:TradingPairInfo}}>}
      */
@@ -249,6 +259,137 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         )).every(x => x);
     }
 
+    /**
+     * 
+     * @param {PolarEntry} polarEntry 
+     * @param {*} offeringToSell 
+     */
+    async processFloatingArbitrage(polarEntry, offeringToSell) {
+        // impossible to fulfill a trade without the ability to buy or sell on a given exchange
+        if (
+            polarEntry.goodExchangePairInfo.buyDepthEntries.length === 0 ||
+            polarEntry.goodExchangePairInfo.sellDepthEntries.length === 0 ||
+            polarEntry.badExchangePairInfo.buyDepthEntries.length === 0 ||
+            polarEntry.badExchangePairInfo.sellDepthEntries.length === 0
+        ) return;
+
+        const effectiveMinOrderSize = this.effectiveMinOrderSizeBaseCurrency(
+            polarEntry.goodDepthExchange,
+            polarEntry.badDepthExchange,
+            offeringToSell,
+            polarEntry.goodExchangePairInfo.referenceCurrency,
+            { buyPrice: offeringToSell ? polarEntry.goodExchangePairInfo.buyDepthEntries[0].price : 0, sellPrice: offeringToSell ? 0 : polarEntry.goodExchangePairInfo.sellDepthEntries[0].price },
+            { buyPrice: offeringToSell ? 0 : polarEntry.badExchangePairInfo.buyDepthEntries[0].price, sellPrice: offeringToSell ? polarEntry.goodExchangePairInfo.sellDepthEntries[0].price : 0 }
+        );
+
+        const buyingOrderBook = offeringToSell ? polarEntry.goodExchangePairInfo : polarEntry.badExchangePairInfo;
+        const sellingOrderBook = offeringToSell ? polarEntry.badExchangePairInfo : polarEntry.goodExchangePairInfo;
+
+        // this filters out order entries that we can buy without enough volume
+        buyingOrderBook.buyDepthEntries = buyingOrderBook.buyDepthEntries.filter(depthEntry => depthEntry.amount >= effectiveMinOrderSize);
+
+        if (buyingOrderBook.buyDepthEntries.length === 0) return;
+
+        // not enough depth to cover our orders
+        if (buyingOrderBook.buyDepthEntries.reduce((acc, curr) => acc + curr) < this._numCurveOrders * effectiveMinOrderSize) return;
+
+        const curveOrders = [];
+        let coverOrders = [];
+
+        // 2-3%, initially 2%
+        let markup = 1.02;
+        const markupIncreaseFactor = 0.01 / this._numCurveOrders; // creep to 3% markup
+
+        // console.log(`${buyingOrderBook.buyDepthEntries[0].price} ${sellingOrderBook.sellDepthEntries[0].price}|${sellingOrderBook.buyDepthEntries[0].price}`);
+        // true if this price falls within the spread
+        if (buyingOrderBook.buyDepthEntries[0].price > sellingOrderBook.sellDepthEntries[0].price && buyingOrderBook.buyDepthEntries[0].price < sellingOrderBook.buyDepthEntries[0].price) {
+            // store our cover orders
+            for (let i = 0; i < this._numCurveOrders; i++) {
+                if (coverOrders.length === this._numCurveOrders) break;
+
+                if (i >= buyingOrderBook.buyDepthEntries.length) return;
+                const orderEntry = buyingOrderBook.buyDepthEntries[i];
+
+                // we can keep going with this order entry if it's big enough
+                if (orderEntry.amount - effectiveMinOrderSize >= effectiveMinOrderSize) i--;
+
+                coverOrders.push({
+                    amount: effectiveMinOrderSize,
+                    price: orderEntry.price,
+                    connector: offeringToSell ? polarEntry.badDepthExchange : polarEntry.goodDepthExchange
+                });
+            }
+
+            // condense orders with the same price into one order by summing quantities
+            coverOrders = coverOrders.reduce((acc, curr) => {
+                const foundIndex = acc.findIndex(item => item.price === curr.price);
+
+                if (foundIndex !== -1) acc[foundIndex].amount += curr.amount;
+                else acc.push({ price: curr.price, amount: curr.amount });
+
+                return acc;
+            }, []);
+
+            const coverQuantityTracking = coverOrders.map(obj => ({ ...obj }));
+
+            // store our curve orders
+            while (curveOrders.length < this._numCurveOrders) {
+                // we want to use the price of the nearest order that we can fulfill at min trade size to guarantee positive returns
+                const applicableOrder = coverQuantityTracking.filter(x => x.amount >= effectiveMinOrderSize)[0];
+
+                curveOrders.push({
+                    amount: effectiveMinOrderSize,
+                    price: applicableOrder.price * markup,
+                });
+                markup += markupIncreaseFactor;
+
+                applicableOrder.amount -= effectiveMinOrderSize;
+            }
+
+            if (this._paperTradingEnabled) {
+                this._paperTradingMongoCollection.insertOne({
+                    tradeInfo: {
+                        coverOrders: coverOrders,
+                        curveOrders: curveOrders
+                    },
+                    trade_metadata: {
+                        strategy: "FloatingArbitrage",
+                        coverExchange: offeringToSell ? polarEntry.badDepthExchange._name : polarEntry.goodDepthExchange._name,
+                        curveExchange: offeringToSell ? polarEntry.goodDepthExchange._name : polarEntry.badDepthExchange._name,
+                        tradingPair: `${polarEntry.goodExchangePairInfo.baseCurrency}-${polarEntry.goodExchangePairInfo.referenceCurrency}`
+                    },
+                    mongo_timestamp: new Date()
+                });
+
+                return;
+            }
+
+            // check to make sure the user has enough balance to put up the cover and curve orders
+            const coverExchange = offeringToSell ? polarEntry.badDepthExchange : polarEntry.goodDepthExchange;
+            const curveExchange = offeringToSell ? polarEntry.goodDepthExchange : polarEntry.badDepthExchange;
+            const requiredCoverBalance = coverOrders.reduce((acc, curr) => acc + curr.amount);
+            const requiredCurveBalance = curveOrders.reduce((acc, curr) => acc + curr.amount);
+
+            const balances = await Promise.all([
+                coverExchange.getBalance(polarEntry.goodExchangePairInfo.referenceCurrency),
+                curveExchange.getBalance(polarEntry.goodExchangePairInfo.baseCurrency)
+            ]);
+
+            // failed to get the user's balance
+            if (!balances[0].success || !balances[0].success) return;
+
+            if (!balances[0].available < requiredCoverBalance || !balances[1].available < requiredCurveBalance) {
+                // warn the user of not enough balance
+                Logger.warning("FloatingArbitrage", "balanceCheck", "Profitable floating arbitrage trades were found, but the user didn't have enough balance to fulfill the trades", this._socketBroadcaster);
+                return;
+            }
+
+            // at this point all the sanity checks are complete and we are ready to submit the trades
+
+            // TODO: add trade submission code
+        }
+    }
+
     async tick() {
         this.pruneRecentTrades();
         // check if user deposited more funds to make defined inventory tradeable
@@ -260,139 +401,12 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         }
 
         const polarExchangeEntries = await this.getPolarExchanges();
-        let uniqueComboId = 0;
+        const polarPairs = Object.keys(polarExchangeEntries);
 
-        for (const polarPair of Object.keys(polarExchangeEntries)) {
-            const polarEntry = polarExchangeEntries[polarPair];
-
-            // skip if we potentially can't buy any coins from the good depth exchange
-            if (polarEntry.goodExchangePairInfo.buyDepthEntries.length === 0) continue;
-
-            const goodExchangeApplicableOrderBookEntries = polarEntry.goodExchangePairInfo.buyDepthEntries;
-            const sellPrice = polarEntry.badExchangePairInfo.sellDepthEntries[0]?.price ?? goodExchangeApplicableOrderBookEntries[0].price;
-
-            let minBuyTradeSize = polarEntry.goodDepthExchange.minOrderSize(this._baseCurrency, polarEntry.goodExchangePairInfo.referenceCurrency);
-            if (polarEntry.goodDepthExchange.minTradeVolumeIsReferenceCurrency()) minBuyTradeSize = minBuyTradeSize / polarEntry.goodExchangePairInfo.buyDepthEntries[0].price;
-            const effectiveMinOrderSize = this.effectiveMinOrderSizeBaseCurrency(
-                polarEntry.goodDepthExchange,
-                polarEntry.badDepthExchange,
-                false,
-                polarEntry.goodExchangePairInfo.referenceCurrency,
-                { buyPrice: goodExchangeApplicableOrderBookEntries[0].price },
-                { sellPrice: sellPrice }
-            );
-
-            const badDepthExchangeAveragePrice = polarEntry.badExchangePairInfo.sellDepthEntries[0]?.price ?? sellPrice;
-
-            const inventoryForTrading = (this._inventoryDefinition[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] - this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency]) * (this._maxInvPct / 100);
-            let inventoryUsed = 0;
-
-            // price maximum is at most 2% above spot
-            const priceIncrementFactor = (badDepthExchangeAveragePrice * 0.02) / this._numCurveOrders;
-
-            if (badDepthExchangeAveragePrice < sellPrice) return;
-
-            const paperTradeOrdersInfo = {};
-
-            // curve orders generation
-
-            let currentPrice = badDepthExchangeAveragePrice + priceIncrementFactor;
-            let supplyBought = 0;
-
-            /**
-             * @type Order[]
-             */
-            const inventoryGatheringOrders = [];
-            const gatheringPriceLevelUsages = [];
-
-            /**
-             * @type Order[]
-             */
-            const curveEntryOrders = [];
-
-            let buyupLoopCounter = 0;
-
-            // generate orders to buy the required supply for the curve orders
-            while (inventoryGatheringOrders.length < this._numCurveOrders) {
-                if (buyupLoopCounter >= goodExchangeApplicableOrderBookEntries.length) break;
-                if (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price >= badDepthExchangeAveragePrice) break;
-                // check if we have enough inventory
-                if (inventoryForTrading - inventoryUsed < effectiveMinOrderSize) break;
-
-                if (
-                    (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount < effectiveMinOrderSize) ||
-                    (goodExchangeApplicableOrderBookEntries[buyupLoopCounter].amount - (gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`] ?? 0) < effectiveMinOrderSize)
-                ) {
-                    buyupLoopCounter++;
-                    continue;
-                }
-
-                inventoryGatheringOrders.push({
-                    amount: effectiveMinOrderSize,
-                    price: goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price
-                });
-
-                if (!gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`]) gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`] = 0;
-                gatheringPriceLevelUsages[`${goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price}`] += effectiveMinOrderSize;
-
-                inventoryUsed += effectiveMinOrderSize * goodExchangeApplicableOrderBookEntries[buyupLoopCounter].price;
-                supplyBought += effectiveMinOrderSize;
-                // buyupLoopCounter++;
-            }
-
-            if (inventoryGatheringOrders.length < this._numCurveOrders) continue;
-
-            this._currencyUsed[polarEntry.goodDepthExchange._name][polarEntry.goodExchangePairInfo.referenceCurrency] += inventoryUsed
-
-            if (this._paperTradingEnabled) {
-                paperTradeOrdersInfo.buyupOrders = inventoryGatheringOrders;
-            } else {
-                if (!(await this.executeOrders(inventoryGatheringOrders, polarEntry.goodDepthExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, true))) {
-                    Logger.error("FloatingArbitrage", "acquireSupply", "One or more buyup orders failed to execute on the exchange", this._socketBroadcaster);
-                }
-            }
-
-            // generate orders that fit the curve
-            for (let i = 0; i < this._numCurveOrders; i++) {
-                let coinAmount = effectiveMinOrderSize;
-
-                curveEntryOrders.push({
-                    price: currentPrice,
-                    amount: coinAmount
-                });
-
-                currentPrice += priceIncrementFactor;
-            }
-            paperTradeOrdersInfo.curveOrders = curveEntryOrders;
-
-            const isRecentPaperTrade = this.isRecentTrade(paperTradeOrdersInfo).repeat;
-
-            if (this._paperTradingEnabled) {
-                const trade_metadata = {
-                    strategy: "FloatingArbitrage",
-                    badDepthExchange: polarEntry.badDepthExchange._name,
-                    goodDepthExchange: polarEntry.goodDepthExchange._name,
-                    goodDepthExchangeTradingPair: { referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency },
-                    badDepthExchangeTradingPair: { referenceCurrency: polarEntry.badExchangePairInfo.referenceCurrency, baseCurrency: polarEntry.badExchangePairInfo.baseCurrency }
-                };
-                if (isRecentPaperTrade) return;
-
-                this.addToRecentPaperTrades(paperTradeOrdersInfo, 1);
-
-                await this._paperTradingMongoCollection.insertOne({
-                    tradeInfo: paperTradeOrdersInfo,
-                    trade_metadata: trade_metadata,
-                    mongo_timestamp: new Date()
-                });
-
-                Logger.success("FloatingArbitrage", "orderSubmission", "Found profitable paper trade and saved it to the database", this._socketBroadcaster);
-            } else {
-                if (!(await this.executeOrders(curveEntryOrders, polarEntry.badDepthExchange, polarEntry.badExchangePairInfo.referenceCurrency, polarEntry.badExchangePairInfo.baseCurrency, false))) {
-                    Logger.error("FloatingArbitrage", "acquireSupply", "One or more curve orders failed to execute on the exchange", this._socketBroadcaster);
-                }
-            }
-
-            uniqueComboId++;
+        // trades that offer to sell for more or buy for less
+        for (const polarPair of polarPairs) {
+            await this.processFloatingArbitrage(polarExchangeEntries[polarPair], true);
+            await this.processFloatingArbitrage(polarExchangeEntries[polarPair], false);
         }
     }
 
