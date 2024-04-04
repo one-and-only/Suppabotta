@@ -48,7 +48,7 @@ export default class DexTrade extends BaseProvider {
     }
 
     async getAllMarkets() {
-        const symbols = await (await this._requestHelper.get(`${this._apiUrl}/public/symbols`)).json();
+        const symbols = await this._requestHelper.get(`${this._apiUrl}/public/symbols`);
 
         return symbols.data.map(symbol => {
             return {
@@ -60,7 +60,7 @@ export default class DexTrade extends BaseProvider {
 
     async getOrderBook(baseCurrency, referenceCurrency) {
         try {
-            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/public/book?pair=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}`)).json();
+            const orderBook = await this._requestHelper.get(`${this._apiUrl}/public/book?pair=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}`);
 
             return {
                 bid: orderBook.data.buy.map(val => { return { price: val.rate, amount: val.volume } }),
@@ -75,7 +75,7 @@ export default class DexTrade extends BaseProvider {
     }
 
     async allTradingPairs() {
-        const symbols = await (await this._requestHelper.get(`${this._apiUrl}/public/symbols`)).json();
+        const symbols = await this._requestHelper.get(`${this._apiUrl}/public/symbols`);
 
         for (const symbolIdx in symbols.data) {
             const symbol = symbols.data[symbolIdx];

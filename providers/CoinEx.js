@@ -28,7 +28,7 @@ export default class CoinEx extends BaseProvider {
     }
 
     async allTradingPairs() {
-        const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/info`)).json();
+        const markets = await this._requestHelper.get(`${this._apiUrl}/market/info`);
         for (const marketKey in markets.data) {
             const market = markets.data[marketKey];
             this._minTradeVolumes[this.coinsToExchangePair([market.trading_name, market.pricing_name])] = parseFloat(market.min_amount);
@@ -40,7 +40,7 @@ export default class CoinEx extends BaseProvider {
     }
 
     async getAllMarkets() {
-        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/market/list`)).json();
+        const marketData = await this._requestHelper.get(`${this._apiUrl}/market/list`);
         const parsedMarkets = [];
 
         for (const market of marketData.data) {
@@ -58,7 +58,7 @@ export default class CoinEx extends BaseProvider {
 
     async getOrderBook(baseCurrency, referenceCurrency) {
         try {
-            const depthInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=50&merge=0`)).json();
+            const depthInfo = await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=50&merge=0`);
             return {
                 bid: depthInfo.data.bids.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } }),
                 ask: depthInfo.data.asks.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } })
@@ -73,7 +73,7 @@ export default class CoinEx extends BaseProvider {
 
     async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
-            const marketInfo = await (await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=1&merge=0`)).json();
+            const marketInfo = await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=1&merge=0`);
 
             const ask = marketInfo.data.asks[0];
             const bid = marketInfo.data.bids[0]
@@ -236,13 +236,13 @@ export default class CoinEx extends BaseProvider {
         };
 
         try {
-            const response = await (await this._requestHelper.get(
+            const response = await this._requestHelper.get(
                 `${this._apiUrl}/balance/info?${this.createDictText(params)}`,
                 true,
                 {
                     "Authorization": this.createAuthorization(params)
                 }
-            )).json();
+            );
 
             const currencyData = response.data[currency.toUpperCase()];
             if (!currencyData) {

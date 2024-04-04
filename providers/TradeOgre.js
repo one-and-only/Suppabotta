@@ -26,7 +26,7 @@ export default class TradeOgre extends BaseProvider {
     }
 
     async getAllMarkets() {
-        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/markets`)).json();
+        const marketData = await this._requestHelper.get(`${this._apiUrl}/markets`);
         const markets = [];
 
         for (const market of marketData) {
@@ -58,7 +58,7 @@ export default class TradeOgre extends BaseProvider {
 
     async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
-            const marketData = await (await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-${baseCurrency.toUpperCase()}`)).json();
+            const marketData = await this._requestHelper.get(`${this._apiUrl}/orders/${referenceCurrency.toUpperCase()}-${baseCurrency.toUpperCase()}`);
 
             if (!marketData.success) return { success: false, error: marketData.error };
 
@@ -83,7 +83,7 @@ export default class TradeOgre extends BaseProvider {
     }
 
     async allTradingPairs() {
-        const markets = await (await this._requestHelper.get(`${this._apiUrl}/markets`)).json();
+        const markets = await this._requestHelper.get(`${this._apiUrl}/markets`);
 
         for (const marketIdx in markets) {
             const market = markets[marketIdx];
@@ -102,7 +102,7 @@ export default class TradeOgre extends BaseProvider {
     // TradeOgre makes buy and sell really intuitive :)
     async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         try {
-            const res = await (await (this._requestHelper.post(
+            const res = await (this._requestHelper.post(
                 `${this._apiUrl}/order/${isBuy ? "buy" : "sell"}`,
                 new URLSearchParams({
                     "market": this.coinsToExchangePair([baseCurrency, referenceCurrency]),
@@ -114,7 +114,7 @@ export default class TradeOgre extends BaseProvider {
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
                 }
-            ))).json();
+            ));
 
             if (res?.uuid) {
                 this._pendingTrades.push({ id: res.uuid, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
@@ -171,13 +171,13 @@ export default class TradeOgre extends BaseProvider {
 
     async orderStatus(orderId) {
         try {
-            const orderStatus = await (await this._requestHelper.get(
+            const orderStatus = await this._requestHelper.get(
                 `${this._apiUrl}/account/order/${orderId}`,
                 true,
                 {
                     "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
                 }
-            )).json();
+            );
 
             if (!orderStatus?.success) return { success: false, error: orderStatus.error };
 
@@ -198,7 +198,7 @@ export default class TradeOgre extends BaseProvider {
 
     async getBalance(currency) {
         try {
-            const balance = await (await this._requestHelper.post(
+            const balance = await this._requestHelper.post(
                 `${this._apiUrl}/account/balance`,
                 new URLSearchParams({
                     "currency": currency.toUpperCase(),
@@ -208,7 +208,7 @@ export default class TradeOgre extends BaseProvider {
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
                 }
-            )).json();
+            );
 
             if (!balance.success) return { success: false, error: balance.error };
 

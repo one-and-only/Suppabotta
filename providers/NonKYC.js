@@ -28,7 +28,7 @@ export default class NonKYC extends BaseProvider {
 
     async allTradingPairs() {
         try {
-            const markets = await (await this._requestHelper.get(`${this._apiUrl}/market/getlist`)).json();
+            const markets = await this._requestHelper.get(`${this._apiUrl}/market/getlist`);
 
             for (const market of markets) {
                 this._minTradeVolumes[market.symbol.split("/").join("_")] = market.minimumQuantity ?? 0;
@@ -54,7 +54,7 @@ export default class NonKYC extends BaseProvider {
     }
 
     async getAllMarkets() {
-        const marketData = await (await this._requestHelper.get(`${this._apiUrl}/markets?type=spot`)).json();
+        const marketData = await this._requestHelper.get(`${this._apiUrl}/markets?type=spot`);
         const markets = [];
 
         for (const market of marketData) {
@@ -69,7 +69,7 @@ export default class NonKYC extends BaseProvider {
 
     async getOrderBook(baseCurrency, referenceCurrency) {
         try {
-            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();
+            const orderBook = await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`);
 
             return {
                 bid: orderBook.bids.map(x => {
@@ -95,7 +95,7 @@ export default class NonKYC extends BaseProvider {
 
     async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
-            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();
+            const orderBook = await this._requestHelper.get(`${this._apiUrl}/market/getorderbookbysymbol/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`);
 
             const bid = orderBook.bids[0];
             const ask = orderBook.asks[0];
@@ -128,12 +128,12 @@ export default class NonKYC extends BaseProvider {
         };
 
         try {
-            const response = await (await this._requestHelper.post(
+            const response = await this._requestHelper.post(
                 url,
                 body,
                 true,
                 this.authHeaders(url, body)
-            )).text();
+            );
 
             if (parseFloat(response.remainQuantity) > 0) {
                 this._pendingTrades.push({ id: response.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
@@ -195,7 +195,7 @@ export default class NonKYC extends BaseProvider {
     async orderStatus(orderId) {
         try {
             const url = `${this._apiUrl}/getorder/${orderId}`;
-            const orderStatus = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
+            const orderStatus = await this._requestHelper.get(url, true, this.authHeaders(url, ""));
 
             if (orderStatus.error) {
                 return {
@@ -229,7 +229,7 @@ export default class NonKYC extends BaseProvider {
     async getBalance(currency) {
         try {
             const url = `${this._apiUrl}/balances`;
-            const balances = await (await this._requestHelper.get(url, true, this.authHeaders(url, ""))).json();
+            const balances = await this._requestHelper.get(url, true, this.authHeaders(url, ""));
 
             if (balances.error) {
                 return {
