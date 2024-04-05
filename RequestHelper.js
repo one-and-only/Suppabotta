@@ -25,7 +25,10 @@ export default class RequestHelper {
                 "UPGRADE-INSECURE-REQUESTS": "1",
                 "USER-AGENT": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                 "VIEWPORT-WIDTH": "1470"
-            }
+            },
+            httpsAgent: new httpsAgent({
+                localAddress: this._outbound_ip
+            })
         });
 
         // no rate limits, so we just use the normal `axios` function
@@ -65,10 +68,7 @@ export default class RequestHelper {
             url: url,
             method: method,
             headers: headers,
-            data: body ?? null,
-            httpsAgent: new httpsAgent({
-                localAddress: this._outbound_ip
-            })
+            data: body ?? null
         })).data;
     }
 
