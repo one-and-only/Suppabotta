@@ -385,8 +385,13 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             }
 
             // at this point all the sanity checks are complete and we are ready to submit the trades
+            const success = await this.executeOrders(curveOrders, curveExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, false);
+            if (!success) {
+                Logger.error("FloatingArbitrage", "submitCurveOrders", "Failed to submit curve orders after sanity checks were completed. Will retry soon.", this._socketBroadcaster);
+                return;
+            }
 
-            // TODO: add trade submission code
+            // TODO: add order tracking and store cover orders in this instance
         }
     }
 
