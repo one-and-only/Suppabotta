@@ -131,9 +131,9 @@ export default class CoinEx extends BaseProvider {
             if (response.status !== 200 || !responseJson.id) return false;
 
             this._pendingTrades.push({ id: responseJson.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
-            return true;
+            return { success: true, id: responseJson.id };
         } catch (e) {
-            return false;
+            return { success: false, id: "" };
         }
     }
 

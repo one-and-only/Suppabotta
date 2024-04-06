@@ -101,14 +101,6 @@ export default class DexTrade extends BaseProvider {
         };
     }
 
-    /**
-     * 
-     * @param {number} amount amount of `baseAmount` you're selling or buying
-     * @param {number} price price per `baseAmount`
-     * @param {string} referenceCurrency currency you're pairing `baseAmount` with
-     * @param {boolean} isBuy Whether the trade is of type "buy" or not (type "sell")
-     * @returns {boolean} success or failure
-     */
     async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         const body = new Map([
             ["pair", this.coinsToExchangePair([baseCurrency, referenceCurrency])],
@@ -133,10 +125,10 @@ export default class DexTrade extends BaseProvider {
         if (createOrderResponse.status === 200) {
             const pendingOrder = await createOrderResponse.json();
             this._pendingTrades.push({ id: pendingOrder.data.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
-            return true;
+            return { success: true, id: pendingOrder.data.id };
         }
 
-        return false;
+        return { success: false, id: "" };
     }
 
     async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {

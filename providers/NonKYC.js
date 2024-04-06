@@ -139,9 +139,9 @@ export default class NonKYC extends BaseProvider {
                 this._pendingTrades.push({ id: response.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
             }
 
-            return true;
+            return { success: true, id: response.id };
         } catch (e) {
-            return false;
+            return { success: false, id: "" };
         }
     }
 

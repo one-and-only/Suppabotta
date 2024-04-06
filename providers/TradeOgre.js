@@ -99,7 +99,6 @@ export default class TradeOgre extends BaseProvider {
         this._minTradeVolumes["RTM-LTC"] = 0.01;
     }
 
-    // TradeOgre makes buy and sell really intuitive :)
     async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         try {
             const res = await (this._requestHelper.post(
@@ -118,12 +117,12 @@ export default class TradeOgre extends BaseProvider {
 
             if (res?.uuid) {
                 this._pendingTrades.push({ id: res.uuid, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
-                return res.success;
+                return { success: res.success, id: res.success ? res.uuid : "" };
             }
 
-            return false;
+            return { success: false, id: "" };
         } catch (e) {
-            return false;
+            return { success: false, id: "" };
         }
     }
 

@@ -146,7 +146,7 @@ export default class BaseProvider {
      * @param {number} price Price, in `referenceCurrency`, to buy each `baseCurrency` for
      * @param {string} referenceCurrency currency buying `baseCurrency` with
      * @param {string} baseCurrency `baseCurrency`
-     * @returns {Promise<boolean>} success or failure
+     * @returns {Promise<{ success: boolean, id: string }>} success or failure
      */
     async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
         throw new Error("This method must be implemented.");
@@ -157,8 +157,8 @@ export default class BaseProvider {
      * @param {number} baseAmount Amount of `baseCurrency` to sell
      * @param {number} price Price, in `referenceCurrency`, to sell each `baseCurrency` for
      * @param {string} referenceCurrency currency buying `baseCurrency` with
-     * * @param {string} baseCurrency `baseCurrency`
-     * @returns {Promise<boolean>} success or failure
+     * @param {string} baseCurrency `baseCurrency`
+     * @returns {Promise<{ success: boolean, id: string }>} success or failure
      */
     async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
         throw new Error("This method must be implemented.");
