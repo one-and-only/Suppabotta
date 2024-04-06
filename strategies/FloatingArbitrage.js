@@ -284,6 +284,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
         const buyingOrderBook = offeringToSell ? polarEntry.goodExchangePairInfo : polarEntry.badExchangePairInfo;
         const sellingOrderBook = offeringToSell ? polarEntry.badExchangePairInfo : polarEntry.goodExchangePairInfo;
+        const coverExchange = offeringToSell ? polarEntry.badDepthExchange : polarEntry.goodDepthExchange;
+        const curveExchange = offeringToSell ? polarEntry.goodDepthExchange : polarEntry.badDepthExchange;
 
         // this filters out order entries that we can buy without enough volume
         buyingOrderBook.buyDepthEntries = buyingOrderBook.buyDepthEntries.filter(depthEntry => depthEntry.amount >= effectiveMinOrderSize);
@@ -347,6 +349,19 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             }
 
             if (this._paperTradingEnabled) {
+                const tradeInfo = {
+                    curveOrders: curveOrders,
+                    coverOrders: coverOrders,
+                    curveExchange: curveExchange,
+                    coverOrders: coverExchange 
+                };
+
+                const recentTradeInfo = this.isRecentTrade(tradeInfo);
+
+                if (recentTradeInfo.repeat) return;
+
+                this.addToRecentPaperTrades(tradeInfo, 1);
+
                 this._paperTradingMongoCollection.insertOne({
                     tradeInfo: {
                         coverOrders: coverOrders,
@@ -354,8 +369,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     },
                     trade_metadata: {
                         strategy: "FloatingArbitrage",
-                        coverExchange: offeringToSell ? polarEntry.badDepthExchange._name : polarEntry.goodDepthExchange._name,
-                        curveExchange: offeringToSell ? polarEntry.goodDepthExchange._name : polarEntry.badDepthExchange._name,
+                        coverExchange: coverExchange._name,
+                        curveExchange: curveExchange._name,
                         tradingPair: `${polarEntry.goodExchangePairInfo.baseCurrency}-${polarEntry.goodExchangePairInfo.referenceCurrency}`
                     },
                     mongo_timestamp: new Date()
@@ -365,8 +380,6 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             }
 
             // check to make sure the user has enough balance to put up the cover and curve orders
-            const coverExchange = offeringToSell ? polarEntry.badDepthExchange : polarEntry.goodDepthExchange;
-            const curveExchange = offeringToSell ? polarEntry.goodDepthExchange : polarEntry.badDepthExchange;
             const requiredCoverBalance = coverOrders.reduce((acc, curr) => acc + curr.amount);
             const requiredCurveBalance = curveOrders.reduce((acc, curr) => acc + curr.amount);
 
@@ -387,7 +400,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             // at this point all the sanity checks are complete and we are ready to submit the trades
             const success = await this.executeOrders(curveOrders, curveExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, false);
             if (!success) {
-                Logger.error("FloatingArbitrage", "submitCurveOrders", "Failed to submit curve orders after sanity checks were completed. Will retry soon.", this._socketBroadcaster);
+                Logger.error("FloatingArbitrage", "submitCurveOrders", "Failed to submit curve orders after sanity checks were completed. Undesired behavior may have occured. Check all exchange accounts for changes!", this._socketBroadcaster);
                 return;
             }
 
