@@ -224,13 +224,13 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         this.pruneRecentTrades();
 
         for (const currentConnector of this._connectors) {
-            const currentBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(currentConnector);
+            const currentBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfosForConnector(currentConnector);
 
             for (const currentBaseCurrencyOrderBookInfo of currentBaseCurrencyOrderBookInfos) {
                 for (const otherConnector of this._connectors) {
                     if (currentConnector._name === otherConnector._name) continue;
 
-                    const otherBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfoForConnector(otherConnector);
+                    const otherBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfosForConnector(otherConnector);
 
                     for (const otherBaseCurrencyOrderBookInfo of otherBaseCurrencyOrderBookInfos) {
                         if (this.comboAlreadyProcessed({ connector: currentConnector._name, tradingPair: currentBaseCurrencyOrderBookInfo }, { connector: otherConnector._name, tradingPair: otherBaseCurrencyOrderBookInfo })) continue;
