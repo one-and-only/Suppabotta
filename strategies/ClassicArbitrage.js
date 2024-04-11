@@ -221,7 +221,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async tick() {
-        this.pruneRecentTrades();
+        this.pruneRecentPaperTrades();
 
         for (const currentConnector of this._connectors) {
             const currentBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfosForConnector(currentConnector);

@@ -409,7 +409,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     }
 
     async tick() {
-        this.pruneRecentTrades();
+        this.pruneRecentPaperTrades();
+
         // check if user deposited more funds to make defined inventory tradeable
         if (this._unfitToRun) {
             Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", this._socketBroadcaster);

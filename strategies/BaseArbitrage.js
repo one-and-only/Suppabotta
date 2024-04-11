@@ -109,7 +109,7 @@ export default class BaseArbitrage extends BaseStrategy {
     /**
      * Remove recent paper trades that are older than the pre-set cooldown (60 seconds)
      */
-    pruneRecentTrades() {
+    pruneRecentPaperTrades() {
         const currentTimestamp = Date.now()
 
         // currently a delay of 60 seconds
