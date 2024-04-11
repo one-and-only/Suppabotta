@@ -63,6 +63,7 @@ const queueEvents = new QueueEvents("userQueue", { connection: redisConnection }
 const userWorker = new Worker("userQueue", async job => {
     const strategyData = userQueueData[job.data.username][job.data.strategy];
     const strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...(job.data.strategyArgs), socketBroadcaster: strategyData.socketBroadcaster }, mongoDb.collection(process.env.PAPER_TRADING_MONGO_DATABASE));
+    strategyData.strategyInstance = strategyInstance;
 
     await strategyInstance.start();
     while (true) {
@@ -293,12 +294,7 @@ app.get("/pendingExchangeOrders", async (req, res) => {
         return;
     }
 
-    const ret = {};
-    for (const connector of queueData.providers) {
-        ret[connector._name] = connector.getPendingOrders();
-    }
-
-    res.json(ret);
+    res.json(queueData.strategyInstance.pendingTrades());
 });
 
 const expressServer = createHttpsServer({

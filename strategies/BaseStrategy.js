@@ -37,4 +37,15 @@ export default class BaseStrategy {
     recentPaperTrades() {
         return this._recentPaperTrades;
     }
+
+    // this will only be overridden by FloatingArbitrage
+    // other strategies won't have pending trades
+    pendingTrades() {
+        return this._connectors.map(connector => {
+            return {
+                connector: connector,
+                pendingTrades: []
+            };
+        })
+    }
 }

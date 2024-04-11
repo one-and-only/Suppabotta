@@ -45,6 +45,38 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         this._maxPriceDropPct = args.maxPriceDropPct ?? 5;
     }
 
+    pendingTrades() {
+        const ret = {};
+
+        for (const connector of this._connectors) {
+            ret[connector._name] = [];
+        }
+
+        for (const trackedOrder of this._trackedOrders) {
+            ret[trackedOrder.coverExchange._name].push(...trackedOrder.coverOrders.map(
+                order => {
+                    return {
+                        baseCurrency: trackedOrder.tradingPair.baseCurrency,
+                        referenceCurrency: trackedOrder.tradingPair.referenceCurrency,
+                        ...order
+                    };
+                }
+            ));
+
+            ret[trackedOrder.curveExchange._name].push(...trackedOrder.curveOrders.map(
+                order => {
+                    return {
+                        baseCurrency: trackedOrder.tradingPair.baseCurrency,
+                        referenceCurrency: trackedOrder.tradingPair.referenceCurrency,
+                        ...order
+                    };
+                }
+            ));
+        }
+
+        return ret;
+    }
+
     /**
     * Check if this algorithm can run with the condition of the user's exchange accounts
     */
