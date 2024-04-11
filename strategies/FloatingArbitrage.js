@@ -76,7 +76,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
     async allMarketInfos() {
         return await promiseMap(this._connectors, async (connector) => {
-            const orderBookInfos = await this.baseCurrencyOrberBookInfosForConnector(connector);
+            const orderBookInfos = await this.baseCurrencyOrderBookInfosForConnector(connector);
             const tradingPairInfos = [];
 
             for (const orderBookInfo of orderBookInfos) {
