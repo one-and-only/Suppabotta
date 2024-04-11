@@ -479,7 +479,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     }
 
     async shutdown() {
-        //! enable this once testing is done
+        //! update this once testing is done
+        //! BaseProvider.cancelAllPending() is no longer supported
         // Logger.info("FloatingArbitrage", "shutdown", "Cancelling all pending orders...", this._socketBroadcaster);
         // const statuses = await promiseMap(this._connectors, async connector => {
         //     const res = await connector.cancelAllPending();

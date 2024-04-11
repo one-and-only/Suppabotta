@@ -153,43 +153,8 @@ export default class NonKYC extends BaseProvider {
         return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
-    async cancelAllPending() {
-        for (const orderId of this._pendingTrades) {
-            const url = `${this._apiUrl}/cancelOrder`;
-            const body = {
-                id: orderId
-            };
-
-            try {
-                await this._requestHelper.post(
-                    url,
-                    body,
-                    true,
-                    this.authHeaders(url, body)
-                );
-            } catch (e) {
-                continue;
-            }
-        }
-
-        this._pendingTrades = [];
-        return true;
-    }
-
     getPendingOrders() {
         return this._pendingTrades;
-    }
-
-    async prunePendingOrders() {
-        this._pendingTrades = (await promiseMap(
-            this._pendingTrades,
-            async order => {
-                const orderStatus = await this.orderStatus(order.id);
-                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
-
-                return "";
-            }
-        )).filter(x => x !== "");
     }
 
     async orderStatus(orderId) {

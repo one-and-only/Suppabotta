@@ -145,52 +145,8 @@ export default class CoinEx extends BaseProvider {
         return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
-    async cancelAllPending() {
-        if (this._pendingTrades.length < 1) return true;
-
-        for (const pendingTrade of this._pendingTrades) {
-            const params = {
-                access_id: this._apiKey,
-                id: pendingTrade.id,
-                market: pendingTrade.market,
-                tonce: Date.now()
-            }
-
-            try {
-                const response = await this._requestHelper.request(
-                    `${this._apiUrl}/order/pending?${this.createDictText(params)}`,
-                    "DELETE",
-                    null,
-                    true,
-                    {
-                        "Authorization": this.createAuthorization(params)
-                    }
-                );
-
-                const responseJson = await response.json();
-                if (response.status !== 200 || !responseJson.id) return false;
-            } catch (e) {
-                continue;
-            }
-        }
-
-        return true;
-    }
-
     getPendingOrders() {
         return this._pendingTrades;
-    }
-
-    async prunePendingOrders() {
-        this._pendingTrades = (await promiseMap(
-            this._pendingTrades,
-            async order => {
-                const orderStatus = await this.orderStatus({ id: order.id, market: this.coinsToExchangePair([order.baseCurrency, order.referenceCurrency]) });
-                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
-
-                return "";
-            }
-        )).filter(x => x !== "");
     }
 
     async orderStatus(order) {

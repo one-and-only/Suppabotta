@@ -139,43 +139,8 @@ export default class DexTrade extends BaseProvider {
         return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
-    async cancelAllPending() {
-        for (const pendingTradeId of this._pendingTrades) {
-            const body = new Map([
-                ["order_id", new BigNumber(pendingTradeId).toString()],
-                ["request_id", `${Date.now()}`]
-            ]);
-            const res = await this._requestHelper.post(
-                `${this._apiUrl}/private/delete-order`,
-                Object.fromEntries(body),
-                true,
-                {
-                    "Content-Type": "application/json",
-                    ...(this.generatePrivateHeaders(body))
-                }
-            );
-
-            if (res.status !== 200) return false;
-        }
-        this._pendingTrades = [];
-
-        return true;
-    }
-
     getPendingOrders() {
         return this._pendingTrades;
-    }
-
-    async prunePendingOrders() {
-        this._pendingTrades = (await promiseMap(
-            this._pendingTrades,
-            async order => {
-                const orderStatus = await this.orderStatus(order.id);
-                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
-
-                return "";
-            }
-        )).filter(x => x !== "");
     }
 
     async orderStatus(orderId) {

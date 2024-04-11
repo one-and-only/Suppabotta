@@ -144,22 +144,10 @@ export default class BaseProvider {
     }
 
     /**
-     * Cancel all pending orders
-     * @returns {Promise<boolean>} success or failure
-     */
-    async cancelAllPending() {
-        throw new Error("This method must be implemented.");
-    }
-
-    /**
      * Get all pending orders on the connector's exchange
      * @returns {Promise<{amount:number,price:number,referenceCurrency:string,baseCurrency:string,isBuy:boolean}[]>}
      */
     getPendingOrders() {
-        throw new Error("This method must be implemented.");
-    }
-
-    async prunePendingOrders() {
         throw new Error("This method must be implemented.");
     }
 

@@ -134,38 +134,8 @@ export default class TradeOgre extends BaseProvider {
         return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
     }
 
-    async cancelAllPending() {
-        for (const pendingTrade in this._pendingTrades) {
-            await this._requestHelper.post(
-                `${this._apiUrl}/order/cancel`,
-                new URLSearchParams({
-                    "uuid": pendingTrade,
-                }),
-                true,
-                {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Authorization": `Basic ${base64Encode(`${this._apiKey}:${this._apiSecret}`)}`
-                }
-            );
-        }
-
-        return true;
-    }
-
     getPendingOrders() {
         return this._pendingTrades;
-    }
-
-    async prunePendingOrders() {
-        this._pendingTrades = (await promiseMap(
-            this._pendingTrades,
-            async order => {
-                const orderStatus = await this.orderStatus(order.id);
-                if (orderStatus.success && orderStatus.quantityLeft > 0) return order;
-
-                return "";
-            }
-        )).filter(x => x !== "");
     }
 
     async orderStatus(orderId) {
