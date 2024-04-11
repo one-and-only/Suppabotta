@@ -6,7 +6,6 @@ export default class BaseProvider {
     _pendingTrades;
     _tradingPairs;
     _requestHelper;
-    _balances;
     _makerFeePct;
     _takerFeePct;
     _baseCurrencyWithdrawalFee;
@@ -40,7 +39,6 @@ export default class BaseProvider {
         this._baseCurrency = baseCurrency;
         this._pendingTrades = [];
         this._tradingPairs = {};
-        this._balances = {};
         this._makerFeePct = makerFeePct;
         this._takerFeePct = takerFeePct;
         this._baseCurrencyWithdrawalFee = baseCurrencyWithdrawalFee;
