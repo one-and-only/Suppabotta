@@ -14,7 +14,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     _maxPriceDropPct;
     _currencyUsed;
     _numCurveOrders;
-    _coveringOrders;
+    _trackedOrders;
 
     constructor(connectors, args, paperTradingMongoCollection) {
         super(connectors, args, paperTradingMongoCollection);
@@ -30,7 +30,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         this._maxInvPct = args.maxInvPct;
         this._inventoryDefinition = args.inventoryDefinition;
         this._numCurveOrders = args.numCurveOrders;
-        this._coveringOrders = [];
+        this._trackedOrders = [];
 
         this._currencyUsed = {};
         for (const connector of Object.keys(args.inventoryDefinition)) {
@@ -229,6 +229,47 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         return polarEntries;
     }
 
+    // covers Floating Arbitrage trades that have been fulfilled and prunes trades that have been completed
+    async processOpenTrades() {
+        const newOpenTrades = [];
+
+        await promiseMap(this._trackedOrders, async (orderInfo) => {
+            for (const curveOrder of orderInfo.curveOrders) {
+                const orderStatus = await orderInfo.curveExchange.orderStatus(curveOrder.id);
+
+                const newFillAmount = curveOrder.remainingAmount - orderStatus.quantityLeft;
+                if (newFillAmount === 0) continue;
+
+                let amountNeeded = newFillAmount;
+                let coverOrderCounter = 0;
+
+                const runCover = async (coverOrders) => {
+                    while (amountNeeded > 0) {
+                        if (coverOrders[coverOrderCounter].remainingAmount === 0) coverOrderCounter++;
+
+                        const amountToCover = amountNeeded < coverOrders[coverOrderCounter].remainingAmount ? amountNeeded : coverOrders[coverOrderCounter].remainingAmount;
+                        await orderInfo.coverExchange.addBuyOrder(amountToCover, coverOrders[coverOrderCounter].price, orderInfo.tradingPair.referenceCurrency, orderInfo.tradingPair.baseCurrency);
+
+                        amountNeeded -= amountToCover;
+                        coverOrders[coverOrderCounter].remainingAmount -= amountToCover;
+                    }
+
+                    if (coverOrders[coverOrderCounter].remainingAmount === 0) coverOrderCounter++;
+
+                    orderInfo.curveOrders = orderInfo.curveOrders.slice(coverOrderCounter);
+                }
+
+                // cover the fill that we just had
+                await runCover(orderInfo.coverOrders);
+
+                // if there aren't any cover orders left, it means we've fulfilled all our curve orders as well
+                if (orderInfo.coverOrders.length !== 0) newOpenTrades.push(orderInfo);
+            }
+        });
+
+        this._trackedOrders = newOpenTrades;
+    }
+
     async start() {
         if (this._unfitToRun) return;
 
@@ -247,16 +288,16 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
      * @param {string} referenceCurrency reference currency for trading pair
      * @param {string} baseCurrency base currency for trading pair
      * @param {boolean} isBuy whether the provided orders are buy orders
-     * @returns {Promise<boolean>} whether order execution succeeded or not
+     * @returns {Promise<{ success: boolean, id: string, price: number, remainingAmount: number }[]>} Order information
      */
     async executeOrders(orders, connector, referenceCurrency, baseCurrency, isBuy) {
         return (await promiseMap(
             orders,
             async order => {
-                if (isBuy) return await connector.addBuyOrder(order.amount, order.price, referenceCurrency, baseCurrency)
-                else return await connector.addSellOrder(order.amount, order.price, referenceCurrency, baseCurrency)
+                if (isBuy) return { price: order.price, remainingAmount: order.amount, ...(await connector.addBuyOrder(order.amount, order.price, referenceCurrency, baseCurrency)) }
+                else return { price: order.price, remainingAmount: order.amount, ...(await connector.addSellOrder(order.amount, order.price, referenceCurrency, baseCurrency)) }
             }
-        )).every(x => x);
+        )).sort((a, b) => a.price - b.price);
     }
 
     /**
@@ -318,7 +359,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 coverOrders.push({
                     amount: effectiveMinOrderSize,
                     price: orderEntry.price,
-                    connector: offeringToSell ? polarEntry.badDepthExchange : polarEntry.goodDepthExchange
+                    remainingAmount: effectiveMinOrderSize
                 });
             }
 
@@ -327,7 +368,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 const foundIndex = acc.findIndex(item => item.price === curr.price);
 
                 if (foundIndex !== -1) acc[foundIndex].amount += curr.amount;
-                else acc.push({ price: curr.price, amount: curr.amount });
+                else acc.push(curr);
 
                 return acc;
             }, []);
@@ -353,7 +394,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     curveOrders: curveOrders,
                     coverOrders: coverOrders,
                     curveExchange: curveExchange,
-                    coverOrders: coverExchange 
+                    coverOrders: coverExchange
                 };
 
                 const recentTradeInfo = this.isRecentTrade(tradeInfo);
@@ -398,18 +439,26 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             }
 
             // at this point all the sanity checks are complete and we are ready to submit the trades
-            const success = await this.executeOrders(curveOrders, curveExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, false);
-            if (!success) {
+            const res = await this.executeOrders(curveOrders, curveExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, false);
+            if (!res.every(x => x.success)) {
                 Logger.error("FloatingArbitrage", "submitCurveOrders", "Failed to submit curve orders after sanity checks were completed. Undesired behavior may have occured. Check all exchange accounts for changes!", this._socketBroadcaster);
                 return;
             }
 
-            // TODO: add order tracking and store cover orders in this instance
+            this._trackedOrders.push({
+                coverOrders: coverOrders,
+                curveOrders: res,
+                coverExchange: coverExchange,
+                curveExchange: curveExchange,
+                tradingPair: { baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency, referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency }
+            });
+            Logger.success("FloatingArbitrage", "tradeCompleted", "Profitable Floating Arbitrage trade was found and submitted to exchanges!", this._socketBroadcaster);
         }
     }
 
     async tick() {
         this.pruneRecentPaperTrades();
+        await this.processOpenTrades();
 
         // check if user deposited more funds to make defined inventory tradeable
         if (this._unfitToRun) {
