@@ -3,7 +3,6 @@ export default class BaseProvider {
     _apiSecret;
     _apiKey;
     _apiUrl;
-    _pendingTrades;
     _tradingPairs;
     _requestHelper;
     _makerFeePct;
@@ -37,7 +36,6 @@ export default class BaseProvider {
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
         this._baseCurrency = baseCurrency;
-        this._pendingTrades = [];
         this._tradingPairs = {};
         this._makerFeePct = makerFeePct;
         this._takerFeePct = takerFeePct;
@@ -138,14 +136,6 @@ export default class BaseProvider {
      * @returns {Promise<{ success: boolean, id: string }>} success or failure
      */
     async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
-        throw new Error("This method must be implemented.");
-    }
-
-    /**
-     * Get all pending orders on the connector's exchange
-     * @returns {Promise<{amount:number,price:number,referenceCurrency:string,baseCurrency:string,isBuy:boolean}[]>}
-     */
-    getPendingOrders() {
         throw new Error("This method must be implemented.");
     }
 

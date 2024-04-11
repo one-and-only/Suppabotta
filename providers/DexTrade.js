@@ -124,7 +124,6 @@ export default class DexTrade extends BaseProvider {
 
         if (createOrderResponse.status === 200) {
             const pendingOrder = await createOrderResponse.json();
-            this._pendingTrades.push({ id: pendingOrder.data.id, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
             return { success: true, id: pendingOrder.data.id };
         }
 
@@ -137,10 +136,6 @@ export default class DexTrade extends BaseProvider {
 
     async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
         return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
-    }
-
-    getPendingOrders() {
-        return this._pendingTrades;
     }
 
     async orderStatus(orderId) {

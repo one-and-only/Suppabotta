@@ -116,7 +116,6 @@ export default class TradeOgre extends BaseProvider {
             ));
 
             if (res?.uuid) {
-                this._pendingTrades.push({ id: res.uuid, referenceCurrency: referenceCurrency, baseCurrency: baseCurrency, amount: baseAmount, price: price, isBuy: isBuy });
                 return { success: res.success, id: res.success ? res.uuid : "" };
             }
 
@@ -132,10 +131,6 @@ export default class TradeOgre extends BaseProvider {
 
     async addSellOrder(baseAmount, price, referenceCurrency, baseCurrency) {
         return this.submitOrder(baseAmount, price, referenceCurrency, baseCurrency, false);
-    }
-
-    getPendingOrders() {
-        return this._pendingTrades;
     }
 
     async orderStatus(orderId) {
