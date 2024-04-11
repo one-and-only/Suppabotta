@@ -72,33 +72,12 @@ export default class BaseProvider {
     }
 
     /**
-     * Get the exchange-formatted trading pair for a given coin
-     * @param {string} coin coin to get the trading pair for
-     * @returns {string | undefined} exchange-formatted trading pair
-     */
-    coinToExchangePair(coin) {
-        return this._tradingPairs[coin.toUpperCase()]?.pair;
-    }
-
-    /**
      * Format base and reference currency into an exchange API-compatible trading pair
      * @param {string[]} coins coins to format in the order of [baseCurrency, referenceCurrency]
      * @returns {string} exchange API-formatted string representing a trading pair
      */
     coinsToExchangePair(coins) {
         return `${coins[this._exchangeApiPairCurrencyOrder[0]]}${this._exchangeApiCurrencySeparator}${coins[this._exchangeApiPairCurrencyOrder[1]]}`;
-    }
-
-    /**
-     * 
-     * @param {string} tradingPair Exchange-formatted trading pair
-     * @returns {string | undefined} Coin the pair is associated to
-     */
-    exchangePairToCoin(tradingPair) {
-        for (const coin in this._tradingPairs) {
-            if (this._tradingPairs[coin].pair === tradingPair.pair) return coin;
-        }
-        return null;
     }
 
     /**
@@ -182,18 +161,6 @@ export default class BaseProvider {
 
     async prunePendingOrders() {
         throw new Error("This method must be implemented.");
-    }
-
-    /**
-     * Check whether there is a trading pair available for baseCurrency with the given reference currency
-     * @param {string} referenceCurrency currency `baseAmount` is paired with
-     * @returns {boolean} whether it exists or not
-     */
-    referenceCurrencyExists(referenceCurrency) {
-        for (const currency of Object.keys(this._tradingPairs))
-            if (currency === referenceCurrency) return true;
-
-        return false;
     }
 
     /**
