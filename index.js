@@ -294,7 +294,7 @@ app.get("/pendingExchangeOrders", async (req, res) => {
         return;
     }
 
-    res.json(queueData.strategyInstance.pendingTrades());
+    res.json(queueData.strategyInstance?.pendingTrades());
 });
 
 const expressServer = createHttpsServer({
