@@ -121,7 +121,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      * @returns {{buyOrders: Order[], sellOrders: Order[], profitable: boolean, numTimesRepeatable: number, profitFactor: number}}
      */
     gatherEffectiveArbitrageOrders(currentOrderBookInfo, otherOrderBookInfo, currentMinOrderSize, otherMinOrderSize, direction) {
-        const effectiveMinOrderSize = currentMinOrderSize > otherMinOrderSize ? currentMinOrderSize : otherMinOrderSize;
+        const effectiveMinOrderSize = Math.max(currentMinOrderSize, otherMinOrderSize);
         const minimumBuyingOrderSize = Math.max(direction ? currentMinOrderSize : otherMinOrderSize, this._minTradeSizeBaseCurrency);
         const minimumSellingOrderSize = Math.max(direction ? otherMinOrderSize : currentMinOrderSize, this._minTradeSizeBaseCurrency);
 
@@ -137,16 +137,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                 numTimesRepeatable: 0,
                 profitFactor: -1
             }
-        }
-
-        /**
-         * Get a specific order from an applicable order book
-         * @param {("buy" | "sell")} side which side of the order book to get
-         * @param {number} index order book index to get
-         * @returns {Order}
-         */
-        function getOrderIndex(side, index) {
-            return buyingOrderBook[side][index];
         }
 
         let coinsCollected = 0;
@@ -206,8 +196,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
             };
         }
 
-        console.assert(buyupOrders.length > 0, "buyupOrders length is zero");
-        console.assert(sellOrders.length > 0, "sellOrders length is zero");
+        console.assert(buyupOrders.length > 0, `buyupOrders length is zero, ${coinsCollected} ${effectiveMinOrderSize} ${coinsSold} ${coinsCollected}`);
+        console.assert(sellOrders.length > 0, `sellOrders length is zero, ${coinsCollected} ${effectiveMinOrderSize} ${coinsSold} ${coinsCollected}`);
         const buyingCost = buyupOrders.map(x => x.amount * x.price).reduce((acc, curr) => acc += curr);
         const sellingRevenue = sellOrders.map(x => x.amount * x.price).reduce((acc, curr) => acc += curr);
 
