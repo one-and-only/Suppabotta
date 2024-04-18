@@ -357,8 +357,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
         const buyingOrderBook = offeringToSell ? polarEntry.goodExchangePairInfo : polarEntry.badExchangePairInfo;
         const sellingOrderBook = offeringToSell ? polarEntry.badExchangePairInfo : polarEntry.goodExchangePairInfo;
-        const coverExchange = offeringToSell ? polarEntry.badDepthExchange : polarEntry.goodDepthExchange;
-        const curveExchange = offeringToSell ? polarEntry.goodDepthExchange : polarEntry.badDepthExchange;
+        const coverExchange = offeringToSell ? polarEntry.goodDepthExchange : polarEntry.badDepthExchange;
+        const curveExchange = offeringToSell ? polarEntry.badDepthExchange : polarEntry.goodDepthExchange;
 
         // this filters out order entries that we can buy without enough volume
         buyingOrderBook.buyDepthEntries = buyingOrderBook.buyDepthEntries.filter(depthEntry => depthEntry.amount >= effectiveMinOrderSize);
@@ -375,8 +375,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         let markup = 1.02;
         const markupIncreaseFactor = 0.01 / this._numCurveOrders; // creep to 3% markup
 
-        // console.log(`${buyingOrderBook.buyDepthEntries[0].price} ${sellingOrderBook.sellDepthEntries[0].price}|${sellingOrderBook.buyDepthEntries[0].price}`);
-        // true if this price falls within the spread
+        // make sure the price falls within the spread
         if (buyingOrderBook.buyDepthEntries[0].price > sellingOrderBook.sellDepthEntries[0].price && buyingOrderBook.buyDepthEntries[0].price < sellingOrderBook.buyDepthEntries[0].price) {
             // store our cover orders
             for (let i = 0; i < this._numCurveOrders; i++) {
