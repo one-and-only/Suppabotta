@@ -351,7 +351,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             polarEntry.badDepthExchange,
             offeringToSell,
             polarEntry.goodExchangePairInfo.referenceCurrency,
-            { buyPrice: offeringToSell ? polarEntry.goodExchangePairInfo.buyDepthEntries[0].price : 0, sellPrice: offeringToSell ? 0 : polarEntry.goodExchangePairInfo.sellDepthEntries[0].price },
+            { buyPrice: offeringToSell ? polarEntry.goodExchangePairInfo.buyDepthEntries[0].price : polarEntry.goodExchangePairInfo.sellDepthEntries[0].price, sellPrice: offeringToSell ? polarEntry.goodExchangePairInfo.buyDepthEntries[0].price : polarEntry.goodExchangePairInfo.sellDepthEntries[0].price },
             { buyPrice: offeringToSell ? 0 : polarEntry.badExchangePairInfo.buyDepthEntries[0].price, sellPrice: offeringToSell ? polarEntry.goodExchangePairInfo.sellDepthEntries[0].price : 0 }
         );
 
@@ -398,7 +398,10 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             coverOrders = coverOrders.reduce((acc, curr) => {
                 const foundIndex = acc.findIndex(item => item.price === curr.price);
 
-                if (foundIndex !== -1) acc[foundIndex].amount += curr.amount;
+                if (foundIndex !== -1) {
+                    acc[foundIndex].amount += curr.amount;
+                    acc[foundIndex].remainingAmount += curr.amount;
+                }
                 else acc.push(curr);
 
                 return acc;
@@ -409,7 +412,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
             // store our curve orders
             while (curveOrders.length < this._numCurveOrders) {
                 // we want to use the price of the nearest order that we can fulfill at min trade size to guarantee positive returns
-                const applicableOrder = coverQuantityTracking.filter(x => x.amount >= effectiveMinOrderSize)[0];
+                const applicableOrder = coverQuantityTracking.filter(x => x.remainingAmount >= effectiveMinOrderSize)[0];
 
                 curveOrders.push({
                     amount: effectiveMinOrderSize,
@@ -417,7 +420,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 });
                 markup += markupIncreaseFactor;
 
-                applicableOrder.amount -= effectiveMinOrderSize;
+                applicableOrder.remainingAmount -= effectiveMinOrderSize;
             }
 
             if (this._paperTradingEnabled) {
