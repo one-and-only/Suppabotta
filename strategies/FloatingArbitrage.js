@@ -375,8 +375,10 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
         let markup = 1.02;
         const markupIncreaseFactor = 0.01 / this._numCurveOrders; // creep to 3% markup
 
+        const markedUpPrice = buyingOrderBook.buyDepthEntries[0].price;
+
         // make sure the price falls within the spread
-        if (buyingOrderBook.buyDepthEntries[0].price > sellingOrderBook.sellDepthEntries[0].price && buyingOrderBook.buyDepthEntries[0].price < sellingOrderBook.buyDepthEntries[0].price) {
+        if (markedUpPrice > sellingOrderBook.sellDepthEntries[0].price && markedUpPrice < sellingOrderBook.buyDepthEntries[0].price) {
             // store our cover orders
             for (let i = 0; i < this._numCurveOrders; i++) {
                 if (coverOrders.length === this._numCurveOrders) break;
