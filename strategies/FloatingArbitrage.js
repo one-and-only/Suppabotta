@@ -453,6 +453,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     mongo_timestamp: new Date()
                 });
 
+                Logger.success("FloatingArbitrage", "storePaperTrade", "Found a profitable paper trade and stored it in the database", this._socketBroadcaster);
                 return;
             }
 
