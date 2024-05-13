@@ -129,7 +129,7 @@ export default class CoinEx extends BaseProvider {
                 }
             );
 
-            if (!response.order_id) return false;
+            if (!response.data.order_id) return { success: false, error: response.message };
 
             return { success: true, id: response.order_id };
         } catch (e) {
@@ -180,14 +180,14 @@ export default class CoinEx extends BaseProvider {
                 this.createAuthorizationHeaders("GET", "", `${this._apiUrl}/assets/spot/balance`)
             );
 
-            const currencyData = response.data?.filter(x => x.ccy === currency.toUpperCase())[0];
-            if (!currencyData === 0) {
+            if (!Array.isArray(response.data)) {
                 return {
-                    success: true,
-                    total: 0,
-                    available: 0
+                    success: false,
+                    error: response.message
                 };
             }
+
+            const currencyData = response.data?.filter(x => x.ccy === currency.toUpperCase())[0];
 
             return {
                 success: true,
