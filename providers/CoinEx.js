@@ -1,6 +1,6 @@
 import RequestHelper from "../RequestHelper.js";
 import BaseProvider from "./BaseProvider.js";
-import { createHash } from "crypto";
+import { createHmac } from "crypto";
 
 export default class CoinEx extends BaseProvider {
     _referenceCurrencies = ["USDT", "USDC", "BTC"];
@@ -78,17 +78,6 @@ export default class CoinEx extends BaseProvider {
         }
     }
 
-    customOptionalStringify(obj) {
-        return JSON.stringify(obj, (key, val) => {
-            // return empty string if the value is an empty string instead of escaped quotes
-            if (val === "") {
-                return "";
-            }
-
-            return val;
-        });
-    }
-
     /**
      * 
      * @param {string} method HTTP method used in the authorized request
@@ -98,7 +87,7 @@ export default class CoinEx extends BaseProvider {
      */
     createAuthorizationHeaders(method, body, apiPath) {
         const timestamp = Date.now();
-        const signature = createHash("sha256").update(`${method}${apiPath}${this.customOptionalStringify(body)}${timestamp}`).digest("hex").toUpperCase();
+        const signature = createHmac("sha256", this._apiSecret).update(`${method}${apiPath}${method === "POST" ? JSON.stringify(body) : ""}${timestamp}`).digest("hex").toUpperCase();
 
         return {
             "X-COINEX-KEY": this._apiKey,
@@ -125,7 +114,7 @@ export default class CoinEx extends BaseProvider {
                 true,
                 {
                     "Content-Type": "application/json",
-                    ...this.createAuthorizationHeaders("POST", body, `${this._apiUrl}/spot/order`)
+                    ...this.createAuthorizationHeaders("POST", body, `/v2/spot/order`)
                 }
             );
 
@@ -146,13 +135,11 @@ export default class CoinEx extends BaseProvider {
     }
 
     async orderStatus(order) {
-        const apiPath = `${this._apiUrl}/order/status?order_id=${order.id}&market=${order.market}`;
-
         try {
             const orderStatus = await this._requestHelper.get(
-                apiPath,
+                `${this._apiUrl}/order/status?order_id=${order.id}&market=${order.market}`,
                 true,
-                this.createAuthorizationHeaders("GET", "", apiPath)
+                this.createAuthorizationHeaders("GET", "", `/v2/order/status?order_id=${order.id}&market=${order.market}`)
             );
 
             if (!orderStatus.order_id) return { success: false };
@@ -177,7 +164,7 @@ export default class CoinEx extends BaseProvider {
             const response = await this._requestHelper.get(
                 `${this._apiUrl}/assets/spot/balance`,
                 true,
-                this.createAuthorizationHeaders("GET", "", `${this._apiUrl}/assets/spot/balance`)
+                this.createAuthorizationHeaders("GET", "", `/v2/assets/spot/balance`)
             );
 
             if (!Array.isArray(response.data)) {
@@ -188,6 +175,14 @@ export default class CoinEx extends BaseProvider {
             }
 
             const currencyData = response.data?.filter(x => x.ccy === currency.toUpperCase())[0];
+
+            if (!currencyData) {
+                return {
+                    success: true,
+                    total: 0,
+                    available: 0
+                };
+            }
 
             return {
                 success: true,
