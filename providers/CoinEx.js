@@ -2,19 +2,16 @@ import RequestHelper from "../RequestHelper.js";
 import BaseProvider from "./BaseProvider.js";
 import { createHash } from "crypto";
 
-import Bluebird from "bluebird";
-const { map: promiseMap } = Bluebird;
-
 export default class CoinEx extends BaseProvider {
     _referenceCurrencies = ["USDT", "USDC", "BTC"];
 
     constructor(outboundIp, apiSecret, apiKey, baseCurrency) {
-        super(outboundIp, apiSecret, apiKey, "https://api.coinex.com/v1", baseCurrency, 0.2, 0.2, 0.3, false, [0, 1], "", "CoinEx");
+        super(outboundIp, apiSecret, apiKey, "https://api.coinex.com/v2", baseCurrency, 0.2, 0.2, 0.3, false, [0, 1], "", "CoinEx");
         this._requestHelper = new RequestHelper(
             {
                 public: {
-                    amount: 20,
-                    interval: 2
+                    amount: 10,
+                    interval: 1
                 }
             },
             true,
@@ -28,40 +25,28 @@ export default class CoinEx extends BaseProvider {
     }
 
     async allTradingPairs() {
-        const markets = await this._requestHelper.get(`${this._apiUrl}/market/info`);
-        for (const marketKey in markets.data) {
-            const market = markets.data[marketKey];
+        const markets = await this._requestHelper.get(`${this._apiUrl}/spot/market`);
+        for (const market of markets.data) {
             this._minTradeVolumes[this.coinsToExchangePair([market.trading_name, market.pricing_name])] = parseFloat(market.min_amount);
 
             if (!marketKey.startsWith(this._baseCurrency)) continue;
 
-            this._tradingPairs[market.pricing_name] = { pair: marketKey, enabled: true };
+            this._tradingPairs[market.pricing_name] = { pair: market.market, enabled: true };
         }
     }
 
     async getAllMarkets() {
-        const marketData = await this._requestHelper.get(`${this._apiUrl}/market/list`);
-        const parsedMarkets = [];
-
-        for (const market of marketData.data) {
-            for (const referenceCurrency of this._referenceCurrencies) {
-                const split = market.split(referenceCurrency);
-                if (split[0].length < market.length) {
-                    parsedMarkets.push({ referenceCurrency: referenceCurrency, baseCurrency: split[0] });
-                    break;
-                }
-            }
-        }
-
-        return parsedMarkets;
+        return (await this._requestHelper.get(`${this._apiUrl}/spot/market`)).data.map(market => {
+            return { referenceCurrency: market.quote_ccy, baseCurrency: market.base_ccy };
+        });
     }
 
     async getOrderBook(baseCurrency, referenceCurrency) {
         try {
-            const depthInfo = await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=50&merge=0`);
+            const depthInfo = await this._requestHelper.get(`${this._apiUrl}/spot/depth?market=${this.coinsToExchangePair([baseCurrency.toUpperCase(), referenceCurrency.toUpperCase()])}&limit=50&interval=0`);
             return {
-                bid: depthInfo.data.bids.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } }),
-                ask: depthInfo.data.asks.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } })
+                bid: depthInfo.data.depth.bids.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } }),
+                ask: depthInfo.data.depth.asks.map(val => { return { price: parseFloat(val[0]), amount: parseFloat(val[1]) } })
             };
         } catch (e) {
             return {
@@ -73,10 +58,11 @@ export default class CoinEx extends BaseProvider {
 
     async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
         try {
-            const marketInfo = await this._requestHelper.get(`${this._apiUrl}/market/depth?market=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}&limit=1&merge=0`);
+            const marketInfo = await this._requestHelper.get(`${this._apiUrl}/spot/depth?market=${this.coinsToExchangePair([baseCurrency.toUpperCase(), referenceCurrency.toUpperCase()])}&limit=5&interval=0`);
 
-            const ask = marketInfo.data.asks[0];
-            const bid = marketInfo.data.bids[0]
+            const ask = marketInfo.data.depth.asks[0];
+            const bid = marketInfo.data.depth.bids[0];
+
             return {
                 success: true,
                 buyPrice: parseFloat(ask[0]),
@@ -92,45 +78,60 @@ export default class CoinEx extends BaseProvider {
         }
     }
 
-    createDictText(params) {
-        var keys = Object.keys(params).sort();
-        var qs = keys[0] + "=" + params[keys[0]];
-        for (var i = 1; i < keys.length; i++) {
-            qs += "&" + keys[i] + "=" + params[keys[i]];
-        }
-        return qs;
+    customOptionalStringify(obj) {
+        return JSON.stringify(value, (key, val) => {
+            // return empty string if the value is an empty string instead of escaped quotes
+            if (val === "") {
+                return "";
+            }
+
+            return val;
+        });
     }
 
-    createAuthorization(body) {
-        return createHash("md5").update(this.createDictText(body) + `&secret_key=${this._apiSecret}`).digest("hex").toUpperCase()
+    /**
+     * 
+     * @param {string} method HTTP method used in the authorized request
+     * @param {object|""} body if the request uses HTTP body (JSON for this bot), then this is the body as an object. Omit the effect of this with an empty string (`""`)
+     * @param {string} apiPath URN excluding coinex base URL of the API endpoint you're visiting
+     * @returns 
+     */
+    createAuthorizationHeaders(method, body, apiPath) {
+        const timestamp = Date.now();
+        const signature = createHash("sha256").update(`${method}${apiPath}${this.customOptionalStringify(body)}${timestamp}`).digest("hex").toUpperCase();
+
+        return {
+            "X-COINEX-KEY": this._apiSecret,
+            "X-COINEX-SIGN": signature,
+            "X-COINEX-TIMESTAMP": timestamp
+        }
     }
 
     async submitOrder(baseAmount, price, referenceCurrency, baseCurrency, isBuy) {
         const market = this.coinsToExchangePair([baseCurrency, referenceCurrency]);
         const body = {
-            access_id: this._apiKey,
             market: market,
-            type: isBuy ? "buy" : "sell",
+            market_type: "SPOT",
+            type: "limit",
+            side: isBuy ? "buy" : "sell",
             amount: baseAmount,
-            price: price,
-            tonce: Date.now()
+            price: price
         };
 
         try {
             const response = await this._requestHelper.post(
-                `${this._apiUrl}/order/limit`,
+                `${this._apiUrl}/spot/order`,
                 body,
                 true,
                 {
                     "Content-Type": "application/json",
-                    "Authorization": this.createAuthorization(body)
+                    ...this.createAuthorizationHeaders("POST", body, `${this._apiUrl}/spot/order`)
                 }
             );
-            const responseJson = await response.json();
 
-            if (response.status !== 200 || !responseJson.id) return false;
+            if (!response.order_id) return false;
 
-            return { success: true, id: responseJson.id };
+            return { success: true, id: response.order_id };
         } catch (e) {
             return { success: false, id: "" };
         }
@@ -145,32 +146,23 @@ export default class CoinEx extends BaseProvider {
     }
 
     async orderStatus(order) {
-        const params = {
-            access_id: this._apiKey,
-            id: order.id,
-            market: order.market,
-            tonce: Date.now()
-        };
+        const apiPath = `${this._apiUrl}/order/status?order_id=${order.id}&market=${order.market}`;
 
         try {
-            const response = await this._requestHelper.get(
-                `${this._apiUrl}/order/status?${this.createDictText(params)}`,
+            const orderStatus = await this._requestHelper.get(
+                apiPath,
                 true,
-                {
-                    "Authorization": this.createAuthorization(params)
-                }
+                this.createAuthorizationHeaders("GET", "", apiPath)
             );
 
-            const orderStatus = (await response.json()).data;
-
-            if (response.status !== 200) return { success: false }
+            if (!orderStatus.order_id) return { success: false };
 
             return {
                 success: true,
-                type: orderStatus.type,
+                type: orderStatus.side,
                 market: market,
                 price: orderStatus.price,
-                quantityLeft: parseFloat(orderStatus.left)
+                quantityLeft: parseFloat(orderStatus.unfilled_amount)
             };
         } catch (e) {
             return {
@@ -181,22 +173,15 @@ export default class CoinEx extends BaseProvider {
     }
 
     async getBalance(currency) {
-        const params = {
-            access_id: this._apiKey,
-            tonce: Date.now()
-        };
-
         try {
             const response = await this._requestHelper.get(
-                `${this._apiUrl}/balance/info?${this.createDictText(params)}`,
+                `${this._apiUrl}/assets/spot/balance`,
                 true,
-                {
-                    "Authorization": this.createAuthorization(params)
-                }
+                this.createAuthorizationHeaders("GET", "", `${this._apiUrl}/assets/spot/balance`)
             );
 
-            const currencyData = response.data[currency.toUpperCase()];
-            if (!currencyData) {
+            const currencyData = response.data?.filter(x => x.ccy === currency.toUpperCase())[0];
+            if (!currencyData === 0) {
                 return {
                     success: true,
                     total: 0,
