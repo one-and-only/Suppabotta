@@ -79,7 +79,7 @@ export default class CoinEx extends BaseProvider {
     }
 
     customOptionalStringify(obj) {
-        return JSON.stringify(value, (key, val) => {
+        return JSON.stringify(obj, (key, val) => {
             // return empty string if the value is an empty string instead of escaped quotes
             if (val === "") {
                 return "";
@@ -101,7 +101,7 @@ export default class CoinEx extends BaseProvider {
         const signature = createHash("sha256").update(`${method}${apiPath}${this.customOptionalStringify(body)}${timestamp}`).digest("hex").toUpperCase();
 
         return {
-            "X-COINEX-KEY": this._apiSecret,
+            "X-COINEX-KEY": this._apiKey,
             "X-COINEX-SIGN": signature,
             "X-COINEX-TIMESTAMP": timestamp
         }
