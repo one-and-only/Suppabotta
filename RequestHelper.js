@@ -12,7 +12,7 @@ export default class RequestHelper {
 
     /**
      * 
-     * @param {{ public: { amount: number, interval: number }, private: { amount: number, interval: number } }} rate_limits Public and Private rate limits for exchange
+     * @param {{ public: { amount: number, interval: number }, private?: { amount: number, interval: number } }} rate_limits Public and Private rate limits for exchange
      * @param {boolean} are_limits_global Whether the rate limits apply to all endpoints instead of separate limits for public and authenticated.
      */
     constructor(rate_limits, are_limits_global, outbound_ip) {

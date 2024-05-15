@@ -1,23 +1,9 @@
 import BaseProvider from "./BaseProvider.js";
 import { encode as base64Encode } from "js-base64";
-import RequestHelper from "../RequestHelper.js";
-
-import Bluebird from "bluebird";
-const { map: promiseMap } = Bluebird;
 
 export default class TradeOgre extends BaseProvider {
-    constructor(outboundIp, apiSecret, apiKey, baseCurrency) {
-        super(outboundIp, apiSecret, apiKey, "https://tradeogre.com/api/v1", baseCurrency, 0.3, 0.3, 0.01, true, [0, 1], "-", "TradeOgre");
-        this._requestHelper = new RequestHelper(
-            {
-                public: {
-                    amount: 2000,
-                    interval: 60000,
-                }
-            },
-            true,
-            this._outboundIp
-        );
+    constructor(outboundIp, requestHelper, apiSecret, apiKey, baseCurrency) {
+        super(outboundIp, requestHelper, apiSecret, apiKey, "https://tradeogre.com/api/v1", baseCurrency, 0.3, 0.3, 0.01, true, [0, 1], "-", "TradeOgre");
     }
 
     async initialize() {

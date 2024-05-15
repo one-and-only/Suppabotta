@@ -7,6 +7,7 @@ import express from "express";
 import * as socketIo from "socket.io";
 import { promisify } from "util";
 import Logger from "./Logger.js";
+import RequestHelper from "./RequestHelper.js";
 
 import IP from "ip";
 const { address: ipAddress } = IP;
@@ -25,6 +26,7 @@ import IORedis from "ioredis";
 import TickerMaintenanceStrategy from "./strategies/TickerMaintenance.js";
 import ClassicArbitrageStrategy from "./strategies/ClassicArbitrage.js";
 import FloatingArbitrageStrategy from "./strategies/FloatingArbitrage.js";
+import { apiRateLimits } from "./APIRateLimits.js";
 
 // TODO: Update all connectors to support custom outbound IP when using `RequestHelper`
 
@@ -241,7 +243,17 @@ app.post("/startTrading", async (req, res) => {
         return;
     }
 
+    const tradingArgs = req.query.args ? JSON.parse(req.query.args) : {};
+
+    // set our target IP address
+    const outboundIp = tradingArgs.customLocalIp ?? ipAddress();
+
     if (!userQueueData.hasOwnProperty(req.query.username)) userQueueData[req.query.username] = {};
+
+    if (!userQueueData[req.query.username].hasOwnProperty("requestHelpers")) {
+        userQueueData[req.query.username].requestHelpers = {};
+        userQueueData[req.query.username].requestHelpers.initialized = false;
+    }
 
     userQueueData[req.query.username][req.query.strategy] = {
         providers: [],
@@ -250,14 +262,22 @@ app.post("/startTrading", async (req, res) => {
         wantsShutdown: false
     };
 
-    const tradingArgs = req.query.args ? JSON.parse(req.query.args) : {};
-
     for (const providerClass of strategyInfo.providers) {
         const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
         if (!providerCreds) continue;
-        const provider = await new providerClass(tradingArgs.customLocalIp ?? ipAddress(), providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency ?? "RTM").initialize();
+
+        if (userQueueData[req.query.username].requestHelpers.initialized === false)
+            userQueueData[req.query.username].requestHelpers[providerClass.name] = new RequestHelper(
+                apiRateLimits[providerClass.name],
+                !apiRateLimits[providerClass.name].hasOwnProperty("private"),
+                outboundIp
+            );
+
+        const provider = await new providerClass(outboundIp, userQueueData[req.query.username].requestHelpers[providerClass.name], providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency).initialize();
         userQueueData[req.query.username][req.query.strategy].providers.push(provider);
     }
+
+    userQueueData[req.query.username].requestHelpers.initialized = true;
 
     await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs });
 

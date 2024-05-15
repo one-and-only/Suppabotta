@@ -14,6 +14,7 @@ export default class BaseProvider {
     _exchangeApiCurrencySeparator;
     _name;
     _baseCurrency;
+    _requestHelper;
 
     /**
      * Base class for an exchange provider (Exchange API interface)
@@ -30,8 +31,9 @@ export default class BaseProvider {
      * @param {string} exchangeApiCurrencySeparator Separator between the referenceCurrency and baseCurrency in the exchange API
      * @param {string} name Name/unique identifier of the exchange provider
      */
-    constructor(outboundIp, apiSecret, apiKey, apiUrl, baseCurrency, makerFeePct, takerFeePct, baseCurrencyWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
+    constructor(outboundIp, requestHelper, apiSecret, apiKey, apiUrl, baseCurrency, makerFeePct, takerFeePct, baseCurrencyWithdrawalFee, minTradeVolumeIsReferenceCurrency, exchangeApiPairCurrencyOrder, exchangeApiCurrencySeparator, name) {
         this._outboundIp = outboundIp;
+        this._requestHelper = requestHelper;
         this._apiSecret = apiSecret;
         this._apiKey = apiKey;
         this._apiUrl = apiUrl;
