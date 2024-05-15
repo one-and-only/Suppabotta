@@ -1,6 +1,5 @@
 import BaseProvider from "./BaseProvider.js";
 import { createHash } from "crypto";
-import RequestHelper from "../RequestHelper.js";
 
 import Bluebird from "bluebird";
 const { map: promiseMap } = Bluebird;
@@ -14,18 +13,8 @@ import BigNumber from "bignumber.js";
 // because the Dex-Trade API needs to sort parameters alphabetically >:(
 // insertion order must be respected in code to achieve this
 export default class DexTrade extends BaseProvider {
-    constructor(outboundIp, apiSecret, apiKey, baseCurrency) {
-        super(outboundIp, apiSecret, apiKey, "https://api.dex-trade.com/v1", baseCurrency, 0.1, 0.1, 0.05, false, [0, 1], "", "DexTrade");
-        this._requestHelper = new RequestHelper(
-            {
-                public: {
-                    amount: -1,
-                    interval: -1
-                }
-            },
-            true,
-            this._outboundIp
-        );
+    constructor(outboundIp, requestHelper, apiSecret, apiKey, baseCurrency) {
+        super(outboundIp, requestHelper, apiSecret, apiKey, "https://api.dex-trade.com/v1", baseCurrency, 0.1, 0.1, 0.05, false, [0, 1], "", "DexTrade");
     }
 
     /**

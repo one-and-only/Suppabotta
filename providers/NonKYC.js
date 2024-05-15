@@ -1,5 +1,4 @@
 import BaseProvider from "./BaseProvider.js";
-import RequestHelper from "../RequestHelper.js";
 import { createHmac, randomBytes } from 'crypto';
 import Logger from "../Logger.js";
 
@@ -7,18 +6,8 @@ import Bluebird from "bluebird";
 const { map: promiseMap } = Bluebird;
 
 export default class NonKYC extends BaseProvider {
-    constructor(outboundIp, apiSecret, apiKey, baseCurrency) {
-        super(outboundIp, apiSecret, apiKey, "https://api.nonkyc.io/api/v2", baseCurrency, 0.3, 0.3, 0.62, true, [0, 1], "_", "NonKYC");
-        this._requestHelper = new RequestHelper(
-            {
-                public: {
-                    amount: -1,
-                    interval: -1
-                }
-            },
-            true,
-            this._outboundIp
-        );
+    constructor(outboundIp, requestHelper, apiSecret, apiKey, baseCurrency) {
+        super(outboundIp, requestHelper, apiSecret, apiKey, "https://api.nonkyc.io/api/v2", baseCurrency, 0.3, 0.3, 0.62, true, [0, 1], "_", "NonKYC");
     }
 
     async initialize() {

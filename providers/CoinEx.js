@@ -1,22 +1,11 @@
-import RequestHelper from "../RequestHelper.js";
 import BaseProvider from "./BaseProvider.js";
 import { createHmac } from "crypto";
 
 export default class CoinEx extends BaseProvider {
     _referenceCurrencies = ["USDT", "USDC", "BTC"];
 
-    constructor(outboundIp, apiSecret, apiKey, baseCurrency) {
-        super(outboundIp, apiSecret, apiKey, "https://api.coinex.com/v2", baseCurrency, 0.2, 0.2, 0.3, false, [0, 1], "", "CoinEx");
-        this._requestHelper = new RequestHelper(
-            {
-                public: {
-                    amount: 10,
-                    interval: 1
-                }
-            },
-            true,
-            this._outboundIp
-        );
+    constructor(outboundIp, requestHelper, apiSecret, apiKey, baseCurrency) {
+        super(outboundIp, requestHelper, apiSecret, apiKey, "https://api.coinex.com/v2", baseCurrency, 0.2, 0.2, 0.3, false, [0, 1], "", "CoinEx");
     }
 
     async initialize() {
