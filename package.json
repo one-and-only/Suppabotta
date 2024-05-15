@@ -26,10 +26,7 @@
     "ip": "^2.0.1",
     "js-base64": "^3.7.3",
     "mongodb": "^4.10.0",
-    "socket.io": "^4.6.1"
-  },
-  "optionalDependencies": {
-    "bufferutil": "^4.0.6",
+    "socket.io": "^4.6.1",
     "utf-8-validate": "^5.0.9"
   }
 }

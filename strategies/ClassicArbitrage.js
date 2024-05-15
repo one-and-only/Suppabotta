@@ -128,7 +128,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         const buyingOrderBook = direction ? currentOrderBookInfo : otherOrderBookInfo;
         const sellingOrderBook = direction ? otherOrderBookInfo : currentOrderBookInfo;
 
-        if (currentOrderBookInfo.length == 0 || otherOrderBookInfo.length == 0) {
+        if (buyingOrderBook.ask.length == 0 || sellingOrderBook.bid.length == 0) {
             Logger.warning("ClassicArbitrage", "gatherOrders", "One of the given order books are empty", this._socketBroadcaster);
             return {
                 buyOrders: [],
@@ -136,7 +136,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                 profitable: false,
                 numTimesRepeatable: 0,
                 profitFactor: -1
-            }
+            };
         }
 
         let coinsCollected = 0;
