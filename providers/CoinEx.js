@@ -16,7 +16,7 @@ export default class CoinEx extends BaseProvider {
     async allTradingPairs() {
         const markets = await this._requestHelper.get(`${this._apiUrl}/spot/market`);
         for (const market of markets.data) {
-            this._minTradeVolumes[this.coinsToExchangePair([market.trading_name, market.pricing_name])] = parseFloat(market.min_amount);
+            this._minTradeVolumes[this.coinsToExchangePair([market.base_ccy, market.quote_ccy])] = parseFloat(market.min_amount);
 
             if (!market.base_ccy.startsWith(this._baseCurrency)) continue;
 
