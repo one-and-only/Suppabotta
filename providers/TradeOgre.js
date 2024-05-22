@@ -28,7 +28,7 @@ export default class TradeOgre extends BaseProvider {
 
     async getOrderBook(baseCurrency, referenceCurrency) {
         try {
-            const orderBook = await (await this._requestHelper.get(`${this._apiUrl}/orders/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`)).json();
+            const orderBook = await this._requestHelper.get(`${this._apiUrl}/orders/${this.coinsToExchangePair([baseCurrency, referenceCurrency])}`);
 
             return {
                 bid: Object.keys(orderBook.buy).map(price => { return { price: parseFloat(price), amount: parseFloat(orderBook.buy[price]) } }).reverse(),

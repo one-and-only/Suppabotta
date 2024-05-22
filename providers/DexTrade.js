@@ -68,6 +68,10 @@ export default class DexTrade extends BaseProvider {
 
         for (const symbolIdx in symbols.data) {
             const symbol = symbols.data[symbolIdx];
+            //! this puts 28.125 for every single pair
+            // this was done because at the time of writing this connector, RTM was the only base currency that this bot would target
+            // now the user can choose the base currency
+            // TODO: find a way to store the min trade volumes for each pair
             this._minTradeVolumes[symbol.pair] = 28.125; // Dex-Trade Trading UI says 28.125 minimum RTM for all RTM pairs
             if (symbol.base === this._baseCurrency) {
                 this._tradingPairs[symbol.quote] = { pair: symbol.pair, enabled: true };
@@ -76,17 +80,16 @@ export default class DexTrade extends BaseProvider {
     }
 
     async getMarketPrice(referenceCurrency, baseCurrency = "RTM") {
-        const orderBookResponse = await this._requestHelper.get(`${this._apiUrl}/public/book?pair=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}`);
+        const orderBook = await this._requestHelper.get(`${this._apiUrl}/public/book?pair=${baseCurrency.toUpperCase()}${referenceCurrency.toUpperCase()}`);
 
-        if (orderBookResponse.status === 400) return { success: false, error: "Invalid reference currency" }
+        if (!orderBook.status) return { success: false, error: "Invalid reference currency" }
 
-        const data = (await orderBookResponse.json()).data;
         return {
             success: true,
-            sellPrice: data.buy[0].rate,
-            sellDepth: data.buy[0].volume,
-            buyPrice: data.sell[0].rate,
-            buyDepth: data.sell[0].volume
+            sellPrice: orderBook.data.buy[0].rate,
+            sellDepth: orderBook.data.buy[0].volume,
+            buyPrice: orderBook.data.sell[0].rate,
+            buyDepth: orderBook.data.sell[0].volume
         };
     }
 
@@ -101,7 +104,7 @@ export default class DexTrade extends BaseProvider {
         ]);
         const privateHeaders = this.generatePrivateHeaders(body);
 
-        const createOrderResponse = await this._requestHelper.post(
+        const pendingOrder = await this._requestHelper.post(
             `${this._apiUrl}/private/create-order`,
             Object.fromEntries(body),
             true,
@@ -111,12 +114,7 @@ export default class DexTrade extends BaseProvider {
             }
         );
 
-        if (createOrderResponse.status === 200) {
-            const pendingOrder = await createOrderResponse.json();
-            return { success: true, id: pendingOrder.data.id };
-        }
-
-        return { success: false, id: "" };
+        return { success: pendingOrder.status, id: pendingOrder.status ? pendingOrder.data.id : "" };
     }
 
     async addBuyOrder(baseAmount, price, referenceCurrency, baseCurrency) {
@@ -131,8 +129,9 @@ export default class DexTrade extends BaseProvider {
         const body = new Map([
             ["order_id", new BigNumber(orderId).toString()],
             ["request_id", `${Date.now()}`]
-        ])
-        const order = await this._requestHelper.post(
+        ]);
+
+        const orderStatus = await this._requestHelper.post(
             `${this._apiUrl}/private/get-order`,
             Object.fromEntries(body),
             true,
@@ -141,15 +140,15 @@ export default class DexTrade extends BaseProvider {
                 ...(this.generatePrivateHeaders(body))
             }
         );
-        if (order.status !== 200) return { sucess: false, error: await order.text() };
 
-        const data = await order.json();
+        if (!orderStatus.status) return { sucess: false, error: orderStatus.error };
+
         return {
             success: true,
-            type: (data.type === 0) ? "buy" : "sell",
-            market: data.market,
-            price: data.price,
-            quantityLeft: data.volume - data.volume_done
+            type: (orderStatus.data.type === 0) ? "buy" : "sell",
+            market: orderStatus.data.market,
+            price: orderStatus.data.price,
+            quantityLeft: orderStatus.data.volume - orderStatus.data.volume_done
         };
     }
 
@@ -170,12 +169,9 @@ export default class DexTrade extends BaseProvider {
             }
         );
 
-        if (balances.status !== 200) return { success: false, error: await balances.text() };
+        if (!balances.status) return { success: false, error: balances.error };
 
-        const balanceData = await balances.json();
-        if (!balanceData.status) return { success: false, error: balanceData.error };
-
-        const currencyData = balanceData.data.list.filter((balance) => {
+        const currencyData = balances.data.list.filter((balance) => {
             return balance.currency.iso3 === currency;
         })[0];
 
