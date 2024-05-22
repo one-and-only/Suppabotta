@@ -43,7 +43,7 @@ export default class BaseStrategy {
     pendingTrades() {
         return this._connectors.map(connector => {
             return {
-                connector: connector,
+                connector: connector._name,
                 pendingTrades: []
             };
         })
