@@ -369,6 +369,6 @@ process.on("SIGINT", async () => {
     await userWorker.close();
     await queueEvents.close();
     await userQueue.close();
-    console.log("\nCleaned up, goodbye!");
+    Logger.success("Global", "shutdown", "Cleaned up, goodbye!");
     process.exit(0);
 });
