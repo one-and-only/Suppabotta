@@ -28,8 +28,6 @@ import ClassicArbitrageStrategy from "./strategies/ClassicArbitrage.js";
 import FloatingArbitrageStrategy from "./strategies/FloatingArbitrage.js";
 import { apiRateLimits } from "./APIRateLimits.js";
 
-// TODO: Update all connectors to support custom outbound IP when using `RequestHelper`
-
 const strategyMaps = {
     "TickerMaintenance": {
         providers: [DexTrade],
