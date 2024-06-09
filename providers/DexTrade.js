@@ -8,10 +8,6 @@ const { map: promiseMap } = Bluebird;
 // talked to API support and they said they don't support this notation (i.e. it's bad)
 import BigNumber from "bignumber.js";
 
-//* NOTE about this API:
-// instead of using objects for setting the request's data, we need to use Map
-// because the Dex-Trade API needs to sort parameters alphabetically >:(
-// insertion order must be respected in code to achieve this
 export default class DexTrade extends BaseProvider {
     constructor(outboundIp, requestHelper, apiSecret, apiKey, baseCurrency) {
         super(outboundIp, requestHelper, apiSecret, apiKey, "https://api.dex-trade.com/v1", baseCurrency, 0.1, 0.1, 0.05, false, [0, 1], "", "DexTrade");
