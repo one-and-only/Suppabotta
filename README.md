@@ -2,7 +2,7 @@
 RTM Arbitrage Bot using WSS + REST
 
 ## Installation Instructions
-1. Install [Node.JS](https://nodejs.org/en/download) (tested on Node 16-20; Install latest whenever possible)
+1. Install [Node.JS](https://nodejs.org/en/download) (tested on Node 16-22; Install latest whenever possible)
 1. Install [MongoDB](https://www.mongodb.com/try/download/community)
 1. Install [Redis](https://redis.io/docs/getting-started/installation/)
 1. Clone this repository or download as Zip and extract somewhere you'll have access to
