@@ -8,35 +8,35 @@ export default class Logger {
         }
     }
 
-    static _composeMessage(type, connector, action, message, color, goingToBrowser) {
+    static _processMessage(type, connector, action, message, color, goingToBrowser) {
         let processedMessage = `[${type}] ${connector}|${action}: ${message}`;
+
         if (!goingToBrowser)
             processedMessage = chalk[color](processedMessage);
-        return `${new Date().toISOString()} ${processedMessage}`;
-    }
 
-    static _processMessage(message, goingToBrowser) {
+        processedMessage = `${new Date().toISOString()} ${processedMessage}`;
+
         if (goingToBrowser) {
-            console.log(message); // TODO replace this with the custom client-server logging implementation
+            console.log(processedMessage); // TODO replace this with the custom client-server logging implementation
         } else {
-            console.log(message);
-            this._logToFile(message);
+            console.log(processedMessage);
+            this._logToFile(processedMessage);
         }
     }
 
     static success(connector, action, message, goingToBrowser = false) {
-        this._processMessage(this._composeMessage("SUCCESS", connector, action, message, "greenBright", goingToBrowser), goingToBrowser);
+        this._processMessage("SUCCESS", connector, action, message, "greenBright", goingToBrowser);
     }
 
     static info(connector, action, message, goingToBrowser = false) {
-        this._processMessage(this._composeMessage("INFO", connector, action, message, "blueBright", goingToBrowser), goingToBrowser);
+        this._processMessage("INFO", connector, action, message, "blueBright", goingToBrowser);
     }
 
     static warning(connector, action, message, goingToBrowser = false) {
-        this._processMessage(this._composeMessage("WARNING", connector, action, message, "yellowBright", goingToBrowser), goingToBrowser);
+        this._processMessage("WARNING", connector, action, message, "yellowBright", goingToBrowser);
     }
 
     static error(connector, action, message, goingToBrowser = false) {
-        this._processMessage(this._composeMessage("ERROR", connector, action, message, "redBright", goingToBrowser), goingToBrowser);
+        this._processMessage("ERROR", connector, action, message, "redBright", goingToBrowser);
     }
 }
