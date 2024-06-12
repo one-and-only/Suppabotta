@@ -105,6 +105,8 @@ async function startTrading() {
 }
 async function stopTrading() {
   const t = document.getElementById("tradingButton")
+  t.setAttribute("disabled", !0)
+  t.setAttribute("value", "Loading...")
   const r = await (
       await fetch(`/stopTrading?jobId=${window.jobId}`, {
           method: "POST",
