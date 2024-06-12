@@ -2,7 +2,6 @@ import BaseProvider from "../providers/BaseProvider.js";
 
 export default class BaseStrategy {
     _connectors;
-    _socketBroadcaster;
     _paperTradingMongoCollection;
     _recentPaperTrades;
 
@@ -12,7 +11,6 @@ export default class BaseStrategy {
      */
     constructor(connectors, args, paperTradingMongoCollection) {
         this._connectors = connectors;
-        this._socketBroadcaster = args.socketBroadcaster;
         this._paperTradingMongoCollection = paperTradingMongoCollection;
         this._recentPaperTrades = [];
     }

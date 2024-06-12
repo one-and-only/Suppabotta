@@ -16,7 +16,7 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
         super(connectors, args);
 
         if (!args.baseCurrency) {
-            Logger.error("TickerMaintenance", "startup", "baseCurrency is not defined. Please add it as an algorithm parameter", this._socketBroadcaster);
+            Logger.error("TickerMaintenance", "startup", "baseCurrency is not defined. Please add it as an algorithm parameter", true);
         }
 
         this._lastMaintainedTimestamp = 0;
@@ -58,7 +58,7 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
                         (referenceCurrencyBalance < minTradeSize * priceData.sellPrice) ||
                         (baseCurrencyBalance < minTradeSize)
                     ) {
-                        Logger.warning("TickerMaintenance", "balanceCheck", `Found inadequate balance on the ${tradingPair.baseCurrency}-${tradingPair.referenceCurrency} pair`, this._socketBroadcaster);
+                        Logger.warning("TickerMaintenance", "balanceCheck", `Found inadequate balance on the ${tradingPair.baseCurrency}-${tradingPair.referenceCurrency} pair`, true);
                         continue;
                     }
 

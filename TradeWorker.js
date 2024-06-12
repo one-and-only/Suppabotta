@@ -76,7 +76,7 @@ export default async function process(job) {
         providers.push(await new providerClass(outboundIp, requestHelper, providerCreds.secret, providerCreds.key, job.data.strategyArgs.baseCurrency).initialize());
     }
 
-    const strategyInstance = new strategyInfo.strategyClass(providers, { ...(job.data.strategyArgs), socketBroadcaster: null }, paperTradingHistory);
+    const strategyInstance = new strategyInfo.strategyClass(providers, job.data.strategyArgs, paperTradingHistory);
 
     // avoid the initial progress value of a number
     await job.updateProgress(strategyInstance.pendingTrades());
