@@ -1,7 +1,7 @@
 import BullMQ from 'bullmq';
 const { SandboxedJob } = BullMQ;
 
-// import IORedis from "ioredis";
+import IORedis from "ioredis";
 import { MongoClient } from "mongodb";
 
 import IP from "ip";
@@ -58,7 +58,7 @@ const strategyMaps = {
 export default async function process(job) {
     Logger.info(job.data.strategy, "startup", "Connecting to servers...");
 
-    // const redisConnection = new IORedis(parseInt(job.data.redis.port), job.data.redis.host, { maxRetriesPerRequest: null });
+    const redisConnection = new IORedis(parseInt(job.data.redis.port), job.data.redis.host, { maxRetriesPerRequest: null });
 
     const mongoClient = new MongoClient(`mongodb://${job.data.mongo.username}:${job.data.mongo.password}@${job.data.mongo.address}?authMechanism=DEFAULT`);
     await mongoClient.connect();
@@ -87,15 +87,18 @@ export default async function process(job) {
     const strategyInstance = new strategyInfo.strategyClass(providers, { ...(job.data.strategyArgs), socketBroadcaster: null }, paperTradingHistory);
 
     Logger.info(job.data.strategy, "startup", "Starting trade strategy...");
+
+    await redisConnection.set(job.data.jobId, "active");
     await strategyInstance.start();
 
-    // job.progress === 100 means that the user wants to shut down the trading thread
-    while (job.progress !== 100) {
+    while (await redisConnection.get(job.data.jobId)) {
         await strategyInstance.tick();
     }
 
-    Logger.info(job.data.strategy, "shutdown", "Starting trade strategy shutdown");
+    Logger.info(job.data.strategy, "shutdown", "Starting trade strategy shutdown...");
 
     // clean up
     await strategyInstance.shutdown();
+    await redisConnection.quit();
+    await mongoClient.close();
 }

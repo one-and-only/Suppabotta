@@ -103,41 +103,40 @@ app.post("/register", async (req, res) => {
     });
 });
 
-// TODO migrate to using socket ID to get the job instead of username + strategy
+/**
+ * Get the BullMQ.Job<...> the unique job ID belongs to
+ * @param {string} jobId ID of the job, but really it's the `name` in BullMQ terms
+ * @returns 
+ */
+async function getTargetJob(jobId) {
+    const filteredJobs = (await userQueue.getActive()).filter(x => x.name === jobId);
+
+    return filteredJobs.length > 0 ? filteredJobs[0] : null;
+}
+
 app.post("/stopTrading", async (req, res) => {
-    if (!req.query.username || !req.query.password || !req.query.strategy) {
+    if (!req.query.jobId) {
         res.status(400).json({
             success: false,
-            error: "Username, password, or strategy not provided"
+            error: "job ID not provided"
         });
         return;
     }
 
-    if (!userQueueData[req.query.username]?.[req.query.strategy]) {
+    let targetJob = await getTargetJob(req.query.jobId);
+
+    if (!targetJob) {
         res.status(400).json({
             success: false,
-            error: "Trading thread does not exist for this user"
+            error: "Trading thread does not exist"
         });
         return;
     }
 
-    const userInfo = await validLogin(req.query);
+    await redisConnection.del(req.query.jobId);
 
-    if (!userInfo) {
-        res.status(400).json({
-            success: false,
-            error: "Unauthorized to stop trading (invalid password)"
-        });
-        return;
-    }
-
-    userQueueData[req.query.username][req.query.strategy].wantsShutdown = true;
-    while (true) {
-        if (!userQueueData[req.query.username][req.query.strategy])
-            break;
-
-        await sleep(1000);
-    }
+    // wait for the job to shut down before returning an API response
+    while (await getTargetJob(req.query.jobId)) await sleep(1000);
 
     res.json({
         success: true,

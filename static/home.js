@@ -97,7 +97,7 @@ async function startTrading() {
   window.jobId = i.success ? i.jobId : "";
 
   if (i.success) {
-    window.ioSocket.emit("join room", window.jobId)
+    // window.ioSocket.emit("join room", window.jobId)
     t.setAttribute("onclick", "stopTrading()")
     pendingTradeUpdateInterval = setInterval(updatePendingTradesWindow, 15000)
   } else {
@@ -105,25 +105,14 @@ async function startTrading() {
   }
 }
 async function stopTrading() {
-  const t = document.getElementById("tradingButton"),
-      e = localStorage.getItem("username"),
-      a = document.getElementById("passwordInput").value,
-      strategy = document.getElementById("strategy").value
-  if (
-      (t.setAttribute("disabled", !0),
-      t.setAttribute("value", "Loading..."),
-      !a)
-  ) {
-      alert("Please confirm your password and try again");
-      return;
-  }
+  const t = document.getElementById("tradingButton")
   const r = await (
-      await fetch(`/stopTrading?username=${e}&password=${a}&strategy=${strategy}`, {
+      await fetch(`/stopTrading?jobId=${window.jobId}`, {
           method: "POST",
       })
   ).json();
   if (pendingTradeUpdateInterval) clearInterval(pendingTradeUpdateInterval);
-  window.ioSocket.emit("leave room", window.jobId),
+  // window.ioSocket.emit("leave room", window.jobId),
       t.setAttribute("value", "Start Trading"),
       t.setAttribute("onclick", "startTrading()"),
       t.removeAttribute("disabled"),
@@ -136,11 +125,11 @@ function clearServerMessages() {
   document.getElementById("serverMessagesDisplay").textContent = "";
 }
 window.onload = async function () {
-  window.ioSocket = io();
-  window.ioSocket.on("message", (t) => {
-    const e = document.getElementById("serverMessagesDisplay");
-    (e.textContent += `${t}\n\n`), (e.scrollTop = e.scrollHeight);
-  });
+  // window.ioSocket = io();
+  // window.ioSocket.on("message", (t) => {
+  //   const e = document.getElementById("serverMessagesDisplay");
+  //   (e.textContent += `${t}\n\n`), (e.scrollTop = e.scrollHeight);
+  // });
 
   const username = localStorage.getItem("username");
   username || (window.location.href = "/login.html"),
