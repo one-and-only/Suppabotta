@@ -1,5 +1,6 @@
 import { createServer as createHttpsServer } from "https";
-import { } from "dotenv/config";
+import * as path from "path";
+import { fileURLToPath } from 'url';
 import { readFileSync } from "fs";
 import { MongoClient } from "mongodb";
 import { verify as verifyPassword, hash as hashPassword } from "argon2";
@@ -7,43 +8,14 @@ import express from "express";
 import * as socketIo from "socket.io";
 import { promisify } from "util";
 import Logger from "./Logger.js";
-import RequestHelper from "./RequestHelper.js";
-
-import IP from "ip";
-const { address: ipAddress } = IP;
+import { v4 as uuidv4 } from 'uuid';
 
 const sleep = promisify(setTimeout);
-
-import TradeOgre from "./providers/TradeOgre.js";
-import CoinEx from "./providers/CoinEx.js";
-import DexTrade from "./providers/DexTrade.js";
-import Xeggex from "./providers/Xeggex.js";
-import NonKYC from "./providers/NonKYC.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
 import IORedis from "ioredis";
 
-import TickerMaintenanceStrategy from "./strategies/TickerMaintenance.js";
-import ClassicArbitrageStrategy from "./strategies/ClassicArbitrage.js";
-import FloatingArbitrageStrategy from "./strategies/FloatingArbitrage.js";
-import { apiRateLimits } from "./APIRateLimits.js";
-
-// TODO: Update all connectors to support custom outbound IP when using `RequestHelper`
-
-const strategyMaps = {
-    "TickerMaintenance": {
-        providers: [DexTrade],
-        strategyClass: TickerMaintenanceStrategy
-    },
-    "ClassicArbitrage": {
-        providers: [TradeOgre, CoinEx, DexTrade, Xeggex, NonKYC],
-        strategyClass: ClassicArbitrageStrategy
-    },
-    "FloatingArbitrage": {
-        providers: [TradeOgre, CoinEx, DexTrade, Xeggex, NonKYC],
-        strategyClass: FloatingArbitrageStrategy
-    }
-};
+const validStrategies = ["TickerMaintenance", "ClassicArbitrage", "FloatingArbitrage"];
 
 if (!process.env.LOG_FILE_PATH) {
     Logger.warning("Global", "startup", "No log file path specified. Logging to file will be disabled for this session.");
@@ -62,24 +34,10 @@ const userQueueData = {};
 
 const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
-const userWorker = new Worker("userQueue", async job => {
-    const strategyData = userQueueData[job.data.username][job.data.strategy];
-    const strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...(job.data.strategyArgs), socketBroadcaster: strategyData.socketBroadcaster }, mongoDb.collection(process.env.PAPER_TRADING_MONGO_DATABASE));
-    strategyData.strategyInstance = strategyInstance;
-
-    await strategyInstance.start();
-    while (true) {
-        if (userQueueData[job.data.username][job.data.strategy].wantsShutdown) {
-            await strategyInstance.shutdown();
-            delete userQueueData[job.data.username][job.data.strategy];
-            break;
-        }
-        await strategyInstance.tick();
-    }
-}, { connection: redisConnection, concurrency: 9999 });
+const userWorker = new Worker("userQueue", path.join(path.dirname(fileURLToPath(import.meta.url)), "TradeWorker.js"), { connection: redisConnection, useWorkerThreads: true });
 
 async function numJobsLeft() {
-    return (await userQueue.getJobs("active")).length;
+    return await userQueue.getActiveCount();
 }
 
 const app = express();
@@ -145,6 +103,7 @@ app.post("/register", async (req, res) => {
     });
 });
 
+// TODO migrate to using socket ID to get the job instead of username + strategy
 app.post("/stopTrading", async (req, res) => {
     if (!req.query.username || !req.query.password || !req.query.strategy) {
         res.status(400).json({
@@ -234,8 +193,7 @@ app.post("/startTrading", async (req, res) => {
         global.doingTickerMaintenance = true;
     }
 
-    const strategyInfo = strategyMaps[req.query.strategy];
-    if (!strategyInfo) {
+    if (!validStrategies.includes(req.query.strategy)) {
         res.status(400).json({
             success: false,
             error: "Invalid trading strategy"
@@ -243,47 +201,29 @@ app.post("/startTrading", async (req, res) => {
         return;
     }
 
-    const tradingArgs = req.query.args ? JSON.parse(req.query.args) : {};
-
-    // set our target IP address
-    const outboundIp = tradingArgs.customLocalIp ?? ipAddress();
-
-    if (!userQueueData.hasOwnProperty(req.query.username)) userQueueData[req.query.username] = {};
-
-    if (!userQueueData[req.query.username].hasOwnProperty("requestHelpers")) {
-        userQueueData[req.query.username].requestHelpers = {};
-        userQueueData[req.query.username].requestHelpers.initialized = false;
-    }
-
-    userQueueData[req.query.username][req.query.strategy] = {
-        providers: [],
-        strategyClass: strategyInfo.strategyClass,
-        socketBroadcaster: io.to(`${req.query.username}_${req.query.strategy}`),
-        wantsShutdown: false
-    };
-
-    for (const providerClass of strategyInfo.providers) {
-        const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
-        if (!providerCreds) continue;
-
-        if (userQueueData[req.query.username].requestHelpers.initialized === false)
-            userQueueData[req.query.username].requestHelpers[providerClass.name] = new RequestHelper(
-                apiRateLimits[providerClass.name],
-                !apiRateLimits[providerClass.name].hasOwnProperty("private"),
-                outboundIp
-            );
-
-        const provider = await new providerClass(outboundIp, userQueueData[req.query.username].requestHelpers[providerClass.name], providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency).initialize();
-        userQueueData[req.query.username][req.query.strategy].providers.push(provider);
-    }
-
-    userQueueData[req.query.username].requestHelpers.initialized = true;
-
-    await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs });
+    const jobId = uuidv4();
+    await userQueue.add(jobId, {
+        username: req.query.username,
+        strategy: req.query.strategy,
+        strategyArgs: req.query.args ? JSON.parse(req.query.args) : {},
+        apiCreds: userInfo.apiCreds,
+        redis: {
+            host: process.env.REDIS_HOST,
+            port: process.env.REDIS_PORT
+        },
+        mongo: {
+            address: process.env.MONGODB_ADDRESS,
+            username: process.env.MONGODB_USER,
+            password: process.env.MONGODB_PASS,
+            database: process.env.MONGODB_DATABASE,
+        },
+        jobId: jobId,
+    });
 
     res.json({
         success: true,
-        message: "Job added to queue"
+        message: "Job added to queue",
+        jobId: jobId
     });
 });
 
@@ -331,9 +271,12 @@ const io = new socketIo.Server(expressServer, {
 });
 
 io.on("connection", socket => {
-    socket.on("login as", metadata => {
-        const split = metadata.split(',');
-        socket.join(`${split[0]}_${split[1]}`);
+    socket.on("join room", metadata => {
+        socket.join(metadata);
+    });
+
+    socket.on("leave room", metadata => {
+        socket.leave(metadata);
     });
 });
 

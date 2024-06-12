@@ -63,7 +63,6 @@ async function startTrading() {
     r = document.getElementById("strategyArgs").value,
     s = document.getElementById("strategy").value;
 
-  window.ioSocket.emit("login as", `${e},${s}`)
   if (
       (t.setAttribute("disabled", !0),
       t.setAttribute("value", "Loading..."),
@@ -95,11 +94,14 @@ async function startTrading() {
   t.removeAttribute("disabled");
   t.setAttribute("value", i.success ? "Stop Trading" : "Start Trading");
 
+  window.jobId = i.success ? i.jobId : "";
+
   if (i.success) {
-    t.setAttribute("onclick", "stopTrading()");
-    pendingTradeUpdateInterval = setInterval(updatePendingTradesWindow, 15000);
+    window.ioSocket.emit("join room", window.jobId)
+    t.setAttribute("onclick", "stopTrading()")
+    pendingTradeUpdateInterval = setInterval(updatePendingTradesWindow, 15000)
   } else {
-    alert(`Failed to start trading: ${i.error}`);
+    alert(`Failed to start trading: ${i.error}`)
   }
 }
 async function stopTrading() {
@@ -121,7 +123,7 @@ async function stopTrading() {
       })
   ).json();
   if (pendingTradeUpdateInterval) clearInterval(pendingTradeUpdateInterval);
-  window.ioSocket.close(),
+  window.ioSocket.emit("leave room", window.jobId),
       t.setAttribute("value", "Start Trading"),
       t.setAttribute("onclick", "startTrading()"),
       t.removeAttribute("disabled"),
