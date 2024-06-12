@@ -25,16 +25,7 @@ function generateTradeRows(trades) {
 }
 
 async function updatePendingTradesWindow() {
-  const username = localStorage.getItem("username");
-  const password = document.getElementById("passwordInput").value;
-  const strategy = document.getElementById("strategy").value
-
-  if (!username || !password || !strategy) {
-    alert("Information you have entered on this page seems to be invalid. Did you delete anything by mistake?");
-    return;
-  }
-
-  const pendingTrades = await fetch(`/pendingExchangeOrders?username=${username}&password=${password}&strategy=${strategy}`);
+  const pendingTrades = await fetch(`/pendingExchangeOrders?jobId=${window.jobId}`);
 
   if (pendingTrades.status !== 200) {
     alert(`Failed to get pending trades: HTTP ${pendingTrades.status}`);

@@ -226,25 +226,16 @@ app.post("/startTrading", async (req, res) => {
 });
 
 app.get("/pendingExchangeOrders", async (req, res) => {
-    if (!req.query.username || !req.query.password || !req.query.strategy) {
+    if (!req.query.jobId) {
         res.status(400).json({
             success: false,
-            error: "One or more required parameters not provided"
-        });
-        return;
-    }
-    const userInfo = await validLogin(req.query);
-
-    if (!userInfo) {
-        res.status(400).json({
-            success: false,
-            error: "Invalid username or password"
+            error: "Job ID not provided"
         });
         return;
     }
 
-    const queueData = userQueueData[req.query.username]?.[req.query.strategy];
-    if (!queueData) {
+    const targetJob = await getTargetJob(req.query.jobId);
+    if (!targetJob) {
         res.status(400).json({
             success: false,
             error: "Trading thread does not exist for this user"
@@ -252,7 +243,7 @@ app.get("/pendingExchangeOrders", async (req, res) => {
         return;
     }
 
-    res.json(queueData.strategyInstance?.pendingTrades());
+    res.json(targetJob.progress);
 });
 
 const expressServer = createHttpsServer({

@@ -78,6 +78,9 @@ export default async function process(job) {
 
     const strategyInstance = new strategyInfo.strategyClass(providers, { ...(job.data.strategyArgs), socketBroadcaster: null }, paperTradingHistory);
 
+    // avoid the initial progress value of a number
+    await job.updateProgress(strategyInstance.pendingTrades());
+
     Logger.info(job.data.strategy, "startup", "Starting trade strategy...");
 
     await redisConnection.set(job.data.jobId, "active");
@@ -85,6 +88,7 @@ export default async function process(job) {
 
     while (await redisConnection.get(job.data.jobId)) {
         await strategyInstance.tick();
+        await job.updateProgress(strategyInstance.pendingTrades());
     }
 
     Logger.info(job.data.strategy, "shutdown", "Starting trade strategy shutdown...");
