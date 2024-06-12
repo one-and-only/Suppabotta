@@ -5,7 +5,6 @@ import { readFileSync } from "fs";
 import { MongoClient } from "mongodb";
 import { verify as verifyPassword, hash as hashPassword } from "argon2";
 import express from "express";
-import * as socketIo from "socket.io";
 import { promisify } from "util";
 import Logger from "./Logger.js";
 import { v4 as uuidv4 } from 'uuid';
@@ -261,23 +260,6 @@ const expressServer = createHttpsServer({
     cert: readFileSync(process.env.SSL_CERT_PATH),
 });
 expressServer.on("request", app);
-
-const io = new socketIo.Server(expressServer, {
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 60 * 1000,
-        skipMiddlewares: true,
-    }
-});
-
-io.on("connection", socket => {
-    socket.on("join room", metadata => {
-        socket.join(metadata);
-    });
-
-    socket.on("leave room", metadata => {
-        socket.leave(metadata);
-    });
-});
 
 expressServer.listen(process.env.EXPRESS_PORT, () => {
     Logger.success("Global", "expressInit", `Express server is initialized and running on port ${process.env.EXPRESS_PORT}`);

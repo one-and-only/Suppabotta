@@ -97,7 +97,6 @@ async function startTrading() {
   window.jobId = i.success ? i.jobId : "";
 
   if (i.success) {
-    // window.ioSocket.emit("join room", window.jobId)
     t.setAttribute("onclick", "stopTrading()")
     pendingTradeUpdateInterval = setInterval(updatePendingTradesWindow, 15000)
   } else {
@@ -112,7 +111,6 @@ async function stopTrading() {
       })
   ).json();
   if (pendingTradeUpdateInterval) clearInterval(pendingTradeUpdateInterval);
-  // window.ioSocket.emit("leave room", window.jobId),
       t.setAttribute("value", "Start Trading"),
       t.setAttribute("onclick", "startTrading()"),
       t.removeAttribute("disabled"),
@@ -125,12 +123,6 @@ function clearServerMessages() {
   document.getElementById("serverMessagesDisplay").textContent = "";
 }
 window.onload = async function () {
-  // window.ioSocket = io();
-  // window.ioSocket.on("message", (t) => {
-  //   const e = document.getElementById("serverMessagesDisplay");
-  //   (e.textContent += `${t}\n\n`), (e.scrollTop = e.scrollHeight);
-  // });
-
   const username = localStorage.getItem("username");
   username || (window.location.href = "/login.html"),
     (document.getElementById("usernameDisplay").innerHTML = `<strong>${username}</strong>`)

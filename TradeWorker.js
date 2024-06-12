@@ -48,13 +48,6 @@ const strategyMaps = {
  *  jobId: string
  * }
  */
-/**
- * TODO: initialize request helpers in this worker processor file
- */
-/**
- * Worker function for the user job queue
- * @param {SandboxedJob} job
- */
 export default async function process(job) {
     Logger.info(job.data.strategy, "startup", "Connecting to servers...");
 
@@ -83,7 +76,6 @@ export default async function process(job) {
         providers.push(await new providerClass(outboundIp, requestHelper, providerCreds.secret, providerCreds.key, job.data.strategyArgs.baseCurrency).initialize());
     }
 
-    //io.to(job.data.jobId)
     const strategyInstance = new strategyInfo.strategyClass(providers, { ...(job.data.strategyArgs), socketBroadcaster: null }, paperTradingHistory);
 
     Logger.info(job.data.strategy, "startup", "Starting trade strategy...");
