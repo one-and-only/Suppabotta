@@ -1,6 +1,3 @@
-import BullMQ from 'bullmq';
-const { SandboxedJob } = BullMQ;
-
 import IORedis from "ioredis";
 import { MongoClient } from "mongodb";
 
