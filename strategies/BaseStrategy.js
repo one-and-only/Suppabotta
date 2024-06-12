@@ -39,11 +39,12 @@ export default class BaseStrategy {
     // this will only be overridden by FloatingArbitrage
     // other strategies won't have pending trades
     pendingTrades() {
-        return this._connectors.map(connector => {
-            return {
-                connector: connector._name,
-                pendingTrades: []
-            };
-        })
+        const pendingTrades = {};
+        
+        for (const connector of this._connectors) {
+            pendingTrades[connector._name] = [];
+        }
+
+        return pendingTrades;
     }
 }
