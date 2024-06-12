@@ -43,6 +43,7 @@ const app = express();
 app.disable("x-powered-by");
 app.use(express.json());
 app.use(express.static("static"));
+app.set('etag', false);
 
 app.get("/queue_info", async (req, res) => {
     res.json({
