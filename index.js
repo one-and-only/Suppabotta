@@ -33,7 +33,7 @@ const userQueueData = {};
 
 const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
-const userWorker = new Worker("userQueue", path.join(path.dirname(fileURLToPath(import.meta.url)), "TradeWorker.js"), { connection: redisConnection, useWorkerThreads: true });
+const userWorker = new Worker("userQueue", path.join(path.dirname(fileURLToPath(import.meta.url)), "TradeWorker.js"), { connection: redisConnection, useWorkerThreads: true, concurrency: 9999 });
 
 async function numJobsLeft() {
     return await userQueue.getActiveCount();
@@ -201,7 +201,7 @@ app.post("/startTrading", async (req, res) => {
     }
 
     const jobId = uuidv4();
-    await userQueue.add(jobId, {
+    const job = await userQueue.add(jobId, {
         username: req.query.username,
         strategy: req.query.strategy,
         strategyArgs: req.query.args ? JSON.parse(req.query.args) : {},
@@ -288,9 +288,10 @@ process.on("SIGINT", async () => {
     (shutdownTries > 0) && (shutdownTries % 2 === 0) && process.exit(1);
     shutdownTries % 2 === 1 && Logger.info("Global", "shutdown", "Exit signal received. Cleaning up... CTRL + C one more time to force shutdown!");
 
-    for (const username in userQueueData) {
-        userQueueData[username].wantsShutdown = true;
-    }
+    // TODO migrate this shut down code to use the new Redis implementation
+    // for (const username in userQueueData) {
+    //     userQueueData[username].wantsShutdown = true;
+    // }
 
     expressServer.close();
     await mongoClient.close();
