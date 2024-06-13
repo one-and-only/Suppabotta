@@ -22,8 +22,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      * @param {BaseProvider[]} connectors 
      * @param {any} args 
      */
-    constructor(connectors, args, paperTradingMongoCollection) {
-        super(connectors, args, paperTradingMongoCollection);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
         this._alreadyProcessed = [];
         this._disableCrossCurrency = false;
 

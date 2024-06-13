@@ -16,8 +16,8 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     _numCurveOrders;
     _trackedOrders;
 
-    constructor(connectors, args, paperTradingMongoCollection) {
-        super(connectors, args, paperTradingMongoCollection);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
         this._unfitToRun = false;
 
         if (!args.baseCurrency || !args.baseCurrency || !args.maxInvPct || !args.inventoryDefinition || !args.numCurveOrders) {

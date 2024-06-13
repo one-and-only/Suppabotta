@@ -12,8 +12,8 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
      * 
      * @param {BaseProvider[]} connectors 
      */
-    constructor(connectors, args) {
-        super(connectors, args);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
 
         if (!args.baseCurrency) {
             Logger.error("TickerMaintenance", "startup", "baseCurrency is not defined. Please add it as an algorithm parameter", true, this._redisConnection, this._jobId);

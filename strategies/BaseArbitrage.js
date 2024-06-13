@@ -8,8 +8,8 @@ export default class BaseArbitrage extends BaseStrategy {
     _paperTradingEnabled;
     _minTradeSizeBaseCurrency;
 
-    constructor(connectors, args, paperTradingMongoCollection) {
-        super(connectors, args, paperTradingMongoCollection);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
 
         this._baseCurrency = args.baseCurrency.toUpperCase();
         this._profitCurrencyPreferences = [];
