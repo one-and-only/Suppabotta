@@ -247,6 +247,30 @@ app.get("/pendingExchangeOrders", async (req, res) => {
     res.json(targetJob.progress);
 });
 
+app.get("/pendingJobLogs", async (req, res) => {
+    if (!req.query.jobId) {
+        res.status(400).json({
+            success: false,
+            error: "Job ID not provided"
+        });
+        return;
+    }
+
+    const logs = await redisConnection.get(`logs_${req.query.jobId}`);
+
+    if (!logs) {
+        res.status(400).json({
+            success: false,
+            error: "Trading thread does not exist with the given job ID"
+        });
+        return;
+    }
+
+    await redisConnection.set(`logs_${req.query.jobId}`, "[]"); // the currently-stored logs are no longer pending
+
+    res.setHeader("Content-Type", "application/json").send(logs);
+});
+
 const expressServer = createHttpsServer({
     key: readFileSync(process.env.SSL_KEY_PATH),
     cert: readFileSync(process.env.SSL_CERT_PATH),

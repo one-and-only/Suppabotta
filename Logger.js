@@ -8,7 +8,17 @@ export default class Logger {
         }
     }
 
-    static _processMessage(type, connector, action, message, color, goingToBrowser) {
+    /**
+     * @param {string} type 
+     * @param {string} connector 
+     * @param {string} action 
+     * @param {string} message 
+     * @param {string} color 
+     * @param {boolean} goingToBrowser 
+     * @param {IORedis} redisConnection 
+     * @param {string} jobId 
+     */
+    static async _processMessage(type, connector, action, message, color, goingToBrowser, redisConnection, jobId) {
         let processedMessage = `[${type}] ${connector}|${action}: ${message}`;
 
         if (!goingToBrowser)
@@ -17,26 +27,29 @@ export default class Logger {
         processedMessage = `${new Date().toISOString()} ${processedMessage}`;
 
         if (goingToBrowser) {
-            console.log(processedMessage); // TODO replace this with the custom client-server logging implementation
+            const currentLogs = JSON.parse(await redisConnection.get(`logs_${jobId}`));
+
+            currentLogs.push(processedMessage);
+            redisConnection.set(`logs_${jobId}`, JSON.stringify(currentLogs));
         } else {
             console.log(processedMessage);
             this._logToFile(processedMessage);
         }
     }
 
-    static success(connector, action, message, goingToBrowser = false) {
-        this._processMessage("SUCCESS", connector, action, message, "greenBright", goingToBrowser);
+    static async success(connector, action, message, goingToBrowser = false, redisConnection=null, jobId="") {
+        this._processMessage("SUCCESS", connector, action, message, "greenBright", goingToBrowser, redisConnection, jobId);
     }
 
-    static info(connector, action, message, goingToBrowser = false) {
-        this._processMessage("INFO", connector, action, message, "blueBright", goingToBrowser);
+    static async info(connector, action, message, goingToBrowser = false, redisConnection=null, jobId="") {
+        this._processMessage("INFO", connector, action, message, "blueBright", goingToBrowser, redisConnection, jobId);
     }
 
-    static warning(connector, action, message, goingToBrowser = false) {
-        this._processMessage("WARNING", connector, action, message, "yellowBright", goingToBrowser);
+    static async warning(connector, action, message, goingToBrowser = false, redisConnection=null, jobId="") {
+        this._processMessage("WARNING", connector, action, message, "yellowBright", goingToBrowser, redisConnection, jobId);
     }
 
-    static error(connector, action, message, goingToBrowser = false) {
-        this._processMessage("ERROR", connector, action, message, "redBright", goingToBrowser);
+    static async error(connector, action, message, goingToBrowser = false, redisConnection=null, jobId="") {
+        this._processMessage("ERROR", connector, action, message, "redBright", goingToBrowser, redisConnection, jobId);
     }
 }

@@ -4,15 +4,19 @@ export default class BaseStrategy {
     _connectors;
     _paperTradingMongoCollection;
     _recentPaperTrades;
+    _redisConnection;
+    _jobId;
 
     /**
      * 
      * @param {BaseProvider[]} connectors 
      */
-    constructor(connectors, args, paperTradingMongoCollection) {
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
         this._connectors = connectors;
         this._paperTradingMongoCollection = paperTradingMongoCollection;
         this._recentPaperTrades = [];
+        this._jobId = args.jobId;
+        this._redisConnection = redisConnection;
     }
 
     async start() {
