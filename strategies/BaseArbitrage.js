@@ -235,7 +235,7 @@ export default class BaseArbitrage extends BaseStrategy {
                 referenceCurrencyInverted = true;
                 priceInfoInternal = await connector.getMarketPrice(currentTargetCurrency, nextTargetCurrency);
                 if (!priceInfoInternal) {
-                    Logger.warning("ClassicArbitrage", "multiCurrencyPriceScan", `Failed to get price info for ${currentTargetCurrency}-${nextTargetCurrency}`, true);
+                    Logger.warning("ClassicArbitrage", "multiCurrencyPriceScan", `Failed to get price info for ${currentTargetCurrency}-${nextTargetCurrency}`, true, this._redisConnection, this._jobId);
                     return;
                 }
             }

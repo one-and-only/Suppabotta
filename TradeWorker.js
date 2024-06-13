@@ -57,7 +57,7 @@ export default async function process(job) {
     const strategyInfo = strategyMaps[job.data.strategy];
     const providers = [];
 
-    Logger.info(job.data.strategy, "startup", "Initializing connectors...");
+    Logger.info(job.data.strategy, "startup", "Initializing connectors...", true, redisConnection, job.data.jobId);
 
     const outboundIp = job.data.strategyArgs.customLocalIp ?? ipAddress();
     for (const providerClass of strategyInfo.providers) {
@@ -78,7 +78,7 @@ export default async function process(job) {
     // avoid the initial progress value of a number
     await job.updateProgress(strategyInstance.pendingTrades());
 
-    Logger.info(job.data.strategy, "startup", "Starting trade strategy...");
+    Logger.info(job.data.strategy, "startup", "Starting trade strategy...", true, redisConnection, job.data.jobId);
 
     await redisConnection.set(job.data.jobId, "active");
     await strategyInstance.start();
@@ -88,7 +88,7 @@ export default async function process(job) {
         await job.updateProgress(strategyInstance.pendingTrades());
     }
 
-    Logger.info(job.data.strategy, "shutdown", "Starting trade strategy shutdown...");
+    Logger.info(job.data.strategy, "shutdown", "Starting trade strategy shutdown...", true, redisConnection, job.data.jobId);
 
     // clean up
     await strategyInstance.shutdown();

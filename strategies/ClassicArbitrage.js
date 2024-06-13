@@ -106,9 +106,9 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async start() {
-        Logger.info("ClassicArbitrage", "startup", "Caching connector info required for trading...", true);
+        Logger.info("ClassicArbitrage", "startup", "Caching connector info required for trading...", true, this._redisConnection, this._jobId);
         await this.populateMarketCaches();
-        Logger.info("ClassicArbitrage", "startup", "Startup complete and trading started!", true);
+        Logger.info("ClassicArbitrage", "startup", "Startup complete and trading started!", true, this._redisConnection, this._jobId);
     }
 
     /**
@@ -129,7 +129,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         const sellingOrderBook = direction ? otherOrderBookInfo : currentOrderBookInfo;
 
         if (buyingOrderBook.ask.length == 0 || sellingOrderBook.bid.length == 0) {
-            Logger.warning("ClassicArbitrage", "gatherOrders", "One of the given order books are empty", true);
+            Logger.warning("ClassicArbitrage", "gatherOrders", "One of the given order books are empty", true, this._redisConnection, this._jobId);
             return {
                 buyOrders: [],
                 sellOrders: [],
@@ -265,7 +265,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         tradeInfo: tradeInfo
                                     });
 
-                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", true);
+                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", true, this._redisConnection, this._jobId);
                                 } else {
                                     await promiseMap(
                                         buyFromCurrentOrders.buyOrders,
@@ -307,7 +307,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         tradeInfo: tradeInfo
                                     });
 
-                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", true);
+                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", true, this._redisConnection, this._jobId);
                                 } else {
                                     await promiseMap(
                                         buyFromOtherOrders.buyOrders,
@@ -371,6 +371,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async shutdown() {
-        Logger.info("ClassicArbitrage", "shutdown", "Trading algorithm stopped", true);
+        Logger.info("ClassicArbitrage", "shutdown", "Trading algorithm stopped", true, this._redisConnection, this._jobId);
     }
 }
