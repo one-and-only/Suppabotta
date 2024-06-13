@@ -201,7 +201,7 @@ app.post("/startTrading", async (req, res) => {
     }
 
     const jobId = uuidv4();
-    const job = await userQueue.add(jobId, {
+    await userQueue.add(jobId, {
         username: req.query.username,
         strategy: req.query.strategy,
         strategyArgs: req.query.args ? JSON.parse(req.query.args) : {},
