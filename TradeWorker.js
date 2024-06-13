@@ -46,9 +46,12 @@ const strategyMaps = {
  * }
  */
 export default async function process(job) {
-    Logger.info(job.data.strategy, "startup", "Connecting to servers...");
-
     const redisConnection = new IORedis(parseInt(job.data.redis.port), job.data.redis.host, { maxRetriesPerRequest: null });
+
+    // initialize client-server logging implementation
+    await redisConnection.set(`logs_${job.data.jobId}`, "[]");
+    
+    Logger.info(job.data.strategy, "startup", "Connecting to servers...", true, redisConnection, job.data.jobId);
 
     const mongoClient = new MongoClient(`mongodb://${job.data.mongo.username}:${job.data.mongo.password}@${job.data.mongo.address}?authMechanism=DEFAULT`);
     await mongoClient.connect();
@@ -73,7 +76,7 @@ export default async function process(job) {
         providers.push(await new providerClass(outboundIp, requestHelper, providerCreds.secret, providerCreds.key, job.data.strategyArgs.baseCurrency).initialize());
     }
 
-    const strategyInstance = new strategyInfo.strategyClass(providers, job.data.strategyArgs, paperTradingHistory);
+    const strategyInstance = new strategyInfo.strategyClass(providers, { ...job.data.strategyArgs, jobId: job.data.jobId }, paperTradingHistory, redisConnection);
 
     // avoid the initial progress value of a number
     await job.updateProgress(strategyInstance.pendingTrades());
