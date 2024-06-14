@@ -26,7 +26,7 @@ function generateTradeRows(trades) {
 
     price.append(document.createElement("p").append(document.createTextNode(trade.price)))
     amount.append(document.createElement("p").append(document.createTextNode(trade.amount)))
-    tradingPair.append(document.createElement("p").append(document.createTextNode(`${trade.baseCurrency}-${trade.baseCurrency}`)))
+    tradingPair.append(document.createElement("p").append(document.createTextNode(`${trade.baseCurrency}-${trade.referenceCurrency}`)))
 
     row.append(price, amount, tradingPair)
     rows.push(row)
