@@ -1,10 +1,11 @@
 import Logger from "../Logger.js";
 import { promisify } from 'node:util';
-import Bluebird from "bluebird";
 import BaseArbitrage from "./BaseArbitrage.js";
 import BaseProvider from "../providers/BaseProvider.js";
 
+import Bluebird from "bluebird";
 const { map: promiseMap } = Bluebird;
+
 const sleep = promisify(setTimeout);
 
 export default class FloatingArbitrageStrategy extends BaseArbitrage {
@@ -495,6 +496,11 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
     async tick() {
         this.pruneRecentPaperTrades();
+
+        await promiseMap(this._connectors, async connector => {
+            await connector.recomputeRateLimits(this._username);
+        });
+
         await this.processOpenTrades();
 
         // check if user deposited more funds to make defined inventory tradeable

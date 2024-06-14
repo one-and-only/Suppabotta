@@ -115,10 +115,10 @@ async function getTargetJob(jobId) {
 }
 
 app.post("/stopTrading", async (req, res) => {
-    if (!req.query.jobId) {
+    if (!req.query.jobId || !req.query.username) {
         res.status(400).json({
             success: false,
-            error: "job ID not provided"
+            error: "One or more required parameters not provided"
         });
         return;
     }
@@ -133,10 +133,12 @@ app.post("/stopTrading", async (req, res) => {
         return;
     }
 
-    await redisConnection.del(req.query.jobId);
+    await redisConnection.del(req.query.jobId, `logs_${req.query.jobId}`);
 
     // wait for the job to shut down before returning an API response
     while (await getTargetJob(req.query.jobId)) await sleep(1000);
+
+    await redisConnection.set(`runningThreads_${req.query.username}`, (parseInt(await redisConnection.get(`runningThreads_${req.query.username}`)) - 1).toString());
 
     res.json({
         success: true,
@@ -199,6 +201,11 @@ app.post("/startTrading", async (req, res) => {
         });
         return;
     }
+
+    let numRunningThreads = await redisConnection.get(`runningThreads_${req.query.username}`) ?? "0";
+    numRunningThreads = parseInt(numRunningThreads);
+
+    await redisConnection.set(`runningThreads_${req.query.username}`, (numRunningThreads + 1).toString());
 
     const jobId = uuidv4();
     await userQueue.add(jobId, {

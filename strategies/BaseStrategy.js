@@ -6,6 +6,7 @@ export default class BaseStrategy {
     _recentPaperTrades;
     _redisConnection;
     _jobId;
+    _username
 
     /**
      * 
@@ -16,6 +17,7 @@ export default class BaseStrategy {
         this._paperTradingMongoCollection = paperTradingMongoCollection;
         this._recentPaperTrades = [];
         this._jobId = args.jobId;
+        this._username = args.username;
         this._redisConnection = redisConnection;
     }
 

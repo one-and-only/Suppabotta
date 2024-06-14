@@ -70,13 +70,14 @@ export default async function process(job) {
         const requestHelper = new RequestHelper(
             apiRateLimits[providerClass.name],
             !apiRateLimits[providerClass.name].hasOwnProperty("private"),
-            outboundIp
+            outboundIp,
+            redisConnection
         );
 
         providers.push(await new providerClass(outboundIp, requestHelper, providerCreds.secret, providerCreds.key, job.data.strategyArgs.baseCurrency).initialize());
     }
 
-    const strategyInstance = new strategyInfo.strategyClass(providers, { ...job.data.strategyArgs, jobId: job.data.jobId }, paperTradingHistory, redisConnection);
+    const strategyInstance = new strategyInfo.strategyClass(providers, { ...job.data.strategyArgs, jobId: job.data.jobId, username: job.data.username }, paperTradingHistory, redisConnection);
 
     // avoid the initial progress value of a number
     await job.updateProgress(strategyInstance.pendingTrades());

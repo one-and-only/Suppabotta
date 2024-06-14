@@ -158,4 +158,13 @@ export default class BaseProvider {
     async getBalance(currency) {
         throw new Error("This method must be implemented.");
     }
+
+    /**
+     * Convenient wrapper for RequestHelper.recomputeRateLimits(username)
+     * @param {string} username username to use for checking the number of running trading threads
+     * @returns {Promise<void>}
+     */
+    async recomputeRateLimits(username) {
+        return this._requestHelper.recomputeRateLimits(username);
+    }
 }

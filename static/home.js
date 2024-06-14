@@ -111,7 +111,7 @@ async function stopTrading() {
   t.setAttribute("disabled", !0)
   t.setAttribute("value", "Loading...")
   const r = await (
-      await fetch(`/stopTrading?jobId=${window.jobId}`, {
+      await fetch(`/stopTrading?jobId=${window.jobId}&username=${localStorage.getItem("username")}`, {
           method: "POST",
       })
   ).json();

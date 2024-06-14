@@ -2,6 +2,9 @@ import BaseStrategy from './BaseStrategy.js';
 import BaseProvider from '../providers/BaseProvider.js';
 import Logger from '../Logger.js';
 
+import Bluebird from "bluebird";
+const { map: promiseMap } = Bluebird;
+
 export default class TickerMaintenanceStrategy extends BaseStrategy {
     _lastMaintainedTimestamp;
     _baseCurrency;
@@ -40,6 +43,10 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
 
     async tick() {
         const currentTimestamp = Date.now();
+
+        await promiseMap(this._connectors, async connector => {
+            await connector.recomputeRateLimits(this._username);
+        });
 
         // ticker maintenance every 5 minutes (by default)
         if ((currentTimestamp - this._lastMaintainedTimestamp) > (this._maintenanceInterval)) {
