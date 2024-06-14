@@ -1,49 +1,20 @@
 import { createServer as createHttpsServer } from "https";
-import { } from "dotenv/config";
+import * as path from "path";
+import { fileURLToPath } from 'url';
 import { readFileSync } from "fs";
 import { MongoClient } from "mongodb";
 import { verify as verifyPassword, hash as hashPassword } from "argon2";
 import express from "express";
-import * as socketIo from "socket.io";
 import { promisify } from "util";
 import Logger from "./Logger.js";
-import RequestHelper from "./RequestHelper.js";
-
-import IP from "ip";
-const { address: ipAddress } = IP;
+import { v4 as uuidv4 } from 'uuid';
 
 const sleep = promisify(setTimeout);
-
-import TradeOgre from "./providers/TradeOgre.js";
-import CoinEx from "./providers/CoinEx.js";
-import DexTrade from "./providers/DexTrade.js";
-import Xeggex from "./providers/Xeggex.js";
-import NonKYC from "./providers/NonKYC.js";
 
 import { Queue, Worker, QueueEvents } from "bullmq";
 import IORedis from "ioredis";
 
-import TickerMaintenanceStrategy from "./strategies/TickerMaintenance.js";
-import ClassicArbitrageStrategy from "./strategies/ClassicArbitrage.js";
-import FloatingArbitrageStrategy from "./strategies/FloatingArbitrage.js";
-import { apiRateLimits } from "./APIRateLimits.js";
-
-// TODO: Update all connectors to support custom outbound IP when using `RequestHelper`
-
-const strategyMaps = {
-    "TickerMaintenance": {
-        providers: [DexTrade],
-        strategyClass: TickerMaintenanceStrategy
-    },
-    "ClassicArbitrage": {
-        providers: [TradeOgre, CoinEx, DexTrade, Xeggex, NonKYC],
-        strategyClass: ClassicArbitrageStrategy
-    },
-    "FloatingArbitrage": {
-        providers: [TradeOgre, CoinEx, DexTrade, Xeggex, NonKYC],
-        strategyClass: FloatingArbitrageStrategy
-    }
-};
+const validStrategies = ["TickerMaintenance", "ClassicArbitrage", "FloatingArbitrage"];
 
 if (!process.env.LOG_FILE_PATH) {
     Logger.warning("Global", "startup", "No log file path specified. Logging to file will be disabled for this session.");
@@ -62,30 +33,17 @@ const userQueueData = {};
 
 const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
-const userWorker = new Worker("userQueue", async job => {
-    const strategyData = userQueueData[job.data.username][job.data.strategy];
-    const strategyInstance = new strategyData.strategyClass(strategyData.providers, { ...(job.data.strategyArgs), socketBroadcaster: strategyData.socketBroadcaster }, mongoDb.collection(process.env.PAPER_TRADING_MONGO_DATABASE));
-    strategyData.strategyInstance = strategyInstance;
-
-    await strategyInstance.start();
-    while (true) {
-        if (userQueueData[job.data.username][job.data.strategy].wantsShutdown) {
-            await strategyInstance.shutdown();
-            delete userQueueData[job.data.username][job.data.strategy];
-            break;
-        }
-        await strategyInstance.tick();
-    }
-}, { connection: redisConnection, concurrency: 9999 });
+const userWorker = new Worker("userQueue", path.join(path.dirname(fileURLToPath(import.meta.url)), "TradeWorker.js"), { connection: redisConnection, useWorkerThreads: true, concurrency: 9999 });
 
 async function numJobsLeft() {
-    return (await userQueue.getJobs("active")).length;
+    return await userQueue.getActiveCount();
 }
 
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json());
 app.use(express.static("static"));
+app.set('etag', false);
 
 app.get("/queue_info", async (req, res) => {
     res.json({
@@ -145,40 +103,40 @@ app.post("/register", async (req, res) => {
     });
 });
 
+/**
+ * Get the BullMQ.Job<...> the unique job ID belongs to
+ * @param {string} jobId ID of the job, but really it's the `name` in BullMQ terms
+ * @returns 
+ */
+async function getTargetJob(jobId) {
+    const filteredJobs = (await userQueue.getActive()).filter(x => x.name === jobId);
+
+    return filteredJobs.length > 0 ? filteredJobs[0] : null;
+}
+
 app.post("/stopTrading", async (req, res) => {
-    if (!req.query.username || !req.query.password || !req.query.strategy) {
+    if (!req.query.jobId) {
         res.status(400).json({
             success: false,
-            error: "Username, password, or strategy not provided"
+            error: "job ID not provided"
         });
         return;
     }
 
-    if (!userQueueData[req.query.username]?.[req.query.strategy]) {
+    let targetJob = await getTargetJob(req.query.jobId);
+
+    if (!targetJob) {
         res.status(400).json({
             success: false,
-            error: "Trading thread does not exist for this user"
+            error: "Trading thread does not exist"
         });
         return;
     }
 
-    const userInfo = await validLogin(req.query);
+    await redisConnection.del(req.query.jobId);
 
-    if (!userInfo) {
-        res.status(400).json({
-            success: false,
-            error: "Unauthorized to stop trading (invalid password)"
-        });
-        return;
-    }
-
-    userQueueData[req.query.username][req.query.strategy].wantsShutdown = true;
-    while (true) {
-        if (!userQueueData[req.query.username][req.query.strategy])
-            break;
-
-        await sleep(1000);
-    }
+    // wait for the job to shut down before returning an API response
+    while (await getTargetJob(req.query.jobId)) await sleep(1000);
 
     res.json({
         success: true,
@@ -234,8 +192,7 @@ app.post("/startTrading", async (req, res) => {
         global.doingTickerMaintenance = true;
     }
 
-    const strategyInfo = strategyMaps[req.query.strategy];
-    if (!strategyInfo) {
+    if (!validStrategies.includes(req.query.strategy)) {
         res.status(400).json({
             success: false,
             error: "Invalid trading strategy"
@@ -243,70 +200,43 @@ app.post("/startTrading", async (req, res) => {
         return;
     }
 
-    const tradingArgs = req.query.args ? JSON.parse(req.query.args) : {};
-
-    // set our target IP address
-    const outboundIp = tradingArgs.customLocalIp ?? ipAddress();
-
-    if (!userQueueData.hasOwnProperty(req.query.username)) userQueueData[req.query.username] = {};
-
-    if (!userQueueData[req.query.username].hasOwnProperty("requestHelpers")) {
-        userQueueData[req.query.username].requestHelpers = {};
-        userQueueData[req.query.username].requestHelpers.initialized = false;
-    }
-
-    userQueueData[req.query.username][req.query.strategy] = {
-        providers: [],
-        strategyClass: strategyInfo.strategyClass,
-        socketBroadcaster: io.to(`${req.query.username}_${req.query.strategy}`),
-        wantsShutdown: false
-    };
-
-    for (const providerClass of strategyInfo.providers) {
-        const providerCreds = userInfo.apiCreds[providerClass.name.toLowerCase()];
-        if (!providerCreds) continue;
-
-        if (userQueueData[req.query.username].requestHelpers.initialized === false)
-            userQueueData[req.query.username].requestHelpers[providerClass.name] = new RequestHelper(
-                apiRateLimits[providerClass.name],
-                !apiRateLimits[providerClass.name].hasOwnProperty("private"),
-                outboundIp
-            );
-
-        const provider = await new providerClass(outboundIp, userQueueData[req.query.username].requestHelpers[providerClass.name], providerCreds.secret, providerCreds.key, tradingArgs.baseCurrency).initialize();
-        userQueueData[req.query.username][req.query.strategy].providers.push(provider);
-    }
-
-    userQueueData[req.query.username].requestHelpers.initialized = true;
-
-    await userQueue.add(req.query.username, { username: req.query.username, strategy: req.query.strategy, strategyArgs: tradingArgs });
+    const jobId = uuidv4();
+    await userQueue.add(jobId, {
+        username: req.query.username,
+        strategy: req.query.strategy,
+        strategyArgs: req.query.args ? JSON.parse(req.query.args) : {},
+        apiCreds: userInfo.apiCreds,
+        redis: {
+            host: process.env.REDIS_HOST,
+            port: process.env.REDIS_PORT
+        },
+        mongo: {
+            address: process.env.MONGODB_ADDRESS,
+            username: process.env.MONGODB_USER,
+            password: process.env.MONGODB_PASS,
+            database: process.env.MONGODB_DATABASE,
+        },
+        jobId: jobId,
+    });
 
     res.json({
         success: true,
-        message: "Job added to queue"
+        message: "Job added to queue",
+        jobId: jobId
     });
 });
 
 app.get("/pendingExchangeOrders", async (req, res) => {
-    if (!req.query.username || !req.query.password || !req.query.strategy) {
+    if (!req.query.jobId) {
         res.status(400).json({
             success: false,
-            error: "One or more required parameters not provided"
-        });
-        return;
-    }
-    const userInfo = await validLogin(req.query);
-
-    if (!userInfo) {
-        res.status(400).json({
-            success: false,
-            error: "Invalid username or password"
+            error: "Job ID not provided"
         });
         return;
     }
 
-    const queueData = userQueueData[req.query.username]?.[req.query.strategy];
-    if (!queueData) {
+    const targetJob = await getTargetJob(req.query.jobId);
+    if (!targetJob) {
         res.status(400).json({
             success: false,
             error: "Trading thread does not exist for this user"
@@ -314,7 +244,31 @@ app.get("/pendingExchangeOrders", async (req, res) => {
         return;
     }
 
-    res.json(queueData.strategyInstance?.pendingTrades());
+    res.json(targetJob.progress);
+});
+
+app.get("/pendingJobLogs", async (req, res) => {
+    if (!req.query.jobId) {
+        res.status(400).json({
+            success: false,
+            error: "Job ID not provided"
+        });
+        return;
+    }
+
+    const logs = await redisConnection.get(`logs_${req.query.jobId}`);
+
+    if (!logs) {
+        res.status(400).json({
+            success: false,
+            error: "Trading thread does not exist with the given job ID"
+        });
+        return;
+    }
+
+    await redisConnection.set(`logs_${req.query.jobId}`, "[]"); // the currently-stored logs are no longer pending
+
+    res.setHeader("Content-Type", "application/json").send(logs);
 });
 
 const expressServer = createHttpsServer({
@@ -322,20 +276,6 @@ const expressServer = createHttpsServer({
     cert: readFileSync(process.env.SSL_CERT_PATH),
 });
 expressServer.on("request", app);
-
-const io = new socketIo.Server(expressServer, {
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 60 * 1000,
-        skipMiddlewares: true,
-    }
-});
-
-io.on("connection", socket => {
-    socket.on("login as", metadata => {
-        const split = metadata.split(',');
-        socket.join(`${split[0]}_${split[1]}`);
-    });
-});
 
 expressServer.listen(process.env.EXPRESS_PORT, () => {
     Logger.success("Global", "expressInit", `Express server is initialized and running on port ${process.env.EXPRESS_PORT}`);
@@ -348,9 +288,10 @@ process.on("SIGINT", async () => {
     (shutdownTries > 0) && (shutdownTries % 2 === 0) && process.exit(1);
     shutdownTries % 2 === 1 && Logger.info("Global", "shutdown", "Exit signal received. Cleaning up... CTRL + C one more time to force shutdown!");
 
-    for (const username in userQueueData) {
-        userQueueData[username].wantsShutdown = true;
-    }
+    // TODO migrate this shut down code to use the new Redis implementation
+    // for (const username in userQueueData) {
+    //     userQueueData[username].wantsShutdown = true;
+    // }
 
     expressServer.close();
     await mongoClient.close();

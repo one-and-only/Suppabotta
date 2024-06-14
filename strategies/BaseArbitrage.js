@@ -8,8 +8,8 @@ export default class BaseArbitrage extends BaseStrategy {
     _paperTradingEnabled;
     _minTradeSizeBaseCurrency;
 
-    constructor(connectors, args, paperTradingMongoCollection) {
-        super(connectors, args, paperTradingMongoCollection);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
 
         this._baseCurrency = args.baseCurrency.toUpperCase();
         this._profitCurrencyPreferences = [];
@@ -235,7 +235,7 @@ export default class BaseArbitrage extends BaseStrategy {
                 referenceCurrencyInverted = true;
                 priceInfoInternal = await connector.getMarketPrice(currentTargetCurrency, nextTargetCurrency);
                 if (!priceInfoInternal) {
-                    Logger.warning("ClassicArbitrage", "multiCurrencyPriceScan", `Failed to get price info for ${currentTargetCurrency}-${nextTargetCurrency}`, this._socketBroadcaster);
+                    Logger.warning("ClassicArbitrage", "multiCurrencyPriceScan", `Failed to get price info for ${currentTargetCurrency}-${nextTargetCurrency}`, true, this._redisConnection, this._jobId);
                     return;
                 }
             }

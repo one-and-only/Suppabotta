@@ -2,19 +2,21 @@ import BaseProvider from "../providers/BaseProvider.js";
 
 export default class BaseStrategy {
     _connectors;
-    _socketBroadcaster;
     _paperTradingMongoCollection;
     _recentPaperTrades;
+    _redisConnection;
+    _jobId;
 
     /**
      * 
      * @param {BaseProvider[]} connectors 
      */
-    constructor(connectors, args, paperTradingMongoCollection) {
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
         this._connectors = connectors;
-        this._socketBroadcaster = args.socketBroadcaster;
         this._paperTradingMongoCollection = paperTradingMongoCollection;
         this._recentPaperTrades = [];
+        this._jobId = args.jobId;
+        this._redisConnection = redisConnection;
     }
 
     async start() {
@@ -41,11 +43,12 @@ export default class BaseStrategy {
     // this will only be overridden by FloatingArbitrage
     // other strategies won't have pending trades
     pendingTrades() {
-        return this._connectors.map(connector => {
-            return {
-                connector: connector._name,
-                pendingTrades: []
-            };
-        })
+        const pendingTrades = {};
+        
+        for (const connector of this._connectors) {
+            pendingTrades[connector._name] = [];
+        }
+
+        return pendingTrades;
     }
 }
