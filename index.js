@@ -29,8 +29,6 @@ await mongoClient.connect();
 const mongoDb = mongoClient.db(process.env.MONGODB_DATABASE);
 const userCollection = mongoDb.collection("Users");
 
-const userQueueData = {};
-
 const userQueue = new Queue("userQueue", { connection: redisConnection });
 const queueEvents = new QueueEvents("userQueue", { connection: redisConnection });
 const userWorker = new Worker("userQueue", path.join(path.dirname(fileURLToPath(import.meta.url)), "TradeWorker.js"), { connection: redisConnection, useWorkerThreads: true, concurrency: 9999 });
