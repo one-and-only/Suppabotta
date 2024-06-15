@@ -22,8 +22,8 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
      * @param {BaseProvider[]} connectors 
      * @param {any} args 
      */
-    constructor(connectors, args, paperTradingMongoCollection) {
-        super(connectors, args, paperTradingMongoCollection);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
         this._alreadyProcessed = [];
         this._disableCrossCurrency = false;
 
@@ -106,9 +106,9 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async start() {
-        Logger.info("ClassicArbitrage", "startup", "Caching connector info required for trading...", this._socketBroadcaster);
+        Logger.info("ClassicArbitrage", "startup", "Caching connector info required for trading...", true, this._redisConnection, this._jobId);
         await this.populateMarketCaches();
-        Logger.info("ClassicArbitrage", "startup", "Startup complete and trading started!", this._socketBroadcaster);
+        Logger.info("ClassicArbitrage", "startup", "Startup complete and trading started!", true, this._redisConnection, this._jobId);
     }
 
     /**
@@ -129,7 +129,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
         const sellingOrderBook = direction ? otherOrderBookInfo : currentOrderBookInfo;
 
         if (buyingOrderBook.ask.length == 0 || sellingOrderBook.bid.length == 0) {
-            Logger.warning("ClassicArbitrage", "gatherOrders", "One of the given order books are empty", this._socketBroadcaster);
+            Logger.warning("ClassicArbitrage", "gatherOrders", "One of the given order books are empty", true, this._redisConnection, this._jobId);
             return {
                 buyOrders: [],
                 sellOrders: [],
@@ -213,6 +213,10 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     async tick() {
         this.pruneRecentPaperTrades();
 
+        await promiseMap(this._connectors, async connector => {
+            await connector.recomputeRateLimits(this._username);
+        });
+
         for (const currentConnector of this._connectors) {
             const currentBaseCurrencyOrderBookInfos = await this.baseCurrencyOrderBookInfosForConnector(currentConnector);
 
@@ -265,7 +269,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         tradeInfo: tradeInfo
                                     });
 
-                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", this._socketBroadcaster);
+                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", true, this._redisConnection, this._jobId);
                                 } else {
                                     await promiseMap(
                                         buyFromCurrentOrders.buyOrders,
@@ -307,7 +311,7 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
                                         tradeInfo: tradeInfo
                                     });
 
-                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", this._socketBroadcaster);
+                                    Logger.success("ClassicArbitrage", "tradeCompletion", "Found profitable paper trades and saved them to the database", true, this._redisConnection, this._jobId);
                                 } else {
                                     await promiseMap(
                                         buyFromOtherOrders.buyOrders,
@@ -371,6 +375,6 @@ export default class ClassicArbitrageStrategy extends BaseArbitrage {
     }
 
     async shutdown() {
-        Logger.info("ClassicArbitrage", "shutdown", "Trading algorithm stopped", this._socketBroadcaster);
+        Logger.info("ClassicArbitrage", "shutdown", "Trading algorithm stopped", true, this._redisConnection, this._jobId);
     }
 }

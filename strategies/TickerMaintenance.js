@@ -2,6 +2,9 @@ import BaseStrategy from './BaseStrategy.js';
 import BaseProvider from '../providers/BaseProvider.js';
 import Logger from '../Logger.js';
 
+import Bluebird from "bluebird";
+const { map: promiseMap } = Bluebird;
+
 export default class TickerMaintenanceStrategy extends BaseStrategy {
     _lastMaintainedTimestamp;
     _baseCurrency;
@@ -12,11 +15,11 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
      * 
      * @param {BaseProvider[]} connectors 
      */
-    constructor(connectors, args) {
-        super(connectors, args);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
 
         if (!args.baseCurrency) {
-            Logger.error("TickerMaintenance", "startup", "baseCurrency is not defined. Please add it as an algorithm parameter", this._socketBroadcaster);
+            Logger.error("TickerMaintenance", "startup", "baseCurrency is not defined. Please add it as an algorithm parameter", true, this._redisConnection, this._jobId);
         }
 
         this._lastMaintainedTimestamp = 0;
@@ -41,6 +44,10 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
     async tick() {
         const currentTimestamp = Date.now();
 
+        await promiseMap(this._connectors, async connector => {
+            await connector.recomputeRateLimits(this._username);
+        });
+
         // ticker maintenance every 5 minutes (by default)
         if ((currentTimestamp - this._lastMaintainedTimestamp) > (this._maintenanceInterval)) {
             this._lastMaintainedTimestamp = currentTimestamp;
@@ -58,7 +65,7 @@ export default class TickerMaintenanceStrategy extends BaseStrategy {
                         (referenceCurrencyBalance < minTradeSize * priceData.sellPrice) ||
                         (baseCurrencyBalance < minTradeSize)
                     ) {
-                        Logger.warning("TickerMaintenance", "balanceCheck", `Found inadequate balance on the ${tradingPair.baseCurrency}-${tradingPair.referenceCurrency} pair`, this._socketBroadcaster);
+                        Logger.warning("TickerMaintenance", "balanceCheck", `Found inadequate balance on the ${tradingPair.baseCurrency}-${tradingPair.referenceCurrency} pair`, true, this._redisConnection, this._jobId);
                         continue;
                     }
 

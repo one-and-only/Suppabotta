@@ -1,10 +1,11 @@
 import Logger from "../Logger.js";
 import { promisify } from 'node:util';
-import Bluebird from "bluebird";
 import BaseArbitrage from "./BaseArbitrage.js";
 import BaseProvider from "../providers/BaseProvider.js";
 
+import Bluebird from "bluebird";
 const { map: promiseMap } = Bluebird;
+
 const sleep = promisify(setTimeout);
 
 export default class FloatingArbitrageStrategy extends BaseArbitrage {
@@ -16,13 +17,13 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     _numCurveOrders;
     _trackedOrders;
 
-    constructor(connectors, args, paperTradingMongoCollection) {
-        super(connectors, args, paperTradingMongoCollection);
+    constructor(connectors, args, paperTradingMongoCollection, redisConnection) {
+        super(connectors, args, paperTradingMongoCollection, redisConnection);
         this._unfitToRun = false;
 
         if (!args.baseCurrency || !args.baseCurrency || !args.maxInvPct || !args.inventoryDefinition || !args.numCurveOrders) {
             args.baseCurrency = "RTM";
-            Logger.error("FloatingArbitrage", "startup", "One or more required arguments not provided", this._socketBroadcaster);
+            Logger.error("FloatingArbitrage", "startup", "One or more required arguments not provided", true, this._redisConnection, this._jobId);
             this._unfitToRun = true;
             return;
         }
@@ -83,7 +84,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     async fitToRun() {
         // gather and check the balances of the user against the defined inventory
         // simulatenously calculates whether the algorithm is fit to run based on those balances
-        Logger.info("FloatingArbitrage", "fitToRun", "Verifying existence of defined inventory", this._socketBroadcaster);
+        Logger.info("FloatingArbitrage", "fitToRun", "Verifying existence of defined inventory", true, this._redisConnection, this._jobId);
 
         this._unfitToRun = !((await promiseMap(this._connectors, async connector => {
             return (await promiseMap(Object.keys(this._inventoryDefinition[connector._name]), async currencyCode => {
@@ -305,9 +306,9 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     async start() {
         if (this._unfitToRun) return;
 
-        Logger.info("FloatingArbitrage", "startup", "Caching info required for trading...", this._socketBroadcaster);
+        Logger.info("FloatingArbitrage", "startup", "Caching info required for trading...", true, this._redisConnection, this._jobId);
         await this.populateMarketCaches();
-        Logger.success("FloatingArbitrage", "startup", "Startup complete and trading algorithm started!", this._socketBroadcaster);
+        Logger.success("FloatingArbitrage", "startup", "Startup complete and trading algorithm started!", true, this._redisConnection, this._jobId);
 
         if (!this._paperTradingEnabled) await this.fitToRun();
         else this._unfitToRun = false;
@@ -453,7 +454,7 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                     mongo_timestamp: new Date()
                 });
 
-                Logger.success("FloatingArbitrage", "storePaperTrade", "Found a profitable paper trade and stored it in the database", this._socketBroadcaster);
+                Logger.success("FloatingArbitrage", "storePaperTrade", "Found a profitable paper trade and stored it in the database", true, this._redisConnection, this._jobId);
                 return;
             }
 
@@ -471,14 +472,14 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
 
             if (!balances[0].available < requiredCoverBalance || !balances[1].available < requiredCurveBalance) {
                 // warn the user of not enough balance
-                Logger.warning("FloatingArbitrage", "balanceCheck", "Profitable floating arbitrage trades were found, but the user didn't have enough balance to fulfill the trades", this._socketBroadcaster);
+                Logger.warning("FloatingArbitrage", "balanceCheck", "Profitable floating arbitrage trades were found, but the user didn't have enough balance to fulfill the trades", true, this._redisConnection, this._jobId);
                 return;
             }
 
             // at this point all the sanity checks are complete and we are ready to submit the trades
             const res = await this.executeOrders(curveOrders, curveExchange, polarEntry.goodExchangePairInfo.referenceCurrency, polarEntry.goodExchangePairInfo.baseCurrency, false);
             if (!res.every(x => x.success)) {
-                Logger.error("FloatingArbitrage", "submitCurveOrders", "Failed to submit curve orders after sanity checks were completed. Undesired behavior may have occured. Check all exchange accounts for changes!", this._socketBroadcaster);
+                Logger.error("FloatingArbitrage", "submitCurveOrders", "Failed to submit curve orders after sanity checks were completed. Undesired behavior may have occured. Check all exchange accounts for changes!", true, this._redisConnection, this._jobId);
                 return;
             }
 
@@ -489,17 +490,22 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
                 curveExchange: curveExchange,
                 tradingPair: { baseCurrency: polarEntry.goodExchangePairInfo.baseCurrency, referenceCurrency: polarEntry.goodExchangePairInfo.referenceCurrency }
             });
-            Logger.success("FloatingArbitrage", "tradeCompleted", "Profitable Floating Arbitrage trade was found and submitted to exchanges!", this._socketBroadcaster);
+            Logger.success("FloatingArbitrage", "tradeCompleted", "Profitable Floating Arbitrage trade was found and submitted to exchanges!", true, this._redisConnection, this._jobId);
         }
     }
 
     async tick() {
         this.pruneRecentPaperTrades();
+
+        await promiseMap(this._connectors, async connector => {
+            await connector.recomputeRateLimits(this._username);
+        });
+
         await this.processOpenTrades();
 
         // check if user deposited more funds to make defined inventory tradeable
         if (this._unfitToRun) {
-            Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", this._socketBroadcaster);
+            Logger.warning("FloatingArbitrage", "fitToRunCheck", "The trading algorithm is unfit to run, likely due to available balance on at least one exchange being lower than the defined inventory", true, this._redisConnection, this._jobId);
             await sleep(10000);
             await this.fitToRun();
             return;
@@ -518,15 +524,15 @@ export default class FloatingArbitrageStrategy extends BaseArbitrage {
     async shutdown() {
         //! update this once testing is done
         //! BaseProvider.cancelAllPending() is no longer supported
-        // Logger.info("FloatingArbitrage", "shutdown", "Cancelling all pending orders...", this._socketBroadcaster);
+        // Logger.info("FloatingArbitrage", "shutdown", "Cancelling all pending orders...", true, this._redisConnection, this._jobId);
         // const statuses = await promiseMap(this._connectors, async connector => {
         //     const res = await connector.cancelAllPending();
         //     if (!res) return connector._name;
 
         //     return true;
         // });
-        // Logger.info("FloatingArbitrage", "shutdown", `Failed to cancel pending orders in: ${statuses.every(x => x === true) ? "None (nothing left to do)" : statuses.map(x => x === true ? "" : x).join(", ")}`, this._socketBroadcaster);
-        // Logger.info("FloatingArbitrage", "shutdown", "If any connectors failed to cancel pending orders, please go into your exchange's account and cancel the applicable orders manually.", this._socketBroadcaster);
-        Logger.success("FloatingArbitrage", "shutdown", "Algorithm shutdown complete and trading stopped", this._socketBroadcaster);
+        // Logger.info("FloatingArbitrage", "shutdown", `Failed to cancel pending orders in: ${statuses.every(x => x === true) ? "None (nothing left to do)" : statuses.map(x => x === true ? "" : x).join(", ")}`, true, this._redisConnection, this._jobId);
+        // Logger.info("FloatingArbitrage", "shutdown", "If any connectors failed to cancel pending orders, please go into your exchange's account and cancel the applicable orders manually.", true, this._redisConnection, this._jobId);
+        Logger.success("FloatingArbitrage", "shutdown", "Algorithm shutdown complete and trading stopped", true, this._redisConnection, this._jobId);
     }
 }

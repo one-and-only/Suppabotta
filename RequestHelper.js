@@ -9,14 +9,24 @@ export default class RequestHelper {
     _outbound_ip;
     _axios;
     _axios_private;
+    _redis_conection;
+    _base_rate_limits;
+    _rate_limits_exist;
+    _rate_limits;
+    _are_limits_global;
 
     /**
-     * 
      * @param {{ public: { amount: number, interval: number }, private?: { amount: number, interval: number } }} rate_limits Public and Private rate limits for exchange
      * @param {boolean} are_limits_global Whether the rate limits apply to all endpoints instead of separate limits for public and authenticated.
+     * @param {string} outbound_ip IP address corresponding to the interface requests should go out of
+     * @param {IORedis} redis_connection Redis connection object used to gather the number of trading threads running on 
      */
-    constructor(rate_limits, are_limits_global, outbound_ip) {
+    constructor(rate_limits, are_limits_global, outbound_ip, redis_connection) {
         this._outbound_ip = outbound_ip;
+        this._redis_conection = redis_connection;
+        this._rate_limits_exist = rate_limits.public.interval !== -1;
+        this._are_limits_global = are_limits_global;
+        this._rate_limits = rate_limits;
 
         // Set these headers so we can fake being Chrome to avoid CAPTCHAs
         const axiosClient = axios.create({
@@ -32,18 +42,18 @@ export default class RequestHelper {
         });
 
         // no rate limits, so we just use the normal `axios` function
-        if (rate_limits.public.interval === -1) {
+        if (!this._rate_limits_exist) {
             this._axios = axiosClient.request;
             this._axios_private = axiosClient.request;
             return;
         }
 
-        this._axios = rateLimit(axiosClient, { maxRequests: rate_limits.public.amount, perMilliseconds: rate_limits.public.interval * 1000 });
+        this._axios = rateLimit(axiosClient, { maxRequests: this._rate_limits.public.amount, perMilliseconds: this._rate_limits.public.interval * 1000 });
 
-        if (are_limits_global) {
+        if (this._are_limits_global) {
             this._axios_private = this._axios;
         } else {
-            this._axios = rateLimit(axiosClient, { maxRequests: rate_limits.private.amount, perMilliseconds: rate_limits.private.interval * 1000 });
+            this._axios = rateLimit(axiosClient, { maxRequests: this._rate_limits.private.amount, perMilliseconds: this._rate_limits.private.interval * 1000 });
         }
     }
 
@@ -70,6 +80,25 @@ export default class RequestHelper {
             headers: headers,
             data: body ?? null
         })).data;
+    }
+
+    /**
+     * Update the effective rate limits for this request helper, based on the number of running trading threads
+     * @param {string} username Username that should be checked for the number of running trading threads
+     */
+    async recomputeRateLimits(username) {
+        if (!this._rate_limits_exist) return;
+
+        const numRunningTradingThreads = parseInt(await this._redis_conection.get(`runningThreads_${username}`));
+
+        this._axios.setRateLimitOptions({ maxRequests: this._rate_limits.public.amount / numRunningTradingThreads, perMilliseconds: this._rate_limits.public.interval * 1000 });
+
+        if (this._are_limits_global) {
+            this._axios_private = this._axios;
+            return;
+        }
+
+        this._axios_private.setRateLimitOptions({ maxRequests: this._rate_limits.private.amount / numRunningTradingThreads, perMilliseconds: this._rate_limits.private.interval * 1000 });
     }
 
     /**
