@@ -29,4 +29,10 @@ export const apiRateLimits = {
             interval: -1
         }
     },
+    "Graviex": {
+        public: {
+            amount: 6000,
+            interval: 300000
+        }
+    }
 };
