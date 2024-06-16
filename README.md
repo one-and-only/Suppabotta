@@ -1,5 +1,5 @@
 # Suppabotta
-RTM Arbitrage Bot using WSS + REST
+RTM Arbitrage Bot using REST + MongoDB + Redis
 
 ## Installation Instructions
 1. Install [Node.JS](https://nodejs.org/en/download) (tested on Node 20-22; Install latest whenever possible, Node >= 20 required)
