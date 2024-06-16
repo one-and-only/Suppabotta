@@ -68,17 +68,12 @@ export default class RequestHelper {
      */
     async request(url, method, data, is_private, headers = {}) {
         const appropriate_axios = is_private ? this._axios_private : this._axios;
-        let body;
-
-        if (method === "POST")
-            if (headers["Content-Type"] === "application/json") body = JSON.stringify(data);
-            else body = data;
 
         return (await appropriate_axios({
             url: url,
             method: method,
             headers: headers,
-            data: body ?? null
+            data: data
         })).data;
     }
 
