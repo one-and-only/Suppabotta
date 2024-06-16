@@ -7,8 +7,7 @@ var pendingLogsProcessInterval;
 
 async function processPendingLogs() {
   const pendingLogs = await (await fetch(`/pendingJobLogs?jobId=${window.jobId}`)).json()
-  const messagesWindow = document.getElementById("serverMessagesDisplay");
-
+  const messagesWindow = document.getElementById("serverMessagesDisplay")
   for (const log of pendingLogs) {
     messagesWindow.textContent += `${log}\n\n`
     messagesWindow.scrollTop = messagesWindow.scrollHeight
@@ -122,7 +121,13 @@ async function stopTrading() {
   t.setAttribute("value", "Start Trading")
   t.setAttribute("onclick", "startTrading()")
   t.removeAttribute("disabled")
-  r.success || alert(`Failed to stop trading:${r.error}`)
+  if (!r.success) {
+    alert(`Failed to stop trading:${r.error}`)
+    return
+  }
+  const messagesWindow = document.getElementById("serverMessagesDisplay")
+  messagesWindow.textContent += `${new Date().toISOString()} [SUCCESS] global | Trading thread stopped successfully\n\n`
+  messagesWindow.scrollTop = messagesWindow.scrollHeight
 }
 function clearServerMessages() {
   document.getElementById("serverMessagesDisplay").textContent = ""
