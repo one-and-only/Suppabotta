@@ -104,12 +104,12 @@ export default class RequestHelper {
     /**
      * Make a rate-limited POST request
      * @param {string} url Complete URL of request
-     * @param {*} data request `body` contents
-     * @param {*} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
-     * @param {*} headers Request headers
-     * @returns {Promise<object | null>} Response data
+     * @param {object | null} data request `body` contents
+     * @param {boolean} is_private Whether this endpoint is authenticated. Mainly used for rate limiting.
+     * @param {object} headers Request headers
+     * @returns {Promise<object>} Response data
      */
-    async post(url, data={}, is_private=false, headers={}) {
+    async post(url, data=null, is_private=false, headers={}) {
         return this.request(url, "POST", data, is_private, headers);
     }
 
