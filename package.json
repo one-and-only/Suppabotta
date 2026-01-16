@@ -12,7 +12,7 @@
     "start": "echo Please run Suppabotta using the 'node' command directly."
   },
   "dependencies": {
-    "argon2": "^0.29.1",
+    "argon2": "^0.44.0",
     "bottleneck": "^2.19.5",
     "bullmq": "^3.4.1",
     "chalk": "^5.2.0",
